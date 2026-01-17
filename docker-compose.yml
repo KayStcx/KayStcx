@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: kaystcx_db
+    environment:
+      POSTGRES_DB: kaystcx
+      POSTGRES_USER: kaystcx_user
+      POSTGRES_PASSWORD: kaystcx_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/database/init:/docker-entrypoint-initdb.d
+    networks:
+      - kaystcx_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kaystcx_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: kaystcx_backend
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://kaystcx_user:kaystcx_password@postgres:5432/kaystcx
+      STELLAR_NETWORK: TESTNET
+      STELLAR_HORIZON_URL: https://horizon-testnet.stellar.org
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - kaystcx_network
+    command: npm run start:dev
+
+  # Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: kaystcx_frontend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:3000/api
+      VITE_STELLAR_NETWORK: TESTNET
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - kaystcx_network
+    command: npm run dev
+
+networks:
+  kaystcx_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
