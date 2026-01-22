@@ -11,6 +11,7 @@ import { HealthModule } from './modules/health/health.module';
 import { CommonModule } from './common/common.module';
 import { typeOrmConfig } from './config/typeorm.config';
 import { validateEnv } from './config/environment.config';
+import { CertificateModule } from './certificate/certificate.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { validateEnv } from './config/environment.config';
     UsersModule,
     CertificatesModule,
     IssuersModule,
+    CertificateModule,
   ],
   controllers: [AppController],
   providers: [AppService],
