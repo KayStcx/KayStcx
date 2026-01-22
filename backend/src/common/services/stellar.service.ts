@@ -74,4 +74,27 @@ export class StellarService {
       return false;
     }
   }
+
+  /**
+   * Check Stellar network health
+   */
+  async checkNetworkHealth(): Promise<boolean> {
+    try {
+      const ledger = await this.server.ledgers().limit(1).call();
+      return !!ledger && ledger.records && ledger.records.length > 0;
+    } catch (error) {
+      this.logger.error('Stellar network health check failed', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get current network information
+   */
+  getNetworkInfo(): { network: string; horizon: string } {
+    return {
+      network: this.configService.get<string>('STELLAR_NETWORK') || 'testnet',
+      horizon: this.configService.get<string>('STELLAR_HORIZON_URL') || 'https://horizon-testnet.stellar.org',
+    };
+  }
 }

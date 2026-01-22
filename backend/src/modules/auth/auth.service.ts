@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
@@ -15,9 +15,13 @@ export class AuthService {
 
   async validateUser(email: string, pass: string): Promise<any> {
     const user = await this.usersService.findOneByEmail(email);
-    if (user && await bcrypt.compare(pass, user.password)) {
-      const { password, ...result } = user;
-      return result;
+    if (user) {
+      // Need to get user with password for comparison
+      const userWithPassword = await this.usersService['userRepository'].findByEmailWithPassword(email);
+      if (userWithPassword && await bcrypt.compare(pass, userWithPassword.password)) {
+        const { password, ...result } = userWithPassword;
+        return result;
+      }
     }
     return null;
   }
@@ -27,8 +31,13 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
+
+    // Check if account is active
+    if (!user.isActive) {
+      throw new ForbiddenException('Account is deactivated');
+    }
     
-    const payload = { email: user.email, sub: user.id };
+    const payload = { email: user.email, sub: user.id, role: user.role };
     const accessToken = this.jwtService.sign(payload);
     
     return {
@@ -51,7 +60,7 @@ export class AuthService {
     }
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+    const hashedPassword = await bcrypt.hash(registerDto.password, 12);
     
     // Create user
     const newUser = await this.usersService.create({
@@ -61,7 +70,7 @@ export class AuthService {
       password: hashedPassword,
     });
     
-    const payload = { email: newUser.email, sub: newUser.id };
+    const payload = { email: newUser.email, sub: newUser.id, role: newUser.role };
     const accessToken = this.jwtService.sign(payload);
     
     return {

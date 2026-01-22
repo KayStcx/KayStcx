@@ -56,9 +56,12 @@ let AuthService = class AuthService {
     }
     async validateUser(email, pass) {
         const user = await this.usersService.findOneByEmail(email);
-        if (user && await bcrypt.compare(pass, user.password)) {
-            const { password, ...result } = user;
-            return result;
+        if (user) {
+            const userWithPassword = await this.usersService['userRepository'].findByEmailWithPassword(email);
+            if (userWithPassword && await bcrypt.compare(pass, userWithPassword.password)) {
+                const { password, ...result } = userWithPassword;
+                return result;
+            }
         }
         return null;
     }
@@ -67,7 +70,10 @@ let AuthService = class AuthService {
         if (!user) {
             throw new common_1.UnauthorizedException('Invalid credentials');
         }
-        const payload = { email: user.email, sub: user.id };
+        if (!user.isActive) {
+            throw new common_1.ForbiddenException('Account is deactivated');
+        }
+        const payload = { email: user.email, sub: user.id, role: user.role };
         const accessToken = this.jwtService.sign(payload);
         return {
             accessToken,
@@ -85,14 +91,14 @@ let AuthService = class AuthService {
         if (existingUser) {
             throw new common_1.UnauthorizedException('User already exists');
         }
-        const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+        const hashedPassword = await bcrypt.hash(registerDto.password, 12);
         const newUser = await this.usersService.create({
             email: registerDto.email,
             firstName: registerDto.firstName,
             lastName: registerDto.lastName,
             password: hashedPassword,
         });
-        const payload = { email: newUser.email, sub: newUser.id };
+        const payload = { email: newUser.email, sub: newUser.id, role: newUser.role };
         const accessToken = this.jwtService.sign(payload);
         return {
             accessToken,
