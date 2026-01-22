@@ -7,6 +7,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { CertificatesModule } from './modules/certificates/certificates.module';
 import { IssuersModule } from './modules/issuers/issuers.module';
+import { HealthModule } from './modules/health/health.module';
+import { CommonModule } from './common/common.module';
 import { typeOrmConfig } from './config/typeorm.config';
 import { validateEnv } from './config/environment.config';
 
@@ -17,6 +19,8 @@ import { validateEnv } from './config/environment.config';
       validate: validateEnv,
     }),
     TypeOrmModule.forRoot(typeOrmConfig),
+    CommonModule,
+    HealthModule,
     AuthModule,
     UsersModule,
     CertificatesModule,

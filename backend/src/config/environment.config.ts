@@ -1,5 +1,5 @@
 import { plainToClass } from 'class-transformer';
-import { IsEnum, IsNumber, IsString, validateSync } from 'class-validator';
+import { IsEnum, IsNumber, IsString, validateSync, IsOptional, IsBoolean } from 'class-validator';
 
 enum Environment {
   Development = 'development',
@@ -49,6 +49,14 @@ class EnvironmentVariables {
 
   @IsString()
   ALLOWED_ORIGINS: string;
+
+  @IsOptional()
+  @IsString()
+  SENTRY_DSN?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  ENABLE_SENTRY?: boolean;
 }
 
 export function validateEnv(): EnvironmentVariables {
@@ -69,6 +77,8 @@ export function validateEnv(): EnvironmentVariables {
       STELLAR_ISSUER_SECRET_KEY: process.env.STELLAR_ISSUER_SECRET_KEY,
       STELLAR_ISSUER_PUBLIC_KEY: process.env.STELLAR_ISSUER_PUBLIC_KEY,
       ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS,
+      SENTRY_DSN: process.env.SENTRY_DSN,
+      ENABLE_SENTRY: process.env.ENABLE_SENTRY === 'true',
     },
     { enableImplicitConversion: true },
   );

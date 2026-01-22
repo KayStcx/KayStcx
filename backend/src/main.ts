@@ -3,11 +3,21 @@ import { ValidationPipe } from './common/pipes/validation.pipe';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { SentryService } from './common/monitoring/sentry.service';
+import { LoggingService } from './common/logging/logging.service';
+import { MonitoringInterceptor } from './common/monitoring/monitoring.interceptor';
+import { MetricsService } from './common/monitoring/metrics.service';
+import * as Sentry from '@sentry/node';
 import * as cors from 'cors';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
+  // Initialize Sentry before anything else
+  const sentryService = app.get(SentryService);
+  const loggingService = app.get(LoggingService);
+  const metricsService = app.get(MetricsService);
+
   // Enable CORS
   app.enableCors({
     origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173'],
@@ -20,6 +30,16 @@ async function bootstrap() {
   // Use global pipes and filters
   app.useGlobalPipes(new ValidationPipe());
   app.useGlobalFilters(new HttpExceptionFilter());
+
+  // Initialize Sentry request handler
+  if (sentryService.isInitialized()) {
+    app.use(Sentry.Handlers.requestHandler());
+  }
+
+  // Add global monitoring interceptor
+  app.useGlobalInterceptors(
+    new MonitoringInterceptor(metricsService, sentryService, loggingService),
+  );
   
   // Swagger setup
   const config = new DocumentBuilder()
@@ -30,7 +50,16 @@ async function bootstrap() {
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
+
+  // Initialize Sentry error handler
+  if (sentryService.isInitialized()) {
+    app.use(Sentry.Handlers.errorHandler());
+  }
   
-  await app.listen(process.env.PORT ?? 3000);
+  const port = process.env.PORT ?? 3000;
+  await app.listen(port);
+
+  loggingService.log(`Application started on port ${port}`);
 }
+bootstrap();
 bootstrap();
