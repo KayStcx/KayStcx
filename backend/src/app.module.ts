@@ -9,6 +9,7 @@ import { CertificatesModule } from './modules/certificates/certificates.module';
 import { IssuersModule } from './modules/issuers/issuers.module';
 import { typeOrmConfig } from './config/typeorm.config';
 import { validateEnv } from './config/environment.config';
+import { CertificateModule } from './certificate/certificate.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { validateEnv } from './config/environment.config';
     UsersModule,
     CertificatesModule,
     IssuersModule,
+    CertificateModule,
   ],
   controllers: [AppController],
   providers: [AppService],
