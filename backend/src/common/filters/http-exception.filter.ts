@@ -11,6 +11,10 @@ import { Request, Response } from 'express';
 import { SentryService } from '../monitoring/sentry.service';
 import { LoggingService } from '../logging/logging.service';
 
+/**
+ * @deprecated Use GlobalExceptionFilter from exceptions module instead
+ * This filter is kept for backward compatibility
+ */
 @Catch(HttpException)
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
