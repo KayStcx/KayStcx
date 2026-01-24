@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from './common/pipes/validation.pipe';
-import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { GlobalExceptionFilter } from './common/exceptions/global-exception.filter';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { SentryService } from './common/monitoring/sentry.service';
@@ -29,7 +29,7 @@ async function bootstrap() {
   
   // Use global pipes and filters
   app.useGlobalPipes(new ValidationPipe());
-  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalFilters(new GlobalExceptionFilter(sentryService, loggingService));
 
   // Initialize Sentry request handler
   if (sentryService.isInitialized()) {

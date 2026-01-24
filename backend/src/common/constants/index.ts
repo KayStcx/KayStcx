@@ -1,0 +1,25 @@
+export * from './roles';
+export * from './error-codes';
+
+export const STELLAR_ADDRESS_REGEX = /^G[A-Z0-9]{55}$/;
+export const STELLAR_TRANSACTION_HASH_REGEX = /^[a-f0-9]{64}$/;
+
+export const API_PREFIX = 'api';
+export const API_VERSION = 'v1';
+
+export const REQUEST_TIMEOUT_MS = 30000; // 30 seconds
+export const DEFAULT_PAGE_SIZE = 20;
+export const MAX_PAGE_SIZE = 100;
+
+export const CERTIFICATE_STATUS = {
+  PENDING: 'pending',
+  ACTIVE: 'active',
+  EXPIRED: 'expired',
+  REVOKED: 'revoked',
+};
+
+export const ACCOUNT_STATUS = {
+  ACTIVE: 'active',
+  INACTIVE: 'inactive',
+  SUSPENDED: 'suspended',
+};
