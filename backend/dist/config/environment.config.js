@@ -33,6 +33,8 @@ class EnvironmentVariables {
     STELLAR_ISSUER_SECRET_KEY;
     STELLAR_ISSUER_PUBLIC_KEY;
     ALLOWED_ORIGINS;
+    SENTRY_DSN;
+    ENABLE_SENTRY;
 }
 __decorate([
     (0, class_validator_1.IsEnum)(Environment),
@@ -90,6 +92,16 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], EnvironmentVariables.prototype, "ALLOWED_ORIGINS", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], EnvironmentVariables.prototype, "SENTRY_DSN", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], EnvironmentVariables.prototype, "ENABLE_SENTRY", void 0);
 function validateEnv() {
     const validatedEnv = (0, class_transformer_1.plainToClass)(EnvironmentVariables, {
         NODE_ENV: process.env.NODE_ENV,
@@ -106,6 +118,8 @@ function validateEnv() {
         STELLAR_ISSUER_SECRET_KEY: process.env.STELLAR_ISSUER_SECRET_KEY,
         STELLAR_ISSUER_PUBLIC_KEY: process.env.STELLAR_ISSUER_PUBLIC_KEY,
         ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS,
+        SENTRY_DSN: process.env.SENTRY_DSN,
+        ENABLE_SENTRY: process.env.ENABLE_SENTRY === 'true',
     }, { enableImplicitConversion: true });
     const errors = (0, class_validator_1.validateSync)(validatedEnv);
     if (errors.length > 0) {

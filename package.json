@@ -30,6 +30,9 @@
     "prettier": "^3.0.0"
   },
   "dependencies": {
-    "@nestjs/platform-express": "^11.1.12"
+    "@nestjs/bull": "^11.0.4",
+    "@nestjs/platform-express": "^11.1.12",
+    "bull": "^4.16.5",
+    "nodemailer": "^7.0.12"
   }
 }

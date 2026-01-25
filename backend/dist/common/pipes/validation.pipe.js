@@ -10,21 +10,39 @@ exports.ValidationPipe = void 0;
 const common_1 = require("@nestjs/common");
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
+const exceptions_1 = require("../exceptions");
 let ValidationPipe = class ValidationPipe {
     async transform(value, { metatype }) {
         if (!metatype || !this.toValidate(metatype)) {
             return value;
         }
         const object = (0, class_transformer_1.plainToClass)(metatype, value);
-        const errors = await (0, class_validator_1.validate)(object);
+        const errors = await (0, class_validator_1.validate)(object, {
+            skipMissingProperties: false,
+            whitelist: true,
+            forbidNonWhitelisted: true,
+        });
         if (errors.length > 0) {
-            throw new common_1.BadRequestException('Validation failed');
+            const formattedErrors = this.formatErrors(errors);
+            throw new exceptions_1.ValidationException('Validation failed', formattedErrors);
         }
         return value;
     }
     toValidate(metatype) {
         const types = [String, Boolean, Number, Array, Object];
         return !types.includes(metatype);
+    }
+    formatErrors(errors) {
+        const formattedErrors = {};
+        errors.forEach((error) => {
+            if (error.constraints) {
+                formattedErrors[error.property] = Object.values(error.constraints).join(', ');
+            }
+            else if (error.children && error.children.length > 0) {
+                formattedErrors[error.property] = this.formatErrors(error.children);
+            }
+        });
+        return formattedErrors;
     }
 };
 exports.ValidationPipe = ValidationPipe;
