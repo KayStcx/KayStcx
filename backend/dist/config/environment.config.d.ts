@@ -18,6 +18,8 @@ declare class EnvironmentVariables {
     STELLAR_ISSUER_SECRET_KEY: string;
     STELLAR_ISSUER_PUBLIC_KEY: string;
     ALLOWED_ORIGINS: string;
+    SENTRY_DSN?: string;
+    ENABLE_SENTRY?: boolean;
 }
 export declare function validateEnv(): EnvironmentVariables;
 export {};

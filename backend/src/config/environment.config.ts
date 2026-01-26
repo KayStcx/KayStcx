@@ -57,6 +57,39 @@ class EnvironmentVariables {
   @IsOptional()
   @IsBoolean()
   ENABLE_SENTRY?: boolean;
+
+  // Email Configuration
+  @IsOptional()
+  @IsString()
+  EMAIL_SERVICE?: string;
+
+  @IsOptional()
+  @IsString()
+  EMAIL_HOST?: string;
+
+  @IsOptional()
+  @IsNumber()
+  EMAIL_PORT?: number;
+
+  @IsOptional()
+  @IsString()
+  EMAIL_USERNAME?: string;
+
+  @IsOptional()
+  @IsString()
+  EMAIL_PASSWORD?: string;
+
+  @IsOptional()
+  @IsString()
+  EMAIL_FROM?: string;
+
+  @IsOptional()
+  @IsString()
+  SENDGRID_API_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  REDIS_URL?: string;
 }
 
 export function validateEnv(): EnvironmentVariables {
@@ -79,6 +112,14 @@ export function validateEnv(): EnvironmentVariables {
       ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS,
       SENTRY_DSN: process.env.SENTRY_DSN,
       ENABLE_SENTRY: process.env.ENABLE_SENTRY === 'true',
+      EMAIL_SERVICE: process.env.EMAIL_SERVICE,
+      EMAIL_HOST: process.env.EMAIL_HOST,
+      EMAIL_PORT: process.env.EMAIL_PORT,
+      EMAIL_USERNAME: process.env.EMAIL_USERNAME,
+      EMAIL_PASSWORD: process.env.EMAIL_PASSWORD,
+      EMAIL_FROM: process.env.EMAIL_FROM,
+      SENDGRID_API_KEY: process.env.SENDGRID_API_KEY,
+      REDIS_URL: process.env.REDIS_URL,
     },
     { enableImplicitConversion: true },
   );

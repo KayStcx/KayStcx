@@ -102,6 +102,22 @@ let StellarService = StellarService_1 = class StellarService {
             return false;
         }
     }
+    async checkNetworkHealth() {
+        try {
+            const ledger = await this.server.ledgers().limit(1).call();
+            return !!ledger && ledger.records && ledger.records.length > 0;
+        }
+        catch (error) {
+            this.logger.error('Stellar network health check failed', error);
+            return false;
+        }
+    }
+    getNetworkInfo() {
+        return {
+            network: this.configService.get('STELLAR_NETWORK') || 'testnet',
+            horizon: this.configService.get('STELLAR_HORIZON_URL') || 'https://horizon-testnet.stellar.org',
+        };
+    }
 };
 exports.StellarService = StellarService;
 exports.StellarService = StellarService = StellarService_1 = __decorate([

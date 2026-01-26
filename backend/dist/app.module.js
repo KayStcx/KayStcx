@@ -16,8 +16,12 @@ const auth_module_1 = require("./modules/auth/auth.module");
 const users_module_1 = require("./modules/users/users.module");
 const certificates_module_1 = require("./modules/certificates/certificates.module");
 const issuers_module_1 = require("./modules/issuers/issuers.module");
+const health_module_1 = require("./modules/health/health.module");
+const common_module_1 = require("./common/common.module");
 const typeorm_config_1 = require("./config/typeorm.config");
 const environment_config_1 = require("./config/environment.config");
+const certificate_module_1 = require("./certificate/certificate.module");
+const stellar_module_1 = require("./modules/stellar/stellar.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -29,10 +33,14 @@ exports.AppModule = AppModule = __decorate([
                 validate: environment_config_1.validateEnv,
             }),
             typeorm_1.TypeOrmModule.forRoot(typeorm_config_1.typeOrmConfig),
+            common_module_1.CommonModule,
+            health_module_1.HealthModule,
             auth_module_1.AuthModule,
             users_module_1.UsersModule,
             certificates_module_1.CertificatesModule,
             issuers_module_1.IssuersModule,
+            certificate_module_1.CertificateModule,
+            stellar_module_1.StellarModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

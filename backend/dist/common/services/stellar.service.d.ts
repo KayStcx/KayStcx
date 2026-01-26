@@ -10,4 +10,9 @@ export declare class StellarService {
     static getPublicKeyFromSecret(secretKey: string): string;
     static isValidPublicKey(publicKey: string): boolean;
     static isValidSecretKey(secretKey: string): boolean;
+    checkNetworkHealth(): Promise<boolean>;
+    getNetworkInfo(): {
+        network: string;
+        horizon: string;
+    };
 }
