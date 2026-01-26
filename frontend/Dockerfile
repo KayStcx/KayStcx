@@ -8,9 +8,9 @@ RUN npm ci
 
 COPY . .
 
-EXPOSE 5173
+EXPOSE 3000
 
-CMD ["npm", "run", "dev"]
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]
 
 # Build Stage
 FROM node:18-alpine AS build
