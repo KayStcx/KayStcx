@@ -129,7 +129,7 @@ export default function VerifyCertificate(): JSX.Element {
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+      <div className="space-y-6">
         {/* Verification Form */}
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -299,7 +299,7 @@ export default function VerifyCertificate(): JSX.Element {
                     Course Name
                   </p>
                   <p className="text-sm font-medium text-white">
-                    {state.result.certificate.courseName || state.result.certificate.title || 'N/A'}
+                    {state.result.certificate.courseName || 'N/A'}
                   </p>
                 </div>
 
@@ -308,9 +308,7 @@ export default function VerifyCertificate(): JSX.Element {
                     Issue Date
                   </p>
                   <p className="text-sm font-medium text-white">
-                    {formatDate(
-                      state.result.certificate.issueDate || state.result.certificate.issuedAt
-                    )}
+                    {formatDate(state.result.certificate.issueDate)}
                   </p>
                 </div>
 
