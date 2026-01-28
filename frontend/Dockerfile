@@ -1,54 +1,21 @@
-# -----------------------------------------------------------------------------
-# Development stage
-# -----------------------------------------------------------------------------
-FROM node:20-alpine AS development
+# Simple dev-focused Docker image for the frontend
+# - Runs the Vite dev server inside the container
+# - Good for local development and preview environments
 
+FROM node:18
+
+# Set working directory inside the container
 WORKDIR /app
 
-# Install dependencies (cached layer)
+# Install dependencies first (leverages Docker layer caching)
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
-# Copy source
+# Copy the rest of the frontend source code
 COPY . .
 
-EXPOSE 3000
+# Vite's default dev port is 5173
+EXPOSE 5173
 
-# Run Vite dev server for local development
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]
-
-# -----------------------------------------------------------------------------
-# Build stage
-# -----------------------------------------------------------------------------
-FROM node:20-alpine AS build
-
-WORKDIR /app
-
-ENV NODE_ENV=production
-
-COPY package*.json ./
-RUN npm ci
-
-COPY . .
-RUN npm run build
-
-# -----------------------------------------------------------------------------
-# Production stage (non-root, static file server)
-# -----------------------------------------------------------------------------
-# Use unprivileged NGINX image so the container does not run as root.
-FROM nginxinc/nginx-unprivileged:stable-alpine AS production
-
-ENV NODE_ENV=production
-
-# Copy built assets from build stage
-COPY --from=build /app/dist /usr/share/nginx/html
-
-# Custom nginx configuration optimized for SPA + security headers
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# nginx-unprivileged listens on 8080 by default
-EXPOSE 8080
-
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD wget -qO- http://127.0.0.1:8080/ || exit 1
-
-CMD ["nginx", "-g", "daemon off;"]
+# Start the dev server
+CMD ["npm", "run", "dev"]
