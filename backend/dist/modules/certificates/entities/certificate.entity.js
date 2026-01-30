@@ -24,6 +24,8 @@ let Certificate = class Certificate {
     expiresAt;
     isRevoked;
     revocationReason;
+    revokedAt;
+    revokedBy;
     blockchainTxHash;
     createdAt;
     updatedAt;
@@ -77,6 +79,14 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'text', nullable: true }),
     __metadata("design:type", String)
 ], Certificate.prototype, "revocationReason", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'timestamp', nullable: true }),
+    __metadata("design:type", Date)
+], Certificate.prototype, "revokedAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], Certificate.prototype, "revokedBy", void 0);
 __decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
