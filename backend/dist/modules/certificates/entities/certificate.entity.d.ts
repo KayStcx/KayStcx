@@ -11,6 +11,8 @@ export declare class Certificate {
     expiresAt?: Date;
     isRevoked: boolean;
     revocationReason?: string;
+    revokedAt?: Date;
+    revokedBy?: string;
     blockchainTxHash?: string;
     createdAt: Date;
     updatedAt: Date;

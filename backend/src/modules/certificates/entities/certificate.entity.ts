@@ -39,6 +39,12 @@ export class Certificate {
   @Column({ type: 'text', nullable: true })
   revocationReason?: string;
 
+  @Column({ type: 'timestamp', nullable: true })
+  revokedAt?: Date;
+
+  @Column({ nullable: true })
+  revokedBy?: string;
+
   @Column({ nullable: true })
   blockchainTxHash?: string;
 
