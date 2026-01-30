@@ -77,6 +77,7 @@ fn test_issue_certificate_success() {
         description: String::from_str(&env, "Completed blockchain development course"),
         course_name: String::from_str(&env, "Advanced Blockchain"),
         completion_date: 1704067200,
+        valid_until: 0,
         ipfs_hash: String::from_str(&env, "QmTest123"),
     };
 
@@ -112,6 +113,7 @@ fn test_issue_certificate_unauthorized() {
         description: String::from_str(&env, "Test"),
         course_name: String::from_str(&env, "Test Course"),
         completion_date: 1704067200,
+        valid_until: 0,
         ipfs_hash: String::from_str(&env, "QmTest456"),
     };
 
@@ -146,6 +148,7 @@ fn test_issue_certificate_already_exists() {
         description: String::from_str(&env, "Test"),
         course_name: String::from_str(&env, "Test Course"),
         completion_date: 1704067200,
+        valid_until: 0,
         ipfs_hash: String::from_str(&env, "QmTest789"),
     };
 
@@ -207,6 +210,7 @@ fn test_get_certificate() {
         description: String::from_str(&env, "Completed data science course"),
         course_name: String::from_str(&env, "Data Science 101"),
         completion_date: 1704067200,
+        valid_until: 0,
         ipfs_hash: String::from_str(&env, "QmDataScience"),
     };
 
@@ -259,6 +263,7 @@ fn test_revoke_certificate_by_issuer() {
         description: String::from_str(&env, "Test"),
         course_name: String::from_str(&env, "Test"),
         completion_date: 1704067200,
+        valid_until: 0,
         ipfs_hash: String::from_str(&env, "QmTest"),
     };
 
@@ -271,7 +276,8 @@ fn test_revoke_certificate_by_issuer() {
     // Check certificate is revoked
     let certificate = client.get_certificate(&cert_id).unwrap();
     assert_eq!(certificate.status, CertificateStatus::Revoked);
-    assert!(!client.verify_certificate(&cert_id));
+    let verifier = Address::generate(&env);
+    assert!(!client.verify_certificate(&cert_id, &verifier).is_valid);
 }
 
 #[test]
@@ -295,6 +301,7 @@ fn test_revoke_certificate_by_admin() {
         description: String::from_str(&env, "Test"),
         course_name: String::from_str(&env, "Test"),
         completion_date: 1704067200,
+        valid_until: 0,
         ipfs_hash: String::from_str(&env, "QmTest"),
     };
 
@@ -330,6 +337,7 @@ fn test_revoke_certificate_unauthorized() {
         description: String::from_str(&env, "Test"),
         course_name: String::from_str(&env, "Test"),
         completion_date: 1704067200,
+        valid_until: 0,
         ipfs_hash: String::from_str(&env, "QmTest"),
     };
 
@@ -361,19 +369,23 @@ fn test_verify_certificate() {
         description: String::from_str(&env, "Test"),
         course_name: String::from_str(&env, "Test"),
         completion_date: 1704067200,
+        valid_until: 0,
         ipfs_hash: String::from_str(&env, "QmTest"),
     };
 
     // Certificate doesn't exist yet
-    assert!(!client.verify_certificate(&cert_id));
+    let verifier = Address::generate(&env);
+    assert!(!client.verify_certificate(&cert_id, &verifier).is_valid);
 
     // Issue certificate
     client.issue_certificate(&cert_id, &issuer, &recipient, &metadata);
-    assert!(client.verify_certificate(&cert_id));
+    let verifier = Address::generate(&env);
+    assert!(client.verify_certificate(&cert_id, &verifier).is_valid);
 
     // Revoke certificate
     client.revoke_certificate(&cert_id, &issuer);
-    assert!(!client.verify_certificate(&cert_id));
+    let verifier2 = Address::generate(&env);
+    assert!(!client.verify_certificate(&cert_id, &verifier2).is_valid);
 }
 
 #[test]
@@ -399,6 +411,7 @@ fn test_multiple_certificates() {
             description: String::from_str(&env, "Test"),
             course_name: String::from_str(&env, "Test Course"),
             completion_date: 1704067200,
+            valid_until: 0,
             ipfs_hash: String::from_str(&env, &format!("QmTest{}", i)),
         };
 
@@ -407,4 +420,78 @@ fn test_multiple_certificates() {
     }
 
     assert_eq!(client.get_certificate_count(), 5);
+}
+#[test]
+fn test_verify_certificate_expiration() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let issuer = Address::generate(&env);
+    let recipient = Address::generate(&env);
+
+    env.mock_all_auths();
+    client.initialize(&admin);
+    client.add_issuer(&issuer);
+
+    let cert_id = String::from_str(&env, "CERT-EXP-001");
+    
+    // Set ledger timestamp to 1000
+    env.ledger().with_mut(|l| {
+        l.timestamp = 1000;
+    });
+
+    let metadata = CertificateMetadata {
+        title: String::from_str(&env, "Expired Cert"),
+        description: String::from_str(&env, "Test"),
+        course_name: String::from_str(&env, "Test"),
+        completion_date: 500,
+        valid_until: 900, // Expired
+        ipfs_hash: String::from_str(&env, "QmTest"),
+    };
+
+    client.issue_certificate(&cert_id, &issuer, &recipient, &metadata);
+
+    let verifier = Address::generate(&env);
+    let result = client.verify_certificate(&cert_id, &verifier);
+    
+    assert!(!result.is_valid);
+    assert_eq!(result.status, CertificateStatus::Expired);
+}
+
+#[test]
+fn test_verification_history() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let issuer = Address::generate(&env);
+    let recipient = Address::generate(&env);
+
+    env.mock_all_auths();
+    client.initialize(&admin);
+    client.add_issuer(&issuer);
+
+    let cert_id = String::from_str(&env, "CERT-HIST-001");
+    let metadata = CertificateMetadata {
+        title: String::from_str(&env, "Valid Cert"),
+        description: String::from_str(&env, "Test"),
+        course_name: String::from_str(&env, "Test"),
+        completion_date: 500,
+        valid_until: 0,
+        ipfs_hash: String::from_str(&env, "QmTest"),
+    };
+
+    client.issue_certificate(&cert_id, &issuer, &recipient, &metadata);
+
+    let verifier1 = Address::generate(&env);
+    let verifier2 = Address::generate(&env);
+
+    client.verify_certificate(&cert_id, &verifier1);
+    client.verify_certificate(&cert_id, &verifier2);
+
+    let history = client.get_verification_history(&cert_id);
+    assert_eq!(history.len(), 2);
 }

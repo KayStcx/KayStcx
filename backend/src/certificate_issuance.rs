@@ -10,6 +10,7 @@ pub enum DataKey {
     Issuer(Address),        // Issuer address -> authorized status
     Admin,                  // Admin address
     CertificateCount,       // Total number of certificates
+    VerificationHistory(String), // Certificate ID -> Vec<VerificationResult>
 }
 
 /// Events emitted by the contract
@@ -195,14 +196,7 @@ impl CertificateContract {
         Ok(())
     }
 
-    /// Verify if a certificate is valid (exists and is active)
-    pub fn verify_certificate(env: Env, id: String) -> bool {
-        if let Ok(certificate) = Self::get_certificate(env, id) {
-            certificate.status == CertificateStatus::Active
-        } else {
-            false
-        }
-    }
+    // Old verify_certificate removed. Implemented in certificate_verification.rs
 
     /// Get total number of certificates issued
     pub fn get_certificate_count(env: Env) -> u64 {
