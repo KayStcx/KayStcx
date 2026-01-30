@@ -7,7 +7,8 @@ import Dashboard from "./pages/Dashboard";
 import Home from "./pages/Home";
 import Verify from "./pages/Verify";
 import View from "./pages/View";
-import Login from "./pages/Login";
+import Navbar from "./components/Navbar";
+import Footer from "./components/Footer";
 
 interface ProtectedRouteProps {
   allowedRoles: string[];
@@ -54,26 +55,14 @@ function ProtectedRoute({
 }
 
 export default function App(): JSX.Element {
+  // Temporary fallback to render Home directly (bypass router) while debugging
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route index element={<Home />} />
-        <Route path="verify" element={<Verify />} />
-        <Route path="create" element={<Create />} />
-        <Route path="view" element={<View />} />
-        <Route
-          path="dashboard"
-          element={
-            <ProtectedRoute allowedRoles={["issuer", "admin"]}>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-      </Route>
-
-      <Route path="/login" element={<Login />} />
-
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      <Navbar />
+      <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-20 sm:px-6 lg:px-8">
+        <Home />
+      </main>
+      <Footer />
+    </div>
   );
 }

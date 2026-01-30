@@ -1,6 +1,5 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { useAuthOptional } from "../contexts/AuthContext";
 
 type Role = "user" | "verifier" | "issuer" | "admin" | "guest" | string;
 
@@ -10,17 +9,72 @@ interface NavbarProps {
   onLogout?: () => void;
 }
 
+function normalizeRole(r: any): Role {
+  if (!r) return "guest";
+  if (Array.isArray(r)) return String(r[0]).toLowerCase();
+  return String(r).toLowerCase();
+}
+
+function readUserFromLocalStorage() {
+  try {
+    const candidates = ["user", "auth", "currentUser"];
+    for (const key of candidates) {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      try {
+        const parsed = JSON.parse(raw);
+        if (
+          parsed &&
+          (parsed.role || parsed.username || parsed.name || parsed.roles)
+        ) {
+          const role = parsed.role || parsed.type || parsed.roles || "guest";
+          return {
+            role: normalizeRole(role),
+            username:
+              parsed.username || parsed.name || parsed.email || undefined,
+          };
+        }
+      } catch {
+        // not JSON, maybe a token string or other value — skip user parsing
+        continue;
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+  return { role: "guest", username: undefined };
+}
+
 export default function Navbar({
   role: propRole,
   username: propUsername,
   onLogout,
 }: NavbarProps) {
   const navigate = useNavigate();
-  const { user, role, isAuthenticated, logout, loading } = useAuthOptional();
+  const [auth, setAuth] = useState(() => readUserFromLocalStorage());
+  const [tokenPresent, setTokenPresent] = useState(
+    () => !!localStorage.getItem("token") || !!localStorage.getItem("auth"),
+  );
 
-  const effectiveRole = (propRole || role || "guest") as Role;
-  const effectiveUsername =
-    propUsername || (user && (user.username as string)) || "";
+  useEffect(() => {
+    function updateFromStorage() {
+      setAuth(readUserFromLocalStorage());
+      setTokenPresent(
+        !!localStorage.getItem("token") || !!localStorage.getItem("auth"),
+      );
+    }
+    function onStorage(e: StorageEvent) {
+      if (!e.key || e.key === "authUpdate") {
+        updateFromStorage();
+      }
+    }
+    window.addEventListener("storage", onStorage);
+    updateFromStorage();
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  const role = (propRole || auth.role || "guest") as Role;
+  const username = propUsername || auth.username || "";
 
   function truncateEmail(email: string, maxLocal = 12) {
     if (!email) return "";
@@ -35,7 +89,19 @@ export default function Navbar({
     return email.length > maxLocal ? email.slice(0, maxLocal) + "..." : email;
   }
 
-  const normalizedRole = String(effectiveRole).toLowerCase();
+  const initials = username
+    ? username
+        .split(" ")
+        .map((n: string) => (n && n.length ? n[0] : ""))
+        .join("")
+        .slice(0, 2)
+        .toUpperCase()
+    : "SC";
+
+  const isAuthenticated =
+    (tokenPresent && role && String(role).toLowerCase() !== "guest") || false;
+
+  const normalizedRole = String(role).toLowerCase();
   const roleHas = (allowed: string[]) =>
     allowed.map((r) => r.toLowerCase()).includes(normalizedRole);
 
@@ -65,8 +131,18 @@ export default function Navbar({
 
   function handleLogout() {
     try {
-      logout();
-    } catch (e) {}
+      localStorage.removeItem("token");
+      localStorage.removeItem("auth");
+      localStorage.removeItem("user");
+      localStorage.removeItem("currentUser");
+      try {
+        localStorage.setItem("authUpdate", String(Date.now()));
+      } catch {}
+    } catch (e) {
+      // ignore
+    }
+    setAuth({ role: "guest", username: undefined });
+    setTokenPresent(false);
     if (onLogout) onLogout();
     navigate("/login");
   }
@@ -74,7 +150,6 @@ export default function Navbar({
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-blue-600 text-white shadow">
       <div className="mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Left: Brand */}
         <div className="flex items-center gap-3">
           <div
             aria-hidden="false"
@@ -110,7 +185,6 @@ export default function Navbar({
           </div>
         </div>
 
-        {/* Center: Navigation */}
         <nav
           aria-label="Primary navigation"
           className="hidden md:flex md:items-center md:gap-6"
@@ -130,12 +204,11 @@ export default function Navbar({
           )}
         </nav>
 
-        {/* Right: Auth Actions */}
         <div className="flex items-center gap-3">
-          {!loading && isAuthenticated ? (
+          {isAuthenticated ? (
             <div className="flex items-center gap-3">
               <div className="max-w-[14rem] truncate text-sm font-medium text-white">
-                {truncateEmail(effectiveUsername)}
+                {truncateEmail(username)}
               </div>
               <button
                 onClick={handleLogout}
@@ -157,7 +230,6 @@ export default function Navbar({
         </div>
       </div>
 
-      {/* Mobile nav: simple row of allowed links */}
       <div className="flex w-full gap-2 overflow-x-auto border-t border-blue-500/40 bg-blue-600/95 px-3 py-2 md:hidden">
         {links.map((item) =>
           item.visible ? (
