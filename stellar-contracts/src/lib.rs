@@ -1,6 +1,20 @@
 #![no_std]
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String};
 
+mod crl;
+mod crl_test;
+
+pub use crl::{
+    CRLContract,
+    CRLContractClient,
+    RevocationReason,
+    RevokedCertificate,
+    CertificateRevocationList,
+    Pagination,
+    PaginatedResult,
+    VerificationResult,
+};
+
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Certificate {
@@ -85,3 +99,6 @@ impl CertificateContract {
 
 #[cfg(test)]
 mod test;
+
+#[cfg(test)]
+pub use crl_test::*;
