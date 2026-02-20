@@ -1,14 +1,17 @@
 import {
+    ActivityItem,
+    ApiError,
     AuthResponse,
     Certificate,
+    CertificateTemplate,
     CreateCertificateData,
     DashboardStats,
+    IssuanceTrendPoint,
     PaginatedResponse,
+    StatusDistribution,
     User,
-    VerificationResult,
-    CertificateTemplate,
-    ApiError,
-    UserRole
+    UserRole,
+    VerificationResult
 } from './types';
 import { tokenStorage } from './tokens';
 
@@ -423,6 +426,71 @@ export const register = registerApi;
 
 // ==================== ANALYTICS & STATS ====================
 
+type CertificateStatsResponse = {
+    totalCertificates: number;
+    activeCertificates: number;
+    revokedCertificates: number;
+    expiredCertificates: number;
+    issuanceTrend: IssuanceTrendPoint[];
+    verificationStats: {
+        totalVerifications: number;
+        successfulVerifications: number;
+        failedVerifications: number;
+        dailyVerifications: number;
+        weeklyVerifications: number;
+    };
+};
+
+const buildStatusDistributionFromCertificates = (certificates: Certificate[]): StatusDistribution => {
+    const base: StatusDistribution = {
+        active: 0,
+        revoked: 0,
+        expired: 0
+    };
+
+    for (const cert of certificates) {
+        if (cert.status === 'active') {
+            base.active += 1;
+        } else if (cert.status === 'revoked') {
+            base.revoked += 1;
+        } else if (cert.status === 'expired') {
+            base.expired += 1;
+        }
+    }
+
+    return base;
+};
+
+const buildIssuanceTrendFromCertificates = (certificates: Certificate[]): IssuanceTrendPoint[] => {
+    const map = new Map<string, number>();
+
+    for (const cert of certificates) {
+        const dateKey = cert.issueDate.slice(0, 10);
+        const current = map.get(dateKey) ?? 0;
+        map.set(dateKey, current + 1);
+    }
+
+    return Array.from(map.entries())
+        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+        .map(([date, count]) => ({ date, count }));
+};
+
+const buildRecentActivityFromCertificates = (certificates: Certificate[]): ActivityItem[] => {
+    const items: ActivityItem[] = certificates.map((cert) => {
+        const type = cert.status === 'revoked' ? 'revoke' : 'issue';
+        return {
+            type,
+            date: cert.issueDate,
+            description:
+                type === 'issue'
+                    ? `Issued ${cert.title} to ${cert.recipientName}`
+                    : `Revoked ${cert.title} for ${cert.recipientName}`
+        };
+    });
+
+    return items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+};
+
 export const dailyCertificateVerification = async () => {
     if (USE_DUMMY_DATA) {
         await simulateDelay();
@@ -448,21 +516,79 @@ export const totalActiveUsers = async () => {
 };
 
 export const analyticsApi = {
-    getDashboardSummary: async (): Promise<DashboardStats> => {
+    getDashboardSummary: async (params?: {
+        startDate?: string;
+        endDate?: string;
+        issuerId?: string;
+    }): Promise<DashboardStats> => {
         if (USE_DUMMY_DATA) {
             await simulateDelay();
+
+            let certificates = dummyData.certificates;
+
+            if (params?.startDate && params?.endDate) {
+                const start = new Date(params.startDate);
+                const end = new Date(params.endDate);
+                certificates = certificates.filter((cert) => {
+                    const issuedAt = new Date(cert.issueDate);
+                    return issuedAt >= start && issuedAt <= end;
+                });
+            }
+
+            const statusDistribution = buildStatusDistributionFromCertificates(certificates);
+            const issuanceTrend = buildIssuanceTrendFromCertificates(certificates);
+            const recentActivity = buildRecentActivityFromCertificates(certificates);
+
+            const totalCertificatesCount = certificates.length;
+            const totalVerifications = 1250;
+            const verifications24h = 45;
+
             return {
-                totalCertificates: dummyData.certificates.length,
-                activeCertificates: dummyData.certificates.filter(c => c.status === 'active').length,
-                revokedCertificates: dummyData.certificates.filter(c => c.status === 'revoked').length,
-                totalVerifications: 1250,
-                verifications24h: 45,
+                totalCertificates: totalCertificatesCount,
+                activeCertificates: statusDistribution.active,
+                revokedCertificates: statusDistribution.revoked,
+                expiredCertificates: statusDistribution.expired,
+                totalVerifications,
+                verifications24h,
                 totalUsers: dummyData.users.length,
-                recentActivity: []
+                issuanceTrend,
+                statusDistribution,
+                recentActivity
             };
         }
-        return apiClient<DashboardStats>('/certificates/stats');
-    },
+
+        const searchParams = new URLSearchParams();
+        if (params?.startDate) searchParams.set('startDate', params.startDate);
+        if (params?.endDate) searchParams.set('endDate', params.endDate);
+        if (params?.issuerId) searchParams.set('issuerId', params.issuerId);
+
+        const query = searchParams.toString();
+
+        const data = await apiClient<CertificateStatsResponse>(
+            `/certificates/stats${query ? `?${query}` : ''}`
+        );
+
+        const statusDistribution: StatusDistribution = {
+            active: data.activeCertificates,
+            revoked: data.revokedCertificates,
+            expired: data.expiredCertificates
+        };
+
+        const dashboardStats: DashboardStats = {
+            totalCertificates: data.totalCertificates,
+            activeCertificates: data.activeCertificates,
+            revokedCertificates: data.revokedCertificates,
+            expiredCertificates: data.expiredCertificates,
+            totalVerifications: data.verificationStats.totalVerifications,
+            verifications24h: data.verificationStats.dailyVerifications,
+            totalUsers: 0,
+            issuanceTrend: data.issuanceTrend,
+            statusDistribution,
+            recentActivity: []
+        };
+
+        return dashboardStats;
+    }
 };
 
 // Toggle dummy data

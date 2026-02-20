@@ -92,6 +92,25 @@ export interface CertificateTemplate {
   issuerId: string;
 }
 
+export interface IssuanceTrendPoint {
+  date: string;
+  count: number;
+}
+
+export interface StatusDistribution {
+  active: number;
+  revoked: number;
+  expired: number;
+}
+
+export type ActivityType = 'issue' | 'verify' | 'revoke';
+
+export interface ActivityItem {
+  type: ActivityType;
+  date: string;
+  description: string;
+}
+
 /**
  * Dashboard / Analytics Summary
  */
@@ -99,14 +118,13 @@ export interface DashboardStats {
   totalCertificates: number;
   activeCertificates: number;
   revokedCertificates: number;
+   expiredCertificates?: number;
   totalVerifications: number;
   verifications24h: number;
   totalUsers: number;
-  recentActivity: {
-    type: 'issue' | 'verify' | 'revoke';
-    date: string;
-    description: string;
-  }[];
+  issuanceTrend?: IssuanceTrendPoint[];
+  statusDistribution?: StatusDistribution;
+  recentActivity: ActivityItem[];
 }
 
 /**
