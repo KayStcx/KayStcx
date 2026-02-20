@@ -3,6 +3,8 @@ use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String};
 
 mod crl;
 mod crl_test;
+mod multisig;
+mod multisig_test;
 
 pub use crl::{
     CRLContract,
@@ -13,6 +15,19 @@ pub use crl::{
     Pagination,
     PaginatedResult,
     VerificationResult,
+};
+
+pub use multisig::{
+    MultisigCertificateContract,
+    MultisigCertificateContractClient,
+    MultisigConfig,
+    PendingRequest,
+    RequestStatus,
+    SignatureAction,
+    SignatureRecord,
+    SignatureResult,
+    MultisigEvent,
+    PaginatedResult as MultisigPaginatedResult,
 };
 
 #[contracttype]
@@ -102,3 +117,6 @@ mod test;
 
 #[cfg(test)]
 pub use crl_test::*;
+
+#[cfg(test)]
+pub use multisig_test::*;
