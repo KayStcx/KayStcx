@@ -1,16 +1,17 @@
 import { NavLink } from 'react-router-dom';
+import { User } from 'lucide-react';
 
 type NavItem = {
   label: string;
   to: string;
+  icon?: React.ReactNode;
 };
 
 const navItems: NavItem[] = [
   { label: 'Home', to: '/' },
   { label: 'Verify', to: '/verify' },
-  { label: 'Create', to: '/create' },
-  { label: 'View', to: '/view' },
-  { label: 'Dashboard', to: '/dashboard' }
+  { label: 'Dashboard', to: '/dashboard' },
+  { label: 'Profile', to: '/profile', icon: <User className="h-4 w-4" /> }
 ];
 
 export default function Header(): JSX.Element {

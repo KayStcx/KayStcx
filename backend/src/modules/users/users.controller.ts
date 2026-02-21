@@ -45,6 +45,7 @@ import {
   PaginatedUsersResponseDto,
   MessageResponseDto,
 } from './dto/user-response.dto';
+import { IssuerProfileStatsDto, IssuerActivityResponseDto, UpdateIssuerProfileDto } from './dto/issuer-profile.dto';
 
 @ApiTags('Users')
 @Controller('users')
@@ -404,5 +405,65 @@ export class UsersController {
     @Param('id', ParseUUIDPipe) userId: string,
   ) {
     return this.usersService.deleteUser(adminId, userId);
+  }
+
+  // ==================== Issuer Profile Management Endpoints ====================
+
+  @Get('profile/stats')
+  @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.ISSUER, UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get issuer profile statistics' })
+  @ApiResponse({
+    status: 200,
+    description: 'Issuer statistics',
+    type: IssuerProfileStatsDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Issuer/Admin only' })
+  async getIssuerStats(@CurrentUser('id') userId: string) {
+    return this.usersService.getIssuerStats(userId);
+  }
+
+  @Get('profile/activity')
+  @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.ISSUER, UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get issuer activity log' })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number', example: 1 })
+  @ApiQuery({ name: 'limit', required: false, description: 'Items per page', example: 10 })
+  @ApiResponse({
+    status: 200,
+    description: 'Activity log',
+    type: IssuerActivityResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Issuer/Admin only' })
+  async getIssuerActivity(
+    @CurrentUser('id') userId: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.usersService.getIssuerActivity(userId, page, limit);
+  }
+
+  @Put('profile/issuer')
+  @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.ISSUER, UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update issuer profile information' })
+  @ApiResponse({
+    status: 200,
+    description: 'Profile updated successfully',
+    type: UserResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Issuer/Admin only' })
+  @ApiResponse({ status: 409, description: 'Username or Stellar key already taken' })
+  async updateIssuerProfile(
+    @CurrentUser('id') userId: string,
+    @Body() updateDto: UpdateIssuerProfileDto,
+  ) {
+    return this.usersService.updateIssuerProfile(userId, updateDto);
   }
 }
