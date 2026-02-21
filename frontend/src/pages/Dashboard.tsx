@@ -255,6 +255,276 @@ const Dashboard = () => {
   const [dateRange, setDateRange] = useState<DateRange>(createInitialDateRange);
   const [filterDirty, setFilterDirty] = useState(false);
 
+type DateRange = {
+  startDate: string;
+  endDate: string;
+};
+
+type MetricCardProps = {
+  label: string;
+  value: number;
+  accentClassName: string;
+};
+
+const MetricCard = ({ label, value, accentClassName }: MetricCardProps) => (
+  <div className="bg-white p-6 rounded-lg shadow-md">
+    <p className="text-sm font-medium text-gray-500">{label}</p>
+    <p className={`mt-2 text-3xl font-bold ${accentClassName}`}>{value}</p>
+  </div>
+);
+
+type IssuanceChartProps = {
+  data: IssuanceTrendPoint[];
+};
+
+const IssuanceChart = ({ data }: IssuanceChartProps) => {
+  if (!data.length) {
+    return (
+      <div className="flex h-48 items-center justify-center text-sm text-gray-500">
+        No issuance data available for the selected period.
+      </div>
+    );
+  }
+
+  const maxCount = Math.max(...data.map((d) => d.count));
+  if (maxCount === 0) {
+    return (
+      <div className="flex h-48 items-center justify-center text-sm text-gray-500">
+        No certificates were issued in this period.
+      </div>
+    );
+  }
+
+  const chartHeight = 160;
+  const chartWidth = 400;
+  const padding = 24;
+  const innerHeight = chartHeight - padding * 2;
+  const barGap = 8;
+  const barWidth =
+    data.length > 0
+      ? (chartWidth - padding * 2 - barGap * (data.length - 1)) / data.length
+      : 0;
+
+  return (
+    <svg
+      viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+      className="h-48 w-full"
+      aria-label="Certificate issuance over time"
+    >
+      {data.map((point, index) => {
+        const barHeight = (point.count / maxCount) * innerHeight;
+        const x = padding + index * (barWidth + barGap);
+        const y = chartHeight - padding - barHeight;
+        return (
+          <g key={point.date}>
+            <rect
+              x={x}
+              y={y}
+              width={barWidth}
+              height={barHeight}
+              rx={4}
+              className="fill-blue-500/80"
+            />
+          </g>
+        );
+      })}
+      {data.map((point, index) => {
+        const x = padding + index * (barWidth + barGap) + barWidth / 2;
+        const label = point.date.slice(5);
+        return (
+          <text
+            key={`${point.date}-label`}
+            x={x}
+            y={chartHeight - 4}
+            textAnchor="middle"
+            className="fill-gray-500 text-[10px]"
+          >
+            {label}
+          </text>
+        );
+      })}
+    </svg>
+  );
+};
+
+type StatusPieChartProps = {
+  distribution: StatusDistribution;
+};
+
+const StatusPieChart = ({ distribution }: StatusPieChartProps) => {
+  const total = distribution.active + distribution.revoked + distribution.expired;
+
+  if (!total) {
+    return (
+      <div className="flex h-48 items-center justify-center text-sm text-gray-500">
+        No certificates to display status distribution.
+      </div>
+    );
+  }
+
+  const radius = 64;
+  const center = 80;
+
+  const segments: Array<{
+    key: keyof StatusDistribution;
+    value: number;
+    color: string;
+    label: string;
+  }> = [
+    { key: 'active', value: distribution.active, color: '#22c55e', label: 'Active' },
+    { key: 'revoked', value: distribution.revoked, color: '#ef4444', label: 'Revoked' },
+    { key: 'expired', value: distribution.expired, color: '#eab308', label: 'Expired' }
+  ].filter((segment) => segment.value > 0);
+
+  let startAngle = 0;
+
+  const paths = segments.map((segment) => {
+    const angle = (segment.value / total) * 360;
+    const endAngle = startAngle + angle;
+    const largeArcFlag = angle > 180 ? 1 : 0;
+
+    const startRadians = ((startAngle - 90) * Math.PI) / 180;
+    const endRadians = ((endAngle - 90) * Math.PI) / 180;
+
+    const x1 = center + radius * Math.cos(startRadians);
+    const y1 = center + radius * Math.sin(startRadians);
+    const x2 = center + radius * Math.cos(endRadians);
+    const y2 = center + radius * Math.sin(endRadians);
+
+    const d = [
+      `M ${center} ${center}`,
+      `L ${x1} ${y1}`,
+      `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
+      'Z'
+    ].join(' ');
+
+    const currentStartAngle = startAngle;
+    startAngle = endAngle;
+
+    return { segment, d, startAngle: currentStartAngle, endAngle };
+  });
+
+  return (
+    <div className="flex items-center gap-4">
+      <svg
+        viewBox="0 0 160 160"
+        className="h-40 w-40"
+        aria-label="Certificate status distribution"
+      >
+        {paths.map(({ segment, d }) => (
+          <path key={segment.key} d={d} fill={segment.color} />
+        ))}
+        <circle cx={center} cy={center} r={28} fill="#ffffff" />
+      </svg>
+      <div className="space-y-2 text-sm">
+        {segments.map((segment) => {
+          const percentage = ((segment.value / total) * 100).toFixed(1);
+          return (
+            <div key={segment.key} className="flex items-center gap-2">
+              <span
+                className="h-3 w-3 rounded-full"
+                style={{ backgroundColor: segment.color }}
+              />
+              <span className="text-gray-700">
+                {segment.label}{' '}
+                <span className="font-semibold text-gray-900">{segment.value}</span>{' '}
+                <span className="text-gray-500">({percentage}%)</span>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+type ActivityFeedProps = {
+  items: ActivityItem[];
+};
+
+const ActivityFeed = ({ items }: ActivityFeedProps) => {
+  if (!items.length) {
+    return (
+      <div className="flex h-40 items-center justify-center text-sm text-gray-500">
+        No recent activity yet.
+      </div>
+    );
+  }
+
+  return (
+    <ul className="divide-y divide-gray-100 text-sm">
+      {items.slice(0, 10).map((item, index) => (
+        <li key={`${item.date}-${index}`} className="py-3 flex items-start justify-between">
+          <div>
+            <p className="font-medium text-gray-900">{item.description}</p>
+            <p className="mt-1 text-xs text-gray-500">
+              {new Date(item.date).toLocaleString(undefined, {
+                year: 'numeric',
+                month: 'short',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </p>
+          </div>
+          <span className="ml-4 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold capitalize text-white">
+            {item.type === 'issue' && (
+              <span className="rounded-full bg-emerald-500 px-2 py-0.5">Issued</span>
+            )}
+            {item.type === 'verify' && (
+              <span className="rounded-full bg-blue-500 px-2 py-0.5">Verified</span>
+            )}
+            {item.type === 'revoke' && (
+              <span className="rounded-full bg-red-500 px-2 py-0.5">Revoked</span>
+            )}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+};
+
+const createInitialDateRange = (): DateRange => {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - 6);
+  return {
+    startDate: start.toISOString().slice(0, 10),
+    endDate: end.toISOString().slice(0, 10)
+  };
+};
+
+const Dashboard = () => {
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange>(createInitialDateRange);
+  const [filterDirty, setFilterDirty] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        const data = await analyticsApi.getDashboardSummary({
+          startDate: dateRange.startDate,
+          endDate: dateRange.endDate
+        });
+        setStats(data);
+      } catch (err) {
+        const message =
+          err && typeof err === 'object' && 'message' in err
+            ? String((err as { message?: string }).message)
+            : 'Failed to load analytics';
+        setError(message);
+      } finally {
+        setLoading(false);
+      }
+    };
+  const [totalCert, setTotalCert] = useState(0);
+  const [totalVerification, setTotalVerification] = useState(0);
+  const [totalActiveUsersCount, setTotalActiveUsersCount] = useState(0);
+  const [revokedCount, setRevokedCount] = useState(0);
+
   useEffect(() => {
     const load = async () => {
       try {
