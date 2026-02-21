@@ -578,6 +578,138 @@ export class UsersService {
     return { message: 'User deleted successfully' };
   }
 
+  // ==================== Issuer Profile Management ====================
+
+  async getIssuerStats(userId: string): Promise<any> {
+    // Mock implementation - would integrate with certificate and verification services
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role !== UserRole.ISSUER && user.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Only issuers and admins can access issuer stats');
+    }
+
+    // In a real implementation, this would:
+    // 1. Query certificate service for issuer's certificates
+    // 2. Query verification service for verification stats
+    // 3. Aggregate the data
+
+    return {
+      totalCertificates: 125,
+      activeCertificates: 118,
+      revokedCertificates: 7,
+      expiredCertificates: 0,
+      totalVerifications: 2847,
+      lastLogin: user.lastLoginAt || user.updatedAt
+    };
+  }
+
+  async getIssuerActivity(userId: string, page: number = 1, limit: number = 10): Promise<any> {
+    // Mock implementation - would integrate with audit service
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role !== UserRole.ISSUER && user.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Only issuers and admins can access activity logs');
+    }
+
+    // In a real implementation, this would query the audit log service
+    const mockActivities = [
+      {
+        id: '1',
+        action: 'ISSUE_CERTIFICATE',
+        description: 'Issued "Blockchain Fundamentals" certificate to Alice Johnson',
+        ipAddress: '192.168.1.100',
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: '2',
+        action: 'REVOKE_CERTIFICATE',
+        description: 'Revoked certificate #CERT-2024-045',
+        ipAddress: '192.168.1.100',
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: '3',
+        action: 'UPDATE_PROFILE',
+        description: 'Updated organization details',
+        ipAddress: '192.168.1.100',
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+      }
+    ];
+
+    const total = mockActivities.length;
+    const totalPages = Math.ceil(total / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const activities = mockActivities.slice(startIndex, endIndex);
+
+    return {
+      activities,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages
+      }
+    };
+  }
+
+  async updateIssuerProfile(userId: string, updateDto: any): Promise<any> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role !== UserRole.ISSUER && user.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Only issuers and admins can update issuer profile');
+    }
+
+    // Check if username is already taken (if updating)
+    if (updateDto.username && updateDto.username !== user.username) {
+      if (await this.userRepository.existsByUsername(updateDto.username)) {
+        throw new ConflictException('Username already taken');
+      }
+    }
+
+    // Check if Stellar public key is already taken (if updating)
+    if (updateDto.stellarPublicKey && updateDto.stellarPublicKey !== user.stellarPublicKey) {
+      if (await this.userRepository.existsByStellarPublicKey(updateDto.stellarPublicKey)) {
+        throw new ConflictException('Stellar public key already registered');
+      }
+    }
+
+    // Update user fields
+    const updateData: any = {};
+    if (updateDto.firstName) updateData.firstName = updateDto.firstName;
+    if (updateDto.lastName) updateData.lastName = updateDto.lastName;
+    if (updateDto.username) updateData.username = updateDto.username;
+    if (updateDto.phone) updateData.phone = updateDto.phone;
+    if (updateDto.profilePicture) updateData.profilePicture = updateDto.profilePicture;
+    if (updateDto.stellarPublicKey) updateData.stellarPublicKey = updateDto.stellarPublicKey;
+
+    // Update metadata if organization is provided
+    if (updateDto.organization !== undefined) {
+      updateData.metadata = {
+        ...user.metadata,
+        organization: updateDto.organization
+      };
+    }
+
+    const updatedUser = await this.userRepository.update(userId, updateData);
+
+    this.logger.log(`User ${userId} updated issuer profile`);
+
+    return updatedUser;
+  }
+
   // ==================== Statistics ====================
 
   async getUserStats(): Promise<{

@@ -1,5 +1,5 @@
 import { Routes, Route } from 'react-router-dom';
-import { Shield, Award, Search, ShieldAlert } from 'lucide-react';
+import { Shield, Award, Search, ShieldAlert, User } from 'lucide-react';
 import Navbar from './components/Header';
 import Dashboard from './pages/Dashboard';
 import IssueCertificate from './pages/IssueCertificate';
@@ -7,6 +7,7 @@ import VerifyCertificate from './pages/VerifyCertificate';
 import CertificateWallet from './pages/CertificateWallet';
 import Login from './pages/Login';
 import RevokeCertificatePage from './pages/RevokeCertificate';
+import IssuerProfile from './pages/IssuerProfile';
 import ProtectedRoute from './guard/protectedRoute';
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/login" element={<Login />} />
           <Route path="/verify" element={<VerifyCertificate />} />
+          <Route path="/profile" element={<IssuerProfile />} />
 
           {/* Protected Routes */}
           <Route element={<ProtectedRoute allowedRoles={["user", "verifier", "issuer", "admin"]} />}>
