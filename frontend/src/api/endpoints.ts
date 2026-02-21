@@ -596,3 +596,83 @@ export const toggleDummyData = (useDummy: boolean) => {
     USE_DUMMY_DATA = useDummy;
     console.log(`Using ${useDummy ? 'dummy' : 'real'} data`);
 };
+
+// ==================== ISSUER PROFILE MANAGEMENT ====================
+
+export const issuerProfileApi = {
+    getStats: async (): Promise<any> => {
+        if (USE_DUMMY_DATA) {
+            await simulateDelay();
+            return {
+                totalCertificates: 125,
+                activeCertificates: 118,
+                revokedCertificates: 7,
+                expiredCertificates: 0,
+                totalVerifications: 2847,
+                lastLogin: new Date().toISOString()
+            };
+        }
+        return apiClient<any>('/users/profile/stats');
+    },
+    
+    getActivity: async (page: number = 1, limit: number = 10): Promise<any> => {
+        if (USE_DUMMY_DATA) {
+            await simulateDelay();
+            const mockActivities = [
+                {
+                    id: '1',
+                    action: 'ISSUE_CERTIFICATE',
+                    description: 'Issued "Blockchain Fundamentals" certificate to Alice Johnson',
+                    ipAddress: '192.168.1.100',
+                    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+                },
+                {
+                    id: '2',
+                    action: 'REVOKE_CERTIFICATE',
+                    description: 'Revoked certificate #CERT-2024-045',
+                    ipAddress: '192.168.1.100',
+                    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
+                },
+                {
+                    id: '3',
+                    action: 'UPDATE_PROFILE',
+                    description: 'Updated organization details',
+                    ipAddress: '192.168.1.100',
+                    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+                }
+            ];
+            
+            const total = mockActivities.length;
+            const totalPages = Math.ceil(total / limit);
+            const startIndex = (page - 1) * limit;
+            const endIndex = startIndex + limit;
+            const activities = mockActivities.slice(startIndex, endIndex);
+            
+            return {
+                activities,
+                meta: {
+                    total,
+                    page,
+                    limit,
+                    totalPages
+                }
+            };
+        }
+        return apiClient<any>(`/users/profile/activity?page=${page}&limit=${limit}`);
+    },
+    
+    updateProfile: async (data: any): Promise<User> => {
+        if (USE_DUMMY_DATA) {
+            await simulateDelay();
+            // In a real implementation, this would update the user data
+            return dummyData.users[0]; // Return first user as example
+        }
+        return apiClient<User>('/users/profile/issuer', {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    }
+};
