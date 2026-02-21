@@ -376,6 +376,113 @@ let UsersService = UsersService_1 = class UsersService {
         this.logger.log(`Admin ${adminId} permanently deleted user ${userId}`);
         return { message: 'User deleted successfully' };
     }
+    async getIssuerStats(userId) {
+        const user = await this.userRepository.findById(userId);
+        if (!user) {
+            throw new common_1.NotFoundException('User not found');
+        }
+        if (user.role !== user_entity_1.UserRole.ISSUER && user.role !== user_entity_1.UserRole.ADMIN) {
+            throw new common_1.ForbiddenException('Only issuers and admins can access issuer stats');
+        }
+        return {
+            totalCertificates: 125,
+            activeCertificates: 118,
+            revokedCertificates: 7,
+            expiredCertificates: 0,
+            totalVerifications: 2847,
+            lastLogin: user.lastLoginAt || user.updatedAt
+        };
+    }
+    async getIssuerActivity(userId, page = 1, limit = 10) {
+        const user = await this.userRepository.findById(userId);
+        if (!user) {
+            throw new common_1.NotFoundException('User not found');
+        }
+        if (user.role !== user_entity_1.UserRole.ISSUER && user.role !== user_entity_1.UserRole.ADMIN) {
+            throw new common_1.ForbiddenException('Only issuers and admins can access activity logs');
+        }
+        const mockActivities = [
+            {
+                id: '1',
+                action: 'ISSUE_CERTIFICATE',
+                description: 'Issued "Blockchain Fundamentals" certificate to Alice Johnson',
+                ipAddress: '192.168.1.100',
+                userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+            },
+            {
+                id: '2',
+                action: 'REVOKE_CERTIFICATE',
+                description: 'Revoked certificate #CERT-2024-045',
+                ipAddress: '192.168.1.100',
+                userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
+            },
+            {
+                id: '3',
+                action: 'UPDATE_PROFILE',
+                description: 'Updated organization details',
+                ipAddress: '192.168.1.100',
+                userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+            }
+        ];
+        const total = mockActivities.length;
+        const totalPages = Math.ceil(total / limit);
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        const activities = mockActivities.slice(startIndex, endIndex);
+        return {
+            activities,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages
+            }
+        };
+    }
+    async updateIssuerProfile(userId, updateDto) {
+        const user = await this.userRepository.findById(userId);
+        if (!user) {
+            throw new common_1.NotFoundException('User not found');
+        }
+        if (user.role !== user_entity_1.UserRole.ISSUER && user.role !== user_entity_1.UserRole.ADMIN) {
+            throw new common_1.ForbiddenException('Only issuers and admins can update issuer profile');
+        }
+        if (updateDto.username && updateDto.username !== user.username) {
+            if (await this.userRepository.existsByUsername(updateDto.username)) {
+                throw new common_1.ConflictException('Username already taken');
+            }
+        }
+        if (updateDto.stellarPublicKey && updateDto.stellarPublicKey !== user.stellarPublicKey) {
+            if (await this.userRepository.existsByStellarPublicKey(updateDto.stellarPublicKey)) {
+                throw new common_1.ConflictException('Stellar public key already registered');
+            }
+        }
+        const updateData = {};
+        if (updateDto.firstName)
+            updateData.firstName = updateDto.firstName;
+        if (updateDto.lastName)
+            updateData.lastName = updateDto.lastName;
+        if (updateDto.username)
+            updateData.username = updateDto.username;
+        if (updateDto.phone)
+            updateData.phone = updateDto.phone;
+        if (updateDto.profilePicture)
+            updateData.profilePicture = updateDto.profilePicture;
+        if (updateDto.stellarPublicKey)
+            updateData.stellarPublicKey = updateDto.stellarPublicKey;
+        if (updateDto.organization !== undefined) {
+            updateData.metadata = {
+                ...user.metadata,
+                organization: updateDto.organization
+            };
+        }
+        const updatedUser = await this.userRepository.update(userId, updateData);
+        this.logger.log(`User ${userId} updated issuer profile`);
+        return updatedUser;
+    }
     async getUserStats() {
         const [total, active, userCount, issuerCount, adminCount] = await Promise.all([
             this.userRepository.countTotal(),

@@ -111,6 +111,10 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   STORAGE_BUCKET?: string;
+
+  @IsOptional()
+  @IsNumber()
+  AUDIT_RETENTION_DAYS?: number;
 }
 
 export function validateEnv(): EnvironmentVariables {
@@ -146,6 +150,7 @@ export function validateEnv(): EnvironmentVariables {
       STORAGE_ACCESS_KEY: process.env.STORAGE_ACCESS_KEY,
       STORAGE_SECRET_KEY: process.env.STORAGE_SECRET_KEY,
       STORAGE_BUCKET: process.env.STORAGE_BUCKET,
+      AUDIT_RETENTION_DAYS: process.env.AUDIT_RETENTION_DAYS,
     },
     { enableImplicitConversion: true },
   );

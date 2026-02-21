@@ -30,7 +30,7 @@ describe('AuditService', () => {
     timestamp: Date.now(),
     createdAt: new Date(),
     userRole: 'user',
-  };
+  } as any as AuditLog;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -125,7 +125,44 @@ describe('AuditService', () => {
         ipAddress: '127.0.0.1',
       };
 
-      expect(() => service.log(params)).rejects.toThrow('Database error');
+      const result = await service.log(params);
+      expect(result).toBeNull();
+    });
+
+    it('should redact sensitive data in changes and metadata', async () => {
+      const params = {
+        action: AuditAction.USER_LOGIN,
+        resourceType: AuditResourceType.USER,
+        changes: {
+          before: { password: 'old-password', email: 'test@example.com' },
+          after: { password: 'new-password', email: 'test@example.com' },
+        },
+        metadata: {
+          token: 'secret-token',
+          nested: {
+            apiKey: 'key-123',
+            safe: 'data',
+          },
+        },
+      };
+
+      await service.log(params);
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          changes: {
+            before: { password: '[REDACTED]', email: 'test@example.com' },
+            after: { password: '[REDACTED]', email: 'test@example.com' },
+          },
+          metadata: {
+            token: '[REDACTED]',
+            nested: {
+              apiKey: '[REDACTED]',
+              safe: 'data',
+            },
+          },
+        }),
+      );
     });
   });
 

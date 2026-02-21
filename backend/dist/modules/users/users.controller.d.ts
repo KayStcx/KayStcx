@@ -7,6 +7,7 @@ import { ChangePasswordDto, ForgotPasswordDto, ResetPasswordDto } from './dto/ch
 import { UserFilterDto } from './dto/pagination.dto';
 import { AdminUpdateUserDto, UpdateUserRoleDto, UpdateUserStatusDto, DeactivateUserDto } from './dto/admin-user.dto';
 import { VerifyEmailDto, ResendVerificationDto } from './dto/email-verification.dto';
+import { UpdateIssuerProfileDto } from './dto/issuer-profile.dto';
 export declare class UsersController {
     private readonly usersService;
     constructor(usersService: UsersService);
@@ -58,4 +59,7 @@ export declare class UsersController {
     remove(adminId: string, userId: string): Promise<{
         message: string;
     }>;
+    getIssuerStats(userId: string): Promise<any>;
+    getIssuerActivity(userId: string, page?: number, limit?: number): Promise<any>;
+    updateIssuerProfile(userId: string, updateDto: UpdateIssuerProfileDto): Promise<any>;
 }

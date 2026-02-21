@@ -25,6 +25,7 @@ describe('AuditCleanupJob', () => {
           useValue: {
             get: jest.fn((key: string, defaultValue: any) => {
               if (key === 'audit.retentionDays') return 90;
+              if (key === 'AUDIT_RETENTION_DAYS') return undefined;
               return defaultValue;
             }),
           },
@@ -41,10 +42,8 @@ describe('AuditCleanupJob', () => {
     it('should cleanup old logs based on retention days', async () => {
       await job.handleCron();
 
-      expect(configService.get).toHaveBeenCalledWith(
-        'audit.retentionDays',
-        90,
-      );
+      expect(configService.get).toHaveBeenCalledWith('AUDIT_RETENTION_DAYS');
+      expect(configService.get).toHaveBeenCalledWith('audit.retentionDays');
       expect(auditService.cleanupOldLogs).toHaveBeenCalledWith(90);
     });
 
@@ -122,7 +121,7 @@ describe('AuditCleanupJob', () => {
 
     it('should use default retention days if not configured', async () => {
       (configService.get as jest.Mock).mockImplementation(
-        (key: string, defaultValue: any) => defaultValue,
+        (key: string, defaultValue: any) => undefined,
       );
 
       await job.handleCron();
@@ -130,15 +129,26 @@ describe('AuditCleanupJob', () => {
       expect(auditService.cleanupOldLogs).toHaveBeenCalledWith(90);
     });
 
-    it('should use custom retention days from config', async () => {
+    it('should use custom retention days from config (audit.retentionDays)', async () => {
       (configService.get as jest.Mock).mockImplementation((key: string) => {
         if (key === 'audit.retentionDays') return 180;
-        return null;
+        return undefined;
       });
 
       await job.handleCron();
 
       expect(auditService.cleanupOldLogs).toHaveBeenCalledWith(180);
+    });
+
+    it('should use primary retention days from config (AUDIT_RETENTION_DAYS)', async () => {
+      (configService.get as jest.Mock).mockImplementation((key: string) => {
+        if (key === 'AUDIT_RETENTION_DAYS') return 365;
+        return undefined;
+      });
+
+      await job.handleCron();
+
+      expect(auditService.cleanupOldLogs).toHaveBeenCalledWith(365);
     });
 
     it('should set ipAddress to system for cleanup logs', async () => {

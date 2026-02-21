@@ -4,11 +4,12 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuditService } from '../services';
 import { AuditSearchDto, AuditStatisticsDto } from '../dto';
 import { AuditLog } from '../entities';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { Roles } from '../../../common/decorators/roles.decorator';
+import { UserRole } from '../../../common/constants/roles';
 
 @ApiTags('Audit')
 @Controller('audit')
-@UseGuards(JwtAuthGuard)
+@Roles(UserRole.ADMIN)
 export class AuditController {
   private readonly logger = new Logger(AuditController.name);
 
