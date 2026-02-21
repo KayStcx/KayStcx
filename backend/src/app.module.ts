@@ -17,6 +17,7 @@ import { CertificateModule } from './certificate/certificate.module';
 import { StellarModule } from './modules/stellar/stellar.module';
 import { FilesModule } from './modules/files/files.module';
 import { VersioningModule } from './common/versioning/versioning.module';
+import { RateLimitModule } from './modules/rate-limit/rate-limit.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { VersioningModule } from './common/versioning/versioning.module';
     CertificateModule,
     StellarModule,
     EmailModule,
+    RateLimitModule,
     FilesModule,
   ],
   controllers: [AppController],

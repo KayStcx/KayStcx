@@ -1,5 +1,12 @@
 import { plainToClass } from 'class-transformer';
-import { IsEnum, IsNumber, IsString, validateSync, IsOptional, IsBoolean } from 'class-validator';
+import {
+  IsEnum,
+  IsNumber,
+  IsString,
+  validateSync,
+  IsOptional,
+  IsBoolean,
+} from 'class-validator';
 
 enum Environment {
   Development = 'development',
@@ -91,6 +98,10 @@ class EnvironmentVariables {
   @IsString()
   REDIS_URL?: string;
 
+  @IsOptional()
+  @IsString()
+  RATE_LIMIT_TIERS?: string;
+
   // Storage Configuration
   @IsOptional()
   @IsString()
@@ -141,6 +152,7 @@ export function validateEnv(): EnvironmentVariables {
       EMAIL_FROM: process.env.EMAIL_FROM,
       SENDGRID_API_KEY: process.env.SENDGRID_API_KEY,
       REDIS_URL: process.env.REDIS_URL,
+      RATE_LIMIT_TIERS: process.env.RATE_LIMIT_TIERS,
       STORAGE_ENDPOINT: process.env.STORAGE_ENDPOINT,
       STORAGE_REGION: process.env.STORAGE_REGION,
       STORAGE_ACCESS_KEY: process.env.STORAGE_ACCESS_KEY,
