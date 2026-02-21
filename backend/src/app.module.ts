@@ -16,6 +16,7 @@ import { validateEnv } from './config/environment.config';
 import { CertificateModule } from './certificate/certificate.module';
 import { StellarModule } from './modules/stellar/stellar.module';
 import { FilesModule } from './modules/files/files.module';
+import { VersioningModule } from './common/versioning/versioning.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { FilesModule } from './modules/files/files.module';
     }),
     TypeOrmModule.forRoot(typeOrmConfig),
     CommonModule,
+    VersioningModule,
     HealthModule,
     AuthModule,
     UsersModule,
