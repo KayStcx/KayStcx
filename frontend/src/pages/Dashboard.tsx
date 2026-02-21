@@ -386,6 +386,13 @@ const Dashboard = () => {
     link.download = 'issuer-analytics.csv';
     link.click();
     URL.revokeObjectURL(url);
+  const getRevokedCount = async () => {
+    try {
+      // Mock data for now - would call actual API
+      setRevokedCount(12);
+    } catch (error) {
+      console.error('Failed to fetch revoked count:', error);
+    }
   };
 
   return (
@@ -463,6 +470,10 @@ const Dashboard = () => {
         <div className="flex items-center justify-end gap-4 text-xs text-gray-500">
           {loading && <span>Loading analytics…</span>}
           {error && !loading && <span className="text-red-500">{error}</span>}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h2 className="text-xl font-semibold mb-2">Total Certificates</h2>
+          <p className="text-3xl font-bold text-blue-600">{totalCert}</p>
         </div>
       </div>
 
@@ -508,6 +519,11 @@ const Dashboard = () => {
             <StatusPieChart distribution={statusDistribution} />
           </div>
         </div>
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-500">
+          <h2 className="text-xl font-semibold mb-2">Revoked Certificates</h2>
+          <p className="text-3xl font-bold text-red-600">{revokedCount}</p>
+          <p className="text-sm text-gray-500 mt-1">CRL Status: Active</p>
+        </div>
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[3fr,2fr]">
@@ -549,6 +565,33 @@ const Dashboard = () => {
             </Link>
           </div>
         </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Link to="/issue" className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+          <Award className="w-12 h-12 text-blue-600 mb-4" />
+          <h3 className="text-xl font-semibold mb-2">Issue Certificate</h3>
+          <p className="text-gray-600">Create and issue new digital certificates</p>
+        </Link>
+
+        <Link to="/verify" className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+          <Search className="w-12 h-12 text-green-600 mb-4" />
+          <h3 className="text-xl font-semibold mb-2">Verify Certificate</h3>
+          <p className="text-gray-600">Verify the authenticity of certificates</p>
+        </Link>
+
+        <Link to="/wallet" className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+          <Wallet className="w-12 h-12 text-purple-600 mb-4" />
+          <h3 className="text-xl font-semibold mb-2">Certificate Wallet</h3>
+          <p className="text-gray-600">View and manage your certificates</p>
+        </Link>
+
+        <Link to="/revoke" className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow border border-red-200">
+          <ShieldAlert className="w-12 h-12 text-red-600 mb-4" />
+          <h3 className="text-xl font-semibold mb-2">Revoke Certificate</h3>
+          <p className="text-gray-600">Manage certificate revocation list</p>
+          <div className="mt-2 text-sm text-red-600 font-medium">
+            CRL Active • {revokedCount} revoked
+          </div>
+        </Link>
       </div>
     </div>
   );

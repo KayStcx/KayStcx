@@ -1,23 +1,24 @@
 # Development Stage
-FROM node:18-alpine AS development
+FROM node:20-alpine
 
 WORKDIR /app
 
-# Install dependencies
-COPY package*.json ./
-RUN npm ci
+#Install necessary build dependencies
+RUN apk add --no-cache python3 g++ make
 
-# Copy source code
+COPY package*.json ./
+
+RUN npm install --legacy-peer-deps
+
 COPY . .
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
-USER nodejs
+RUN npm run build
 
 EXPOSE 3000
 
 CMD ["npm", "run", "start:dev"]
+
+
 
 # Production Build Stage
 FROM node:18-alpine AS build
