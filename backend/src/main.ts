@@ -7,12 +7,13 @@ import { SentryService } from './common/monitoring/sentry.service';
 import { LoggingService } from './common/logging/logging.service';
 import { MonitoringInterceptor } from './common/monitoring/monitoring.interceptor';
 import { MetricsService } from './common/monitoring/metrics.service';
+import { VersioningType } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
 import * as cors from 'cors';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+
   // Initialize Sentry before anything else
   const sentryService = app.get(SentryService);
   const loggingService = app.get(LoggingService);
@@ -20,16 +21,26 @@ async function bootstrap() {
 
   // Enable CORS
   app.enableCors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173'],
+    origin: process.env.ALLOWED_ORIGINS?.split(',') || [
+      'http://localhost:5173',
+    ],
     credentials: true,
   });
-  
+
   // Set global prefix
   app.setGlobalPrefix('api');
-  
+
+  // Enable API versioning
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: '1',
+  });
+
   // Use global pipes and filters
   app.useGlobalPipes(new ValidationPipe());
-  app.useGlobalFilters(new GlobalExceptionFilter(sentryService, loggingService));
+  app.useGlobalFilters(
+    new GlobalExceptionFilter(sentryService, loggingService),
+  );
 
   // Initialize Sentry request handler
   if (sentryService.isInitialized()) {
@@ -41,7 +52,7 @@ async function bootstrap() {
   app.useGlobalInterceptors(
     new MonitoringInterceptor(metricsService, sentryService, loggingService),
   );
-  
+
   // Swagger setup
   const config = new DocumentBuilder()
     .setTitle('Kaystcx API')
@@ -56,7 +67,7 @@ async function bootstrap() {
   if (sentryService.isInitialized()) {
     // app.use(Sentry.Handlers.errorHandler());
   }
-  
+
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
 
