@@ -74,6 +74,35 @@ pub struct CompatibilityMatrix {
     pub forward_compatible: bool,
 }
 
+mod crl;
+mod crl_test;
+mod multisig;
+mod multisig_test;
+
+pub use crl::{
+    CRLContract,
+    CRLContractClient,
+    RevocationReason,
+    RevokedCertificate,
+    CertificateRevocationList,
+    Pagination,
+    PaginatedResult,
+    VerificationResult,
+};
+
+pub use multisig::{
+    MultisigCertificateContract,
+    MultisigCertificateContractClient,
+    MultisigConfig,
+    PendingRequest,
+    RequestStatus,
+    SignatureAction,
+    SignatureRecord,
+    SignatureResult,
+    MultisigEvent,
+    PaginatedResult as MultisigPaginatedResult,
+};
+
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Certificate {
@@ -1324,3 +1353,9 @@ impl CertificateContract {
 
 #[cfg(test)]
 mod test;
+
+#[cfg(test)]
+pub use crl_test::*;
+
+#[cfg(test)]
+pub use multisig_test::*;
