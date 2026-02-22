@@ -33,6 +33,7 @@ declare class EnvironmentVariables {
     STORAGE_ACCESS_KEY?: string;
     STORAGE_SECRET_KEY?: string;
     STORAGE_BUCKET?: string;
+    AUDIT_RETENTION_DAYS?: number;
 }
 export declare function validateEnv(): EnvironmentVariables;
 export {};

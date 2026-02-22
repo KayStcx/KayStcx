@@ -25,6 +25,8 @@ const environment_config_1 = require("./config/environment.config");
 const certificate_module_1 = require("./certificate/certificate.module");
 const stellar_module_1 = require("./modules/stellar/stellar.module");
 const files_module_1 = require("./modules/files/files.module");
+const versioning_module_1 = require("./common/versioning/versioning.module");
+const audit_module_1 = require("./modules/audit/audit.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -53,6 +55,7 @@ exports.AppModule = AppModule = __decorate([
             }),
             typeorm_1.TypeOrmModule.forRoot(typeorm_config_1.typeOrmConfig),
             common_module_1.CommonModule,
+            versioning_module_1.VersioningModule,
             health_module_1.HealthModule,
             auth_module_1.AuthModule,
             users_module_1.UsersModule,
@@ -62,6 +65,7 @@ exports.AppModule = AppModule = __decorate([
             stellar_module_1.StellarModule,
             email_module_1.EmailModule,
             files_module_1.FilesModule,
+            audit_module_1.AuditModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

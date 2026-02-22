@@ -48,6 +48,7 @@ class EnvironmentVariables {
     STORAGE_ACCESS_KEY;
     STORAGE_SECRET_KEY;
     STORAGE_BUCKET;
+    AUDIT_RETENTION_DAYS;
 }
 __decorate([
     (0, class_validator_1.IsEnum)(Environment),
@@ -180,6 +181,11 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], EnvironmentVariables.prototype, "STORAGE_BUCKET", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], EnvironmentVariables.prototype, "AUDIT_RETENTION_DAYS", void 0);
 function validateEnv() {
     const validatedEnv = (0, class_transformer_1.plainToClass)(EnvironmentVariables, {
         NODE_ENV: process.env.NODE_ENV,
@@ -211,6 +217,7 @@ function validateEnv() {
         STORAGE_ACCESS_KEY: process.env.STORAGE_ACCESS_KEY,
         STORAGE_SECRET_KEY: process.env.STORAGE_SECRET_KEY,
         STORAGE_BUCKET: process.env.STORAGE_BUCKET,
+        AUDIT_RETENTION_DAYS: process.env.AUDIT_RETENTION_DAYS,
     }, { enableImplicitConversion: true });
     const errors = (0, class_validator_1.validateSync)(validatedEnv);
     if (errors.length > 0) {

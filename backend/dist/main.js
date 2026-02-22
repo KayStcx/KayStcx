@@ -9,16 +9,23 @@ const sentry_service_1 = require("./common/monitoring/sentry.service");
 const logging_service_1 = require("./common/logging/logging.service");
 const monitoring_interceptor_1 = require("./common/monitoring/monitoring.interceptor");
 const metrics_service_1 = require("./common/monitoring/metrics.service");
+const common_1 = require("@nestjs/common");
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     const sentryService = app.get(sentry_service_1.SentryService);
     const loggingService = app.get(logging_service_1.LoggingService);
     const metricsService = app.get(metrics_service_1.MetricsService);
     app.enableCors({
-        origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173'],
+        origin: process.env.ALLOWED_ORIGINS?.split(',') || [
+            'http://localhost:5173',
+        ],
         credentials: true,
     });
     app.setGlobalPrefix('api');
+    app.enableVersioning({
+        type: common_1.VersioningType.URI,
+        defaultVersion: '1',
+    });
     app.useGlobalPipes(new validation_pipe_1.ValidationPipe());
     app.useGlobalFilters(new global_exception_filter_1.GlobalExceptionFilter(sentryService, loggingService));
     if (sentryService.isInitialized()) {

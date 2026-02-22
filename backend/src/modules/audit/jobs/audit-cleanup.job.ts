@@ -11,11 +11,14 @@ export class AuditCleanupJob {
   constructor(
     private auditService: AuditService,
     private configService: ConfigService,
-  ) {}
+  ) { }
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleCron() {
-    const retentionDays = this.configService.get('audit.retentionDays', 90);
+    const retentionDays =
+      this.configService.get<number>('AUDIT_RETENTION_DAYS') ||
+      this.configService.get<number>('audit.retentionDays') ||
+      90;
 
     this.logger.log('Starting audit log cleanup job');
 

@@ -36,10 +36,14 @@ export class AuditService {
     @InjectRepository(AuditLog)
     private auditLogRepository: Repository<AuditLog>,
     private requestContextService: RequestContextService,
-  ) {}
+  ) { }
 
-  async log(params: LogAuditParams): Promise<AuditLog> {
+  async log(params: LogAuditParams): Promise<AuditLog | null> {
     try {
+      const redactedChanges = params.changes ? this.redactSensitiveData(params.changes) : undefined;
+      const redactedResourceData = params.resourceData ? this.redactSensitiveData(params.resourceData) : undefined;
+      const redactedMetadata = params.metadata ? this.redactSensitiveData(params.metadata) : undefined;
+
       const auditLog = this.auditLogRepository.create({
         action: params.action,
         resourceType: params.resourceType,
@@ -51,9 +55,9 @@ export class AuditService {
         userAgent: params.userAgent,
         correlationId: params.correlationId,
         transactionHash: params.transactionHash,
-        resourceData: params.resourceData,
-        changes: params.changes,
-        metadata: params.metadata,
+        resourceData: redactedResourceData,
+        changes: redactedChanges,
+        metadata: redactedMetadata,
         status: params.status || 'success',
         errorMessage: params.errorMessage,
         timestamp: params.timestamp || Date.now(),
@@ -64,8 +68,50 @@ export class AuditService {
     } catch (error) {
       this.logger.error(`Failed to log audit event: ${error.message}`, error.stack);
       // Don't throw - audit failures should not break main operations
-      throw error;
+      return null;
     }
+  }
+
+  /**
+   * Redacts sensitive data from an object recursively
+   */
+  private redactSensitiveData(data: any): any {
+    if (!data || typeof data !== 'object') {
+      return data;
+    }
+
+    if (Array.isArray(data)) {
+      return data.map((item) => this.redactSensitiveData(item));
+    }
+
+    const sensitiveKeys = [
+      'password',
+      'token',
+      'secret',
+      'privateKey',
+      'apiKey',
+      'auth',
+      'credential',
+      'ssn',
+      'creditCard',
+    ];
+
+    const redacted = { ...data };
+
+    for (const key of Object.keys(redacted)) {
+      // Check if the key itself contains a sensitive string (case-insensitive)
+      const isSensitive = sensitiveKeys.some((sk) =>
+        key.toLowerCase().includes(sk.toLowerCase()),
+      );
+
+      if (isSensitive) {
+        redacted[key] = '[REDACTED]';
+      } else if (typeof redacted[key] === 'object') {
+        redacted[key] = this.redactSensitiveData(redacted[key]);
+      }
+    }
+
+    return redacted;
   }
 
   async search(

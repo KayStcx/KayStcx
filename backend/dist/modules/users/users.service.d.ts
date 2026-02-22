@@ -62,6 +62,9 @@ export declare class UsersService {
     deleteUser(adminId: string, userId: string): Promise<{
         message: string;
     }>;
+    getIssuerStats(userId: string): Promise<any>;
+    getIssuerActivity(userId: string, page?: number, limit?: number): Promise<any>;
+    updateIssuerProfile(userId: string, updateDto: any): Promise<any>;
     getUserStats(): Promise<{
         total: number;
         active: number;

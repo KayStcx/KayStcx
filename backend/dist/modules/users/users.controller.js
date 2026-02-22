@@ -29,6 +29,7 @@ const pagination_dto_1 = require("./dto/pagination.dto");
 const admin_user_dto_1 = require("./dto/admin-user.dto");
 const email_verification_dto_1 = require("./dto/email-verification.dto");
 const user_response_dto_1 = require("./dto/user-response.dto");
+const issuer_profile_dto_1 = require("./dto/issuer-profile.dto");
 let UsersController = class UsersController {
     usersService;
     constructor(usersService) {
@@ -97,6 +98,15 @@ let UsersController = class UsersController {
     }
     async remove(adminId, userId) {
         return this.usersService.deleteUser(adminId, userId);
+    }
+    async getIssuerStats(userId) {
+        return this.usersService.getIssuerStats(userId);
+    }
+    async getIssuerActivity(userId, page, limit) {
+        return this.usersService.getIssuerActivity(userId, page, limit);
+    }
+    async updateIssuerProfile(userId, updateDto) {
+        return this.usersService.updateIssuerProfile(userId, updateDto);
     }
 };
 exports.UsersController = UsersController;
@@ -469,6 +479,66 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "remove", null);
+__decorate([
+    (0, common_1.Get)('profile/stats'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, roles_decorator_1.Roles)(user_entity_1.UserRole.ISSUER, user_entity_1.UserRole.ADMIN),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get issuer profile statistics' }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Issuer statistics',
+        type: issuer_profile_dto_1.IssuerProfileStatsDto,
+    }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: 'Unauthorized' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden - Issuer/Admin only' }),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "getIssuerStats", null);
+__decorate([
+    (0, common_1.Get)('profile/activity'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, roles_decorator_1.Roles)(user_entity_1.UserRole.ISSUER, user_entity_1.UserRole.ADMIN),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get issuer activity log' }),
+    (0, swagger_1.ApiQuery)({ name: 'page', required: false, description: 'Page number', example: 1 }),
+    (0, swagger_1.ApiQuery)({ name: 'limit', required: false, description: 'Items per page', example: 10 }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Activity log',
+        type: issuer_profile_dto_1.IssuerActivityResponseDto,
+    }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: 'Unauthorized' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden - Issuer/Admin only' }),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('id')),
+    __param(1, (0, common_1.Query)('page')),
+    __param(2, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Number, Number]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "getIssuerActivity", null);
+__decorate([
+    (0, common_1.Put)('profile/issuer'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, roles_decorator_1.Roles)(user_entity_1.UserRole.ISSUER, user_entity_1.UserRole.ADMIN),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Update issuer profile information' }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Profile updated successfully',
+        type: user_response_dto_1.UserResponseDto,
+    }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: 'Unauthorized' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden - Issuer/Admin only' }),
+    (0, swagger_1.ApiResponse)({ status: 409, description: 'Username or Stellar key already taken' }),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, issuer_profile_dto_1.UpdateIssuerProfileDto]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "updateIssuerProfile", null);
 exports.UsersController = UsersController = __decorate([
     (0, swagger_1.ApiTags)('Users'),
     (0, common_1.Controller)('users'),

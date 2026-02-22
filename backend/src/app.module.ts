@@ -17,6 +17,7 @@ import { CertificateModule } from './certificate/certificate.module';
 import { StellarModule } from './modules/stellar/stellar.module';
 import { FilesModule } from './modules/files/files.module';
 import { VersioningModule } from './common/versioning/versioning.module';
+import { AuditModule } from './modules/audit/audit.module';
 
 @Module({
   imports: [
@@ -52,8 +53,9 @@ import { VersioningModule } from './common/versioning/versioning.module';
     StellarModule,
     EmailModule,
     FilesModule,
+    AuditModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
