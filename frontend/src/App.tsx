@@ -12,7 +12,7 @@ import ProtectedRoute from './guard/protectedRoute';
 
 function App() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-slate-100 transition-colors duration-250">
       <Navbar />
       <div className="container mx-auto px-4 py-8">
 
@@ -36,30 +36,40 @@ function App() {
       </div>
 
       {/* Feature Overview Section */}
-      <section className="bg-white py-12 mt-8">
+      <section className="bg-white dark:bg-slate-900 py-12 mt-8 transition-colors duration-250">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">Secure Certificate Management</h2>
+          <h2 className="text-3xl font-bold text-center mb-12 text-gray-900 dark:text-white">
+            Secure Certificate Management
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div className="text-center p-6">
-              <Shield className="w-12 h-12 mx-auto text-blue-600 mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Tamper-Proof</h3>
-              <p className="text-gray-600">Blockchain-backed certificates that cannot be altered or forged</p>
+            <div className="text-center p-6 rounded-lg dark:bg-slate-800 transition-colors duration-250">
+              <Shield className="w-12 h-12 mx-auto text-blue-600 dark:text-blue-400 mb-4" />
+              <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Tamper-Proof</h3>
+              <p className="text-gray-600 dark:text-slate-400">
+                Blockchain-backed certificates that cannot be altered or forged
+              </p>
             </div>
-            <div className="text-center p-6">
-              <Award className="w-12 h-12 mx-auto text-blue-600 mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Easy Issuance</h3>
-              <p className="text-gray-600">Issue digital certificates with custom templates and branding</p>
+            <div className="text-center p-6 rounded-lg dark:bg-slate-800 transition-colors duration-250">
+              <Award className="w-12 h-12 mx-auto text-blue-600 dark:text-blue-400 mb-4" />
+              <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Easy Issuance</h3>
+              <p className="text-gray-600 dark:text-slate-400">
+                Issue digital certificates with custom templates and branding
+              </p>
             </div>
-            <div className="text-center p-6">
-              <Search className="w-12 h-12 mx-auto text-blue-600 mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Instant Verification</h3>
-              <p className="text-gray-600">Verify certificates instantly with unique identifiers</p>
+            <div className="text-center p-6 rounded-lg dark:bg-slate-800 transition-colors duration-250">
+              <Search className="w-12 h-12 mx-auto text-blue-600 dark:text-blue-400 mb-4" />
+              <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Instant Verification</h3>
+              <p className="text-gray-600 dark:text-slate-400">
+                Verify certificates instantly with unique identifiers
+              </p>
             </div>
-            <div className="text-center p-6 border border-red-200 rounded-lg bg-red-50">
-              <ShieldAlert className="w-12 h-12 mx-auto text-red-600 mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Revocation List</h3>
-              <p className="text-gray-600">Real-time certificate revocation with Merkle tree optimization</p>
-              <div className="mt-2 text-sm text-red-600 font-medium">CRL Active</div>
+            <div className="text-center p-6 border rounded-lg bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 transition-colors duration-250">
+              <ShieldAlert className="w-12 h-12 mx-auto text-red-600 dark:text-red-400 mb-4" />
+              <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Revocation List</h3>
+              <p className="text-gray-600 dark:text-slate-400">
+                Real-time certificate revocation with Merkle tree optimization
+              </p>
+              <div className="mt-2 text-sm font-medium text-red-600 dark:text-red-400">CRL Active</div>
             </div>
           </div>
         </div>

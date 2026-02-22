@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Award, Download, Search, Wallet } from 'lucide-react';
+import { Award, Download, Search, Wallet, ShieldAlert } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { analyticsApi } from '../api';
 import type {
@@ -21,9 +21,9 @@ type MetricCardProps = {
 };
 
 const MetricCard = ({ label, value, accentClassName }: MetricCardProps) => (
-  <div className="bg-white p-6 rounded-lg shadow-md">
-    <p className="text-sm font-medium text-gray-500">{label}</p>
-    <p className={`mt-2 text-3xl font-bold ${accentClassName}`}>{value}</p>
+  <div className="bg-white dark:bg-slate-900 p-6 rounded-lg shadow-md dark:shadow-lg dark:border dark:border-slate-700 transition-colors duration-250">
+    <p className="text-sm font-medium text-gray-500 dark:text-slate-400 transition-colors duration-250">{label}</p>
+    <p className={`mt-2 text-3xl font-bold ${accentClassName} dark:text-blue-400 transition-colors duration-250`}>{value}</p>
   </div>
 );
 
@@ -125,9 +125,9 @@ const StatusPieChart = ({ distribution }: StatusPieChartProps) => {
     color: string;
     label: string;
   }> = [
-    { key: 'active', value: distribution.active, color: '#22c55e', label: 'Active' },
-    { key: 'revoked', value: distribution.revoked, color: '#ef4444', label: 'Revoked' },
-    { key: 'expired', value: distribution.expired, color: '#eab308', label: 'Expired' }
+    { key: 'active' as const, value: distribution.active, color: '#22c55e', label: 'Active' },
+    { key: 'revoked' as const, value: distribution.revoked, color: '#ef4444', label: 'Revoked' },
+    { key: 'expired' as const, value: distribution.expired, color: '#eab308', label: 'Expired' }
   ].filter((segment) => segment.value > 0);
 
   let startAngle = 0;
@@ -208,7 +208,10 @@ const ActivityFeed = ({ items }: ActivityFeedProps) => {
   return (
     <ul className="divide-y divide-gray-100 text-sm">
       {items.slice(0, 10).map((item, index) => (
-        <li key={`${item.date}-${index}`} className="py-3 flex items-start justify-between">
+        <li
+          key={`${item.date}-${index}`}
+          className="py-3 flex items-start justify-between"
+        >
           <div>
             <p className="font-medium text-gray-900">{item.description}</p>
             <p className="mt-1 text-xs text-gray-500">
@@ -254,275 +257,6 @@ const Dashboard = () => {
   const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(createInitialDateRange);
   const [filterDirty, setFilterDirty] = useState(false);
-
-type DateRange = {
-  startDate: string;
-  endDate: string;
-};
-
-type MetricCardProps = {
-  label: string;
-  value: number;
-  accentClassName: string;
-};
-
-const MetricCard = ({ label, value, accentClassName }: MetricCardProps) => (
-  <div className="bg-white p-6 rounded-lg shadow-md">
-    <p className="text-sm font-medium text-gray-500">{label}</p>
-    <p className={`mt-2 text-3xl font-bold ${accentClassName}`}>{value}</p>
-  </div>
-);
-
-type IssuanceChartProps = {
-  data: IssuanceTrendPoint[];
-};
-
-const IssuanceChart = ({ data }: IssuanceChartProps) => {
-  if (!data.length) {
-    return (
-      <div className="flex h-48 items-center justify-center text-sm text-gray-500">
-        No issuance data available for the selected period.
-      </div>
-    );
-  }
-
-  const maxCount = Math.max(...data.map((d) => d.count));
-  if (maxCount === 0) {
-    return (
-      <div className="flex h-48 items-center justify-center text-sm text-gray-500">
-        No certificates were issued in this period.
-      </div>
-    );
-  }
-
-  const chartHeight = 160;
-  const chartWidth = 400;
-  const padding = 24;
-  const innerHeight = chartHeight - padding * 2;
-  const barGap = 8;
-  const barWidth =
-    data.length > 0
-      ? (chartWidth - padding * 2 - barGap * (data.length - 1)) / data.length
-      : 0;
-
-  return (
-    <svg
-      viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-      className="h-48 w-full"
-      aria-label="Certificate issuance over time"
-    >
-      {data.map((point, index) => {
-        const barHeight = (point.count / maxCount) * innerHeight;
-        const x = padding + index * (barWidth + barGap);
-        const y = chartHeight - padding - barHeight;
-        return (
-          <g key={point.date}>
-            <rect
-              x={x}
-              y={y}
-              width={barWidth}
-              height={barHeight}
-              rx={4}
-              className="fill-blue-500/80"
-            />
-          </g>
-        );
-      })}
-      {data.map((point, index) => {
-        const x = padding + index * (barWidth + barGap) + barWidth / 2;
-        const label = point.date.slice(5);
-        return (
-          <text
-            key={`${point.date}-label`}
-            x={x}
-            y={chartHeight - 4}
-            textAnchor="middle"
-            className="fill-gray-500 text-[10px]"
-          >
-            {label}
-          </text>
-        );
-      })}
-    </svg>
-  );
-};
-
-type StatusPieChartProps = {
-  distribution: StatusDistribution;
-};
-
-const StatusPieChart = ({ distribution }: StatusPieChartProps) => {
-  const total = distribution.active + distribution.revoked + distribution.expired;
-
-  if (!total) {
-    return (
-      <div className="flex h-48 items-center justify-center text-sm text-gray-500">
-        No certificates to display status distribution.
-      </div>
-    );
-  }
-
-  const radius = 64;
-  const center = 80;
-
-  const segments: Array<{
-    key: keyof StatusDistribution;
-    value: number;
-    color: string;
-    label: string;
-  }> = [
-    { key: 'active', value: distribution.active, color: '#22c55e', label: 'Active' },
-    { key: 'revoked', value: distribution.revoked, color: '#ef4444', label: 'Revoked' },
-    { key: 'expired', value: distribution.expired, color: '#eab308', label: 'Expired' }
-  ].filter((segment) => segment.value > 0);
-
-  let startAngle = 0;
-
-  const paths = segments.map((segment) => {
-    const angle = (segment.value / total) * 360;
-    const endAngle = startAngle + angle;
-    const largeArcFlag = angle > 180 ? 1 : 0;
-
-    const startRadians = ((startAngle - 90) * Math.PI) / 180;
-    const endRadians = ((endAngle - 90) * Math.PI) / 180;
-
-    const x1 = center + radius * Math.cos(startRadians);
-    const y1 = center + radius * Math.sin(startRadians);
-    const x2 = center + radius * Math.cos(endRadians);
-    const y2 = center + radius * Math.sin(endRadians);
-
-    const d = [
-      `M ${center} ${center}`,
-      `L ${x1} ${y1}`,
-      `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
-      'Z'
-    ].join(' ');
-
-    const currentStartAngle = startAngle;
-    startAngle = endAngle;
-
-    return { segment, d, startAngle: currentStartAngle, endAngle };
-  });
-
-  return (
-    <div className="flex items-center gap-4">
-      <svg
-        viewBox="0 0 160 160"
-        className="h-40 w-40"
-        aria-label="Certificate status distribution"
-      >
-        {paths.map(({ segment, d }) => (
-          <path key={segment.key} d={d} fill={segment.color} />
-        ))}
-        <circle cx={center} cy={center} r={28} fill="#ffffff" />
-      </svg>
-      <div className="space-y-2 text-sm">
-        {segments.map((segment) => {
-          const percentage = ((segment.value / total) * 100).toFixed(1);
-          return (
-            <div key={segment.key} className="flex items-center gap-2">
-              <span
-                className="h-3 w-3 rounded-full"
-                style={{ backgroundColor: segment.color }}
-              />
-              <span className="text-gray-700">
-                {segment.label}{' '}
-                <span className="font-semibold text-gray-900">{segment.value}</span>{' '}
-                <span className="text-gray-500">({percentage}%)</span>
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-type ActivityFeedProps = {
-  items: ActivityItem[];
-};
-
-const ActivityFeed = ({ items }: ActivityFeedProps) => {
-  if (!items.length) {
-    return (
-      <div className="flex h-40 items-center justify-center text-sm text-gray-500">
-        No recent activity yet.
-      </div>
-    );
-  }
-
-  return (
-    <ul className="divide-y divide-gray-100 text-sm">
-      {items.slice(0, 10).map((item, index) => (
-        <li key={`${item.date}-${index}`} className="py-3 flex items-start justify-between">
-          <div>
-            <p className="font-medium text-gray-900">{item.description}</p>
-            <p className="mt-1 text-xs text-gray-500">
-              {new Date(item.date).toLocaleString(undefined, {
-                year: 'numeric',
-                month: 'short',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
-            </p>
-          </div>
-          <span className="ml-4 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold capitalize text-white">
-            {item.type === 'issue' && (
-              <span className="rounded-full bg-emerald-500 px-2 py-0.5">Issued</span>
-            )}
-            {item.type === 'verify' && (
-              <span className="rounded-full bg-blue-500 px-2 py-0.5">Verified</span>
-            )}
-            {item.type === 'revoke' && (
-              <span className="rounded-full bg-red-500 px-2 py-0.5">Revoked</span>
-            )}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-};
-
-const createInitialDateRange = (): DateRange => {
-  const end = new Date();
-  const start = new Date();
-  start.setDate(end.getDate() - 6);
-  return {
-    startDate: start.toISOString().slice(0, 10),
-    endDate: end.toISOString().slice(0, 10)
-  };
-};
-
-const Dashboard = () => {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [dateRange, setDateRange] = useState<DateRange>(createInitialDateRange);
-  const [filterDirty, setFilterDirty] = useState(false);
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setLoading(true);
-        const data = await analyticsApi.getDashboardSummary({
-          startDate: dateRange.startDate,
-          endDate: dateRange.endDate
-        });
-        setStats(data);
-      } catch (err) {
-        const message =
-          err && typeof err === 'object' && 'message' in err
-            ? String((err as { message?: string }).message)
-            : 'Failed to load analytics';
-        setError(message);
-      } finally {
-        setLoading(false);
-      }
-    };
-  const [totalCert, setTotalCert] = useState(0);
-  const [totalVerification, setTotalVerification] = useState(0);
-  const [totalActiveUsersCount, setTotalActiveUsersCount] = useState(0);
   const [revokedCount, setRevokedCount] = useState(0);
 
   useEffect(() => {
@@ -534,6 +268,7 @@ const Dashboard = () => {
           endDate: dateRange.endDate
         });
         setStats(data);
+        setRevokedCount(data?.revokedCertificates ?? 0);
       } catch (err) {
         const message =
           err && typeof err === 'object' && 'message' in err
@@ -546,7 +281,7 @@ const Dashboard = () => {
     };
 
     void load();
-  }, []);
+  }, [dateRange]);
 
   const statusDistribution: StatusDistribution = useMemo(() => {
     if (stats?.statusDistribution) {
@@ -577,6 +312,7 @@ const Dashboard = () => {
         endDate: dateRange.endDate
       });
       setStats(data);
+      setRevokedCount(data?.revokedCertificates ?? 0);
       setFilterDirty(false);
     } catch (err) {
       const message =
@@ -602,6 +338,7 @@ const Dashboard = () => {
         endDate: initial.endDate
       });
       setStats(data);
+      setRevokedCount(data?.revokedCertificates ?? 0);
     } catch (err) {
       const message =
         err && typeof err === 'object' && 'message' in err
@@ -656,22 +393,18 @@ const Dashboard = () => {
     link.download = 'issuer-analytics.csv';
     link.click();
     URL.revokeObjectURL(url);
-  const getRevokedCount = async () => {
-    try {
-      // Mock data for now - would call actual API
-      setRevokedCount(12);
-    } catch (error) {
-      console.error('Failed to fetch revoked count:', error);
-    }
   };
 
   return (
     <div className="max-w-7xl mx-auto">
       <div className="mb-6 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Issuer Analytics Dashboard</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Track certificate issuance trends, status distribution, and recent issuer activity.
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white transition-colors duration-250">
+            Issuer Analytics Dashboard
+          </h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-slate-400 transition-colors duration-250">
+            Track certificate issuance trends, status distribution, and recent
+            issuer activity.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -679,7 +412,7 @@ const Dashboard = () => {
             type="button"
             onClick={handleExportCsv}
             disabled={!stats}
-            className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium text-gray-700 dark:text-slate-300 shadow-sm hover:bg-gray-50 dark:hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 transition-colors duration-250"
           >
             <Download className="h-4 w-4" />
             Export CSV
@@ -687,14 +420,14 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="mb-6 grid gap-4 rounded-lg bg-white p-4 shadow-sm md:grid-cols-[2fr,3fr]">
+      <div className="mb-6 grid gap-4 rounded-lg bg-white dark:bg-slate-900 p-4 shadow-sm dark:shadow-lg dark:border dark:border-slate-700 md:grid-cols-[2fr,3fr] transition-colors duration-250">
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400 transition-colors duration-250">
             Date range
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex flex-col">
-              <label htmlFor="startDate" className="text-xs font-medium text-gray-500">
+              <label htmlFor="startDate" className="text-xs font-medium text-gray-500 dark:text-slate-400 transition-colors duration-250">
                 Start
               </label>
               <input
@@ -702,11 +435,11 @@ const Dashboard = () => {
                 type="date"
                 value={dateRange.startDate}
                 onChange={(e) => handleDateChange('startDate', e.target.value)}
-                className="mt-1 rounded-md border border-gray-300 px-2 py-1 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="mt-1 rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-sm text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors duration-250"
               />
             </div>
             <div className="flex flex-col">
-              <label htmlFor="endDate" className="text-xs font-medium text-gray-500">
+              <label htmlFor="endDate" className="text-xs font-medium text-gray-500 dark:text-slate-400 transition-colors duration-250">
                 End
               </label>
               <input
@@ -714,15 +447,20 @@ const Dashboard = () => {
                 type="date"
                 value={dateRange.endDate}
                 onChange={(e) => handleDateChange('endDate', e.target.value)}
-                className="mt-1 rounded-md border border-gray-300 px-2 py-1 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="mt-1 rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-sm text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors duration-250"
               />
             </div>
             <div className="mt-4 flex items-center gap-2 md:mt-6">
               <button
                 type="button"
                 onClick={handleApplyFilters}
-                disabled={loading || !dateRange.startDate || !dateRange.endDate || !filterDirty}
-                className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={
+                  loading ||
+                  !dateRange.startDate ||
+                  !dateRange.endDate ||
+                  !filterDirty
+                }
+                className="rounded-md bg-blue-600 dark:bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 dark:hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-60 transition-colors duration-250"
               >
                 Apply
               </button>
@@ -730,20 +468,16 @@ const Dashboard = () => {
                 type="button"
                 onClick={handleResetFilters}
                 disabled={loading}
-                className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 transition-colors duration-250"
               >
                 Reset
               </button>
             </div>
           </div>
         </div>
-        <div className="flex items-center justify-end gap-4 text-xs text-gray-500">
+        <div className="flex items-center justify-end gap-4 text-xs text-gray-500 dark:text-slate-400 transition-colors duration-250">
           {loading && <span>Loading analytics…</span>}
-          {error && !loading && <span className="text-red-500">{error}</span>}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-2">Total Certificates</h2>
-          <p className="text-3xl font-bold text-blue-600">{totalCert}</p>
+          {error && !loading && <span className="text-red-500 dark:text-red-400 transition-colors duration-250">{error}</span>}
         </div>
       </div>
 
@@ -771,94 +505,109 @@ const Dashboard = () => {
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
-        <div className="rounded-lg bg-white p-6 shadow-md">
-          <h2 className="text-lg font-semibold text-gray-900">Issuance over time</h2>
-          <p className="mt-1 text-xs text-gray-500">
+        <div className="rounded-lg bg-white dark:bg-slate-900 p-6 shadow-md dark:shadow-lg dark:border dark:border-slate-700 transition-colors duration-250">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-250">Issuance over time</h2>
+          <p className="mt-1 text-xs text-gray-500 dark:text-slate-400 transition-colors duration-250">
             Daily certificate issuance for the selected date range.
           </p>
           <div className="mt-4">
             <IssuanceChart data={stats?.issuanceTrend ?? []} />
           </div>
         </div>
-        <div className="rounded-lg bg-white p-6 shadow-md">
-          <h2 className="text-lg font-semibold text-gray-900">Status distribution</h2>
-          <p className="mt-1 text-xs text-gray-500">
+        <div className="rounded-lg bg-white dark:bg-slate-900 p-6 shadow-md dark:shadow-lg dark:border dark:border-slate-700 transition-colors duration-250">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-250">Status distribution</h2>
+          <p className="mt-1 text-xs text-gray-500 dark:text-slate-400 transition-colors duration-250">
             Breakdown of certificates by current status.
           </p>
           <div className="mt-4">
             <StatusPieChart distribution={statusDistribution} />
           </div>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-500">
-          <h2 className="text-xl font-semibold mb-2">Revoked Certificates</h2>
-          <p className="text-3xl font-bold text-red-600">{revokedCount}</p>
-          <p className="text-sm text-gray-500 mt-1">CRL Status: Active</p>
-        </div>
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[3fr,2fr]">
-        <div className="rounded-lg bg-white p-6 shadow-md">
-          <h2 className="text-lg font-semibold text-gray-900">Recent activity</h2>
-          <p className="mt-1 text-xs text-gray-500">
+        <div className="rounded-lg bg-white dark:bg-slate-900 p-6 shadow-md dark:shadow-lg dark:border dark:border-slate-700 transition-colors duration-250">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-250">Recent activity</h2>
+          <p className="mt-1 text-xs text-gray-500 dark:text-slate-400 transition-colors duration-250">
             Latest certificate issuance and revocation events.
           </p>
           <div className="mt-4">
             <ActivityFeed items={stats?.recentActivity ?? []} />
           </div>
         </div>
-        <div className="rounded-lg bg-white p-6 shadow-md">
-          <h2 className="text-lg font-semibold text-gray-900">Quick actions</h2>
-          <p className="mt-1 text-xs text-gray-500">
+        <div className="rounded-lg bg-white dark:bg-slate-900 p-6 shadow-md dark:shadow-lg dark:border dark:border-slate-700 transition-colors duration-250">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-250">Quick actions</h2>
+          <p className="mt-1 text-xs text-gray-500 dark:text-slate-400 transition-colors duration-250">
             Common issuer workflows you can access from here.
           </p>
-          <div className="mt-4 grid grid-cols-1 gap-4">
+          <div className="mt-4 space-y-3">
             <Link
               to="/issue"
-              className="flex items-center justify-between rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-800 hover:bg-gray-100"
+              className="flex items-center justify-between rounded-md border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 px-4 py-3 text-sm font-medium text-gray-800 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors duration-250"
             >
               <span>Issue new certificate</span>
-              <Award className="h-5 w-5 text-blue-600" />
+              <Award className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </Link>
             <Link
               to="/verify"
-              className="flex items-center justify-between rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-800 hover:bg-gray-100"
+              className="flex items-center justify-between rounded-md border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 px-4 py-3 text-sm font-medium text-gray-800 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors duration-250"
             >
               <span>Verify existing certificate</span>
-              <Search className="h-5 w-5 text-emerald-600" />
+              <Search className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </Link>
             <Link
               to="/wallet"
-              className="flex items-center justify-between rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-800 hover:bg-gray-100"
+              className="flex items-center justify-between rounded-md border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 px-4 py-3 text-sm font-medium text-gray-800 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors duration-250"
             >
               <span>Open certificate wallet</span>
-              <Wallet className="h-5 w-5 text-purple-600" />
+              <Wallet className="h-5 w-5 text-purple-600 dark:text-purple-400" />
             </Link>
           </div>
         </div>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Link to="/issue" className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
-          <Award className="w-12 h-12 text-blue-600 mb-4" />
-          <h3 className="text-xl font-semibold mb-2">Issue Certificate</h3>
-          <p className="text-gray-600">Create and issue new digital certificates</p>
+      </div>
+
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Link
+          to="/issue"
+          className="bg-white dark:bg-slate-900 p-6 rounded-lg shadow-md dark:shadow-lg dark:border dark:border-slate-700 hover:shadow-lg dark:hover:shadow-xl transition-all duration-250"
+        >
+          <Award className="w-12 h-12 text-blue-600 dark:text-blue-400 mb-4 transition-colors duration-250" />
+          <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white transition-colors duration-250">Issue Certificate</h3>
+          <p className="text-sm text-gray-600 dark:text-slate-400 transition-colors duration-250">
+            Create and issue new digital certificates
+          </p>
         </Link>
 
-        <Link to="/verify" className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
-          <Search className="w-12 h-12 text-green-600 mb-4" />
-          <h3 className="text-xl font-semibold mb-2">Verify Certificate</h3>
-          <p className="text-gray-600">Verify the authenticity of certificates</p>
+        <Link
+          to="/verify"
+          className="bg-white dark:bg-slate-900 p-6 rounded-lg shadow-md dark:shadow-lg dark:border dark:border-slate-700 hover:shadow-lg dark:hover:shadow-xl transition-all duration-250"
+        >
+          <Search className="w-12 h-12 text-green-600 dark:text-green-400 mb-4 transition-colors duration-250" />
+          <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white transition-colors duration-250">Verify Certificate</h3>
+          <p className="text-sm text-gray-600 dark:text-slate-400 transition-colors duration-250">
+            Verify the authenticity of certificates
+          </p>
         </Link>
 
-        <Link to="/wallet" className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
-          <Wallet className="w-12 h-12 text-purple-600 mb-4" />
-          <h3 className="text-xl font-semibold mb-2">Certificate Wallet</h3>
-          <p className="text-gray-600">View and manage your certificates</p>
+        <Link
+          to="/wallet"
+          className="bg-white dark:bg-slate-900 p-6 rounded-lg shadow-md dark:shadow-lg dark:border dark:border-slate-700 hover:shadow-lg dark:hover:shadow-xl transition-all duration-250"
+        >
+          <Wallet className="w-12 h-12 text-purple-600 dark:text-purple-400 mb-4 transition-colors duration-250" />
+          <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white transition-colors duration-250">Certificate Wallet</h3>
+          <p className="text-sm text-gray-600 dark:text-slate-400 transition-colors duration-250">
+            View and manage your certificates
+          </p>
         </Link>
 
-        <Link to="/revoke" className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow border border-red-200">
-          <ShieldAlert className="w-12 h-12 text-red-600 mb-4" />
-          <h3 className="text-xl font-semibold mb-2">Revoke Certificate</h3>
-          <p className="text-gray-600">Manage certificate revocation list</p>
-          <div className="mt-2 text-sm text-red-600 font-medium">
+        <Link
+          to="/revoke"
+          className="bg-white dark:bg-slate-900 p-6 rounded-lg shadow-md dark:shadow-lg border border-red-200 dark:border-red-900/50 hover:shadow-lg dark:hover:shadow-xl transition-all duration-250"
+        >
+          <ShieldAlert className="w-12 h-12 text-red-600 dark:text-red-400 mb-4 transition-colors duration-250" />
+          <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white transition-colors duration-250">Revoke Certificate</h3>
+          <p className="text-sm text-gray-600 dark:text-slate-400 transition-colors duration-250">Manage certificate revocation list</p>
+          <div className="mt-2 text-sm text-red-600 dark:text-red-400 font-medium transition-colors duration-250">
             CRL Active • {revokedCount} revoked
           </div>
         </Link>
