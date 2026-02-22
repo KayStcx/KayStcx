@@ -328,9 +328,25 @@ export const getUserCertificates = async (userId: string): Promise<Certificate[]
 };
 
 export const certificateApi = {
-    list: async (params?: any): Promise<PaginatedResponse<Certificate>> => {
-        const searchParams = new URLSearchParams(params).toString();
-        return apiClient<PaginatedResponse<Certificate>>(`/certificates?${searchParams}`);
+    list: async (params?: {
+        page?: number;
+        limit?: number;
+        search?: string;
+        status?: string;
+        sortBy?: string;
+        sortOrder?: 'asc' | 'desc';
+        startDate?: string;
+        endDate?: string;
+    }): Promise<PaginatedResponse<Certificate>> => {
+        const searchParams = new URLSearchParams();
+        if (params) {
+            Object.entries(params).forEach(([key, value]) => {
+                if (value !== undefined && value !== '') {
+                    searchParams.append(key, String(value));
+                }
+            });
+        }
+        return apiClient<PaginatedResponse<Certificate>>(`/certificates?${searchParams.toString()}`);
     },
     create: createCertificate,
     verify: verifyCertificate,
@@ -339,6 +355,84 @@ export const certificateApi = {
         return apiClient<Certificate>(`/certificates/${id}`);
     },
     getUserCertificates,
+    bulkExport: async (certificateIds: string[]): Promise<Blob> => {
+        if (USE_DUMMY_DATA) {
+            await simulateDelay();
+            // Create a dummy CSV blob
+            const headers = ['ID', 'Recipient Name', 'Email', 'Title', 'Status', 'Issue Date'];
+            const certs = dummyData.certificates.filter(c => certificateIds.includes(c.id));
+            const rows = certs.map(c => [c.id, c.recipientName, c.recipientEmail, c.title, c.status, c.issueDate]);
+            const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+            return new Blob([csv], { type: 'text/csv' });
+        }
+        const response = await fetch(`${API_URL}/certificates/export`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${tokenStorage.getAccessToken()}`
+            },
+            body: JSON.stringify({ certificateIds })
+        });
+        if (!response.ok) {
+            throw new Error('Export failed');
+        }
+        return response.blob();
+    },
+    bulkRevoke: async (certificateIds: string[], reason?: string): Promise<Certificate[]> => {
+        if (USE_DUMMY_DATA) {
+            await simulateDelay();
+            const updatedCerts: Certificate[] = [];
+            for (const id of certificateIds) {
+                const cert = dummyData.certificates.find(c => c.id === id);
+                if (cert) {
+                    cert.status = 'revoked';
+                    updatedCerts.push(cert);
+                }
+            }
+            return updatedCerts;
+        }
+        return apiClient<Certificate[]>('/certificates/bulk-revoke', {
+            method: 'POST',
+            body: JSON.stringify({ certificateIds, reason })
+        });
+    },
+    freeze: async (certificateId: string, reason: string, durationDays: number): Promise<Certificate> => {
+        if (USE_DUMMY_DATA) {
+            await simulateDelay();
+            const cert = dummyData.certificates.find(c => c.id === certificateId);
+            if (cert) {
+                cert.status = 'frozen';
+                cert.freezeReason = reason;
+                cert.frozenAt = new Date().toISOString();
+                const unfreezeDate = new Date();
+                unfreezeDate.setDate(unfreezeDate.getDate() + durationDays);
+                cert.unfreezeAt = unfreezeDate.toISOString();
+                return cert;
+            }
+            throw new Error('Certificate not found');
+        }
+        return apiClient<Certificate>(`/certificates/${certificateId}/freeze`, {
+            method: 'POST',
+            body: JSON.stringify({ reason, durationDays })
+        });
+    },
+    unfreeze: async (certificateId: string): Promise<Certificate> => {
+        if (USE_DUMMY_DATA) {
+            await simulateDelay();
+            const cert = dummyData.certificates.find(c => c.id === certificateId);
+            if (cert) {
+                cert.status = 'active';
+                cert.freezeReason = undefined;
+                cert.frozenAt = undefined;
+                cert.unfreezeAt = undefined;
+                return cert;
+            }
+            throw new Error('Certificate not found');
+        }
+        return apiClient<Certificate>(`/certificates/${certificateId}/unfreeze`, {
+            method: 'POST'
+        });
+    },
 };
 
 // ==================== AUTHENTICATION ====================
