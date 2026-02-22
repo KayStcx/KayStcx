@@ -1,4 +1,4 @@
-import { Certificate } from 'crypto';
+import { Certificate } from './certificate.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,

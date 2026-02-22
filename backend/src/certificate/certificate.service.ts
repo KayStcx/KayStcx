@@ -9,8 +9,11 @@ import { Repository } from 'typeorm';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { UpdateCertificateDto } from './dto/update-certificate.dto';
 import { Certificate } from './entities/certificate.entity';
+import { Verification } from './entities/verification.entity';
 import { DuplicateDetectionService } from './services/duplicate-detection.service';
 import { DuplicateDetectionConfig } from './interfaces/duplicate-detection.interface';
+import { WebhooksService } from '../modules/webhooks/webhooks.service';
+import { WebhookEvent } from '../modules/webhooks/entities/webhook-subscription.entity';
 
 @Injectable()
 export class CertificateService {
@@ -19,8 +22,11 @@ export class CertificateService {
   constructor(
     @InjectRepository(Certificate)
     private readonly certificateRepository: Repository<Certificate>,
+    @InjectRepository(Verification)
+    private readonly verificationRepository: Repository<Verification>,
     private readonly duplicateDetectionService: DuplicateDetectionService,
-  ) {}
+    private readonly webhooksService: WebhooksService,
+  ) { }
 
   async create(
     createCertificateDto: CreateCertificateDto,
@@ -74,6 +80,21 @@ export class CertificateService {
     this.logger.log(
       `Certificate created: ${savedCertificate.id} for ${createCertificateDto.recipientEmail}`,
     );
+
+    // Trigger webhook event
+    await this.webhooksService.triggerEvent(
+      WebhookEvent.CERTIFICATE_ISSUED,
+      savedCertificate.issuerId,
+      {
+        id: savedCertificate.id,
+        recipientEmail: savedCertificate.recipientEmail,
+        recipientName: savedCertificate.recipientName,
+        courseName: savedCertificate.courseName,
+        issuedAt: savedCertificate.issuedAt,
+        status: savedCertificate.status,
+      },
+    );
+
     return savedCertificate;
   }
 
@@ -130,12 +151,45 @@ export class CertificateService {
       .getOne();
 
     if (!certificate) {
+      // Record failed verification if we want to track it
       throw new NotFoundException(
         'Certificate not found or invalid verification code',
       );
     }
 
     return certificate;
+  }
+
+  async verifyCertificate(verificationCode: string): Promise<Certificate> {
+    try {
+      const certificate = await this.findByVerificationCode(verificationCode);
+
+      // Record successful verification
+      await this.verificationRepository.save({
+        certificate,
+        success: true,
+        verifiedAt: new Date(),
+      });
+
+      // Trigger webhook event
+      await this.webhooksService.triggerEvent(
+        WebhookEvent.CERTIFICATE_VERIFIED,
+        certificate.issuerId,
+        {
+          id: certificate.id,
+          verificationCode,
+          verifiedAt: new Date(),
+          recipientEmail: certificate.recipientEmail,
+        },
+      );
+
+      return certificate;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        // Option: Record failed verification in DB too
+      }
+      throw error;
+    }
   }
 
   async update(
@@ -161,7 +215,21 @@ export class CertificateService {
       };
     }
 
-    return this.certificateRepository.save(certificate);
+    const savedCertificate = await this.certificateRepository.save(certificate);
+
+    // Trigger webhook event
+    await this.webhooksService.triggerEvent(
+      WebhookEvent.CERTIFICATE_REVOKED,
+      savedCertificate.issuerId,
+      {
+        id: savedCertificate.id,
+        status: savedCertificate.status,
+        revocationReason: reason,
+        revokedAt: new Date(),
+      },
+    );
+
+    return savedCertificate;
   }
 
   async remove(id: string): Promise<void> {

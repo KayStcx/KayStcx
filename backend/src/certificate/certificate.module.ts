@@ -7,6 +7,7 @@ import { CertificateService } from './certificate.service';
 import { CertificateStatsService } from './services/stats.service';
 import { CertificateStatsController } from './certificate.controller';
 import { DuplicateDetectionModule } from './duplicate-detection.module';
+import { WebhooksModule } from '../modules/webhooks/webhooks.module';
 
 @Module({
   imports: [
@@ -16,9 +17,10 @@ import { DuplicateDetectionModule } from './duplicate-detection.module';
       max: 100, // maximum number of items in cache
     }),
     DuplicateDetectionModule,
+    WebhooksModule,
   ],
   controllers: [CertificateStatsController],
   providers: [CertificateService, CertificateStatsService],
   exports: [CertificateService, CertificateStatsService],
 })
-export class CertificateModule {}
+export class CertificateModule { }
