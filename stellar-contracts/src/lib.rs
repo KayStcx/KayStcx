@@ -85,6 +85,19 @@ mod crl;
 mod crl_test;
 mod multisig;
 mod multisig_test;
+pub mod metadata;
+mod metadata_test;
+
+pub use metadata::{
+    MetadataFieldType,
+    MetadataFieldRule,
+    MetadataSchemaVersion,
+    MetadataSchemaRecord,
+    MetadataFieldError,
+    MetadataValidationResult,
+    MetadataEntry,
+    MetadataError,
+};
 
 pub use crl::{
     CRLContract,
@@ -1536,3 +1549,6 @@ pub use crl_test::*;
 
 #[cfg(test)]
 pub use multisig_test::*;
+
+#[cfg(test)]
+pub use metadata_test::*;
