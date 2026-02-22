@@ -18,6 +18,7 @@ import { StellarModule } from './modules/stellar/stellar.module';
 import { FilesModule } from './modules/files/files.module';
 import { VersioningModule } from './common/versioning/versioning.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { WebhooksModule } from './modules/webhooks/webhooks.module';
 
 @Module({
   imports: [
@@ -54,8 +55,9 @@ import { AuditModule } from './modules/audit/audit.module';
     EmailModule,
     FilesModule,
     AuditModule,
+    WebhooksModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
