@@ -150,6 +150,11 @@ export class StellarService implements OnModuleInit {
     }
   }
 
+
+  getKeypairFromPublicKey(publicKey: string): Keypair {
+    return Keypair.fromPublicKey(publicKey);
+  }
+
   /**
    * Verifies a transaction by its hash.
    */

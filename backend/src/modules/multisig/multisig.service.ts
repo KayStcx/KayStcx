@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SorobanRpc, TransactionBuilder, Networks, Contract, xdr, Address } from '@stellar/stellar-sdk';
+import { rpc, TransactionBuilder, Networks, Contract, xdr, Address } from '@stellar/stellar-sdk';
 import { StellarService } from '../stellar/services/stellar.service';
 
 // Enums and interfaces matching the smart contract
@@ -66,7 +66,7 @@ export interface PaginatedResult {
 export class MultisigService {
   private readonly logger = new Logger(MultisigService.name);
   private contractId: string;
-  private server: SorobanRpc.Server;
+  private server: rpc.Server;
   private networkPassphrase: string;
 
   constructor(
@@ -88,7 +88,7 @@ export class MultisigService {
 
     this.contractId = contractId;
     this.networkPassphrase = network === 'testnet' ? Networks.TESTNET : Networks.PUBLIC;
-    this.server = new SorobanRpc.Server(horizonUrl, { allowHttp: horizonUrl.includes('localhost') });
+    this.server = new rpc.Server(horizonUrl, { allowHttp: horizonUrl.includes('localhost') });
 
     this.logger.log(`MultisigService initialized with contract: ${contractId}`);
   }
@@ -96,6 +96,15 @@ export class MultisigService {
   /**
    * Initialize multisig configuration for an issuer
    */
+
+  private toUint64(value: number): xdr.Uint64 {
+    return xdr.Uint64.fromString(value.toString());
+  }
+
+  private optionalScVal(value: xdr.ScVal | null): xdr.ScVal {
+    return value ?? xdr.ScVal.scvVoid();
+  }
+
   async initMultisigConfig(
     adminPublicKey: string,
     issuer: string,
@@ -169,17 +178,17 @@ export class MultisigService {
       
       // Convert parameters to ScVal (using Option types)
       const thresholdScVal = newThreshold !== undefined 
-        ? xdr.ScVal.scvSome(xdr.ScVal.scvU32(newThreshold))
+        ? this.optionalScVal(xdr.ScVal.scvU32(newThreshold))
         : xdr.ScVal.scvVoid();
       
       const signersScVal = newSigners !== undefined
-        ? xdr.ScVal.scvSome(xdr.ScVal.scvVec(
+        ? this.optionalScVal(xdr.ScVal.scvVec(
             newSigners.map(signer => new Address(signer).toScVal())
           ))
         : xdr.ScVal.scvVoid();
       
       const maxSignersScVal = newMaxSigners !== undefined
-        ? xdr.ScVal.scvSome(xdr.ScVal.scvU32(newMaxSigners))
+        ? this.optionalScVal(xdr.ScVal.scvU32(newMaxSigners))
         : xdr.ScVal.scvVoid();
 
       const transaction = new TransactionBuilder(sourceAccount, {
@@ -352,7 +361,7 @@ export class MultisigService {
       const requestIdScVal = xdr.ScVal.scvString(requestId);
       const rejectorScVal = new Address(rejectorPublicKey).toScVal();
       const reasonScVal = reason
-        ? xdr.ScVal.scvSome(xdr.ScVal.scvString(reason))
+        ? this.optionalScVal(xdr.ScVal.scvString(reason))
         : xdr.ScVal.scvVoid();
 
       const transaction = new TransactionBuilder(sourceAccount, {
@@ -492,11 +501,11 @@ export class MultisigService {
       // Convert parameters to ScVal
       const issuerScVal = new Address(issuer).toScVal();
 
-      const response = await this.server.simulateTransaction(
+      const response = await (this.server.simulateTransaction as any)(
         contract.call("get_multisig_config", issuerScVal)
       );
 
-      if (response.result?.retval) {
+      if ((response as any).result?.retval) {
         // For now, return a mock result since parsing complex XDR is complex
         // In a real implementation, we would parse the XDR response properly
         return {
@@ -523,11 +532,11 @@ export class MultisigService {
       // Convert parameters to ScVal
       const requestIdScVal = xdr.ScVal.scvString(requestId);
 
-      const response = await this.server.simulateTransaction(
+      const response = await (this.server.simulateTransaction as any)(
         contract.call("get_pending_request", requestIdScVal)
       );
 
-      if (response.result?.retval) {
+      if ((response as any).result?.retval) {
         // For now, return a mock result since parsing complex XDR is complex
         // In a real implementation, we would parse the XDR response properly
         return {
@@ -561,12 +570,12 @@ export class MultisigService {
       // Convert parameters to ScVal
       const requestIdScVal = xdr.ScVal.scvString(requestId);
 
-      const response = await this.server.simulateTransaction(
+      const response = await (this.server.simulateTransaction as any)(
         contract.call("is_expired", requestIdScVal)
       );
 
-      if (response.result?.retval) {
-        const result = response.result.retval;
+      if ((response as any).result?.retval) {
+        const result = (response as any).result?.retval;
         if (result.switch().name === 'scvBool') {
           return result.b();
         }
@@ -602,11 +611,11 @@ export class MultisigService {
         }),
       ]);
 
-      const response = await this.server.simulateTransaction(
+      const response = await (this.server.simulateTransaction as any)(
         contract.call("get_pending_requests_for_issuer", issuerScVal, paginationScVal)
       );
 
-      if (response.result?.retval) {
+      if ((response as any).result?.retval) {
         // For now, return a mock result since parsing complex XDR is complex
         return {
           data: [],
@@ -647,11 +656,11 @@ export class MultisigService {
         }),
       ]);
 
-      const response = await this.server.simulateTransaction(
+      const response = await (this.server.simulateTransaction as any)(
         contract.call("get_pending_requests_for_signer", signerScVal, paginationScVal)
       );
 
-      if (response.result?.retval) {
+      if ((response as any).result?.retval) {
         // For now, return a mock result since parsing complex XDR is complex
         return {
           data: [],
