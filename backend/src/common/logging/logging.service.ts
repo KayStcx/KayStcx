@@ -33,7 +33,7 @@ export class LoggingService {
       ...overrides,
     };
     if (context.correlationId) {
-        this.contextMap.set(context.correlationId, context);
+      this.contextMap.set(context.correlationId, context);
     }
     return context;
   }

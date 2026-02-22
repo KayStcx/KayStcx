@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SorobanRpc, TransactionBuilder, Networks, Contract, xdr, Address, ScVal } from '@stellar/stellar-sdk';
+import * as StellarSdk from '@stellar/stellar-sdk';
 import { StellarService } from '../stellar/services/stellar.service';
 
 // Revocation reason enum matching the smart contract
@@ -59,7 +59,7 @@ export interface VerificationResult {
 export class CRLService {
   private readonly logger = new Logger(CRLService.name);
   private contractId: string;
-  private server: SorobanRpc.Server;
+  private server: any;
   private networkPassphrase: string;
 
   constructor(
@@ -75,13 +75,20 @@ export class CRLService {
     const network = this.configService.get<string>('STELLAR_NETWORK');
 
     if (!contractId || !horizonUrl || !network) {
-      this.logger.warn('CRL configuration missing. CRLService may not function correctly.');
+      this.logger.warn(
+        'CRL configuration missing. CRLService may not function correctly.',
+      );
       return;
     }
 
     this.contractId = contractId;
-    this.networkPassphrase = network === 'testnet' ? Networks.TESTNET : Networks.PUBLIC;
-    this.server = new SorobanRpc.Server(horizonUrl, { allowHttp: horizonUrl.includes('localhost') });
+    this.networkPassphrase =
+      network === 'testnet'
+        ? StellarSdk.Networks.TESTNET
+        : StellarSdk.Networks.PUBLIC;
+    this.server = new StellarSdk.rpc.Server(horizonUrl, {
+      allowHttp: horizonUrl.includes('localhost'),
+    });
 
     this.logger.log(`CRLService initialized with contract: ${contractId}`);
   }
@@ -91,15 +98,21 @@ export class CRLService {
    */
   async initializeCRL(issuerPublicKey: string): Promise<string> {
     try {
-      const issuerKeyPair = this.stellarService.getKeypairFromPublicKey(issuerPublicKey);
+      const issuerKeyPair =
+        this.stellarService.getKeypairFromPublicKey(issuerPublicKey);
       const sourceAccount = await this.server.getAccount(issuerPublicKey);
 
-      const contract = new Contract(this.contractId);
-      const transaction = new TransactionBuilder(sourceAccount, {
+      const contract = new StellarSdk.Contract(this.contractId);
+      const transaction = new StellarSdk.TransactionBuilder(sourceAccount, {
         fee: '100000',
         networkPassphrase: this.networkPassphrase,
       })
-        .addOperation(contract.call("initialize", new Address(issuerPublicKey).toScVal()))
+        .addOperation(
+          contract.call(
+            'initialize',
+            new StellarSdk.Address(issuerPublicKey).toScVal(),
+          ),
+        )
         .setTimeout(30)
         .build();
 
@@ -109,7 +122,9 @@ export class CRLService {
       if (response.status === 'PENDING') {
         const txResponse = await this.server.getTransaction(response.hash);
         if (txResponse.status === 'SUCCESS') {
-          this.logger.log(`CRL initialized successfully with hash: ${response.hash}`);
+          this.logger.log(
+            `CRL initialized successfully with hash: ${response.hash}`,
+          );
           return response.hash;
         }
       }
@@ -131,29 +146,35 @@ export class CRLService {
     invalidityDate?: number,
   ): Promise<string> {
     try {
-      const issuerKeyPair = this.stellarService.getKeypairFromPublicKey(issuerPublicKey);
+      const issuerKeyPair =
+        this.stellarService.getKeypairFromPublicKey(issuerPublicKey);
       const sourceAccount = await this.server.getAccount(issuerPublicKey);
 
-      const contract = new Contract(this.contractId);
-      
-      // Convert reason to ScVal
-      const reasonScVal = xdr.ScVal.scvU32(reason);
-      
-      // Convert invalidityDate to ScVal (optional)
-      const invalidityScVal = invalidityDate 
-        ? xdr.ScVal.scvSome(xdr.ScVal.scvU64(invalidityDate))
-        : xdr.ScVal.scvVoid();
+      const contract = new StellarSdk.Contract(this.contractId);
 
-      const transaction = new TransactionBuilder(sourceAccount, {
+      // Convert reason to ScVal
+      const reasonScVal = StellarSdk.xdr.ScVal.scvU32(reason);
+
+      // Convert invalidityDate to ScVal (optional)
+      const invalidityScVal =
+        typeof invalidityDate === 'number'
+          ? StellarSdk.xdr.ScVal.scvU64(
+              BigInt(Math.max(0, Math.floor(invalidityDate))) as any,
+            )
+          : StellarSdk.xdr.ScVal.scvVoid();
+
+      const transaction = new StellarSdk.TransactionBuilder(sourceAccount, {
         fee: '100000',
         networkPassphrase: this.networkPassphrase,
       })
-        .addOperation(contract.call(
-          "revoke_certificate",
-          xdr.ScVal.scvString(certificateId),
-          reasonScVal,
-          invalidityScVal
-        ))
+        .addOperation(
+          contract.call(
+            'revoke_certificate',
+            StellarSdk.xdr.ScVal.scvString(certificateId),
+            reasonScVal,
+            invalidityScVal,
+          ),
+        )
         .setTimeout(30)
         .build();
 
@@ -178,17 +199,26 @@ export class CRLService {
   /**
    * Unrevoke a certificate
    */
-  async unrevokeCertificate(issuerPublicKey: string, certificateId: string): Promise<string> {
+  async unrevokeCertificate(
+    issuerPublicKey: string,
+    certificateId: string,
+  ): Promise<string> {
     try {
-      const issuerKeyPair = this.stellarService.getKeypairFromPublicKey(issuerPublicKey);
+      const issuerKeyPair =
+        this.stellarService.getKeypairFromPublicKey(issuerPublicKey);
       const sourceAccount = await this.server.getAccount(issuerPublicKey);
 
-      const contract = new Contract(this.contractId);
-      const transaction = new TransactionBuilder(sourceAccount, {
+      const contract = new StellarSdk.Contract(this.contractId);
+      const transaction = new StellarSdk.TransactionBuilder(sourceAccount, {
         fee: '100000',
         networkPassphrase: this.networkPassphrase,
       })
-        .addOperation(contract.call("unrevoke_certificate", xdr.ScVal.scvString(certificateId)))
+        .addOperation(
+          contract.call(
+            'unrevoke_certificate',
+            StellarSdk.xdr.ScVal.scvString(certificateId),
+          ),
+        )
         .setTimeout(30)
         .build();
 
@@ -198,14 +228,19 @@ export class CRLService {
       if (response.status === 'PENDING') {
         const txResponse = await this.server.getTransaction(response.hash);
         if (txResponse.status === 'SUCCESS') {
-          this.logger.log(`Certificate ${certificateId} unrevoked successfully`);
+          this.logger.log(
+            `Certificate ${certificateId} unrevoked successfully`,
+          );
           return response.hash;
         }
       }
 
       throw new Error(`Transaction failed: ${response.status}`);
     } catch (error) {
-      this.logger.error(`Failed to unrevoke certificate ${certificateId}`, error);
+      this.logger.error(
+        `Failed to unrevoke certificate ${certificateId}`,
+        error,
+      );
       throw error;
     }
   }
@@ -215,9 +250,12 @@ export class CRLService {
    */
   async isCertificateRevoked(certificateId: string): Promise<boolean> {
     try {
-      const contract = new Contract(this.contractId);
+      const contract = new StellarSdk.Contract(this.contractId);
       const response = await this.server.simulateTransaction(
-        contract.call("is_revoked", xdr.ScVal.scvString(certificateId))
+        contract.call(
+          'is_revoked',
+          StellarSdk.xdr.ScVal.scvString(certificateId),
+        ),
       );
 
       if (response.result?.retval) {
@@ -229,7 +267,10 @@ export class CRLService {
 
       throw new Error('Invalid response from contract');
     } catch (error) {
-      this.logger.error(`Failed to check revocation status for ${certificateId}`, error);
+      this.logger.error(
+        `Failed to check revocation status for ${certificateId}`,
+        error,
+      );
       throw error;
     }
   }
@@ -237,23 +278,34 @@ export class CRLService {
   /**
    * Get revocation information for a certificate
    */
-  async getRevocationInfo(certificateId: string): Promise<RevokedCertificate | null> {
+  async getRevocationInfo(
+    certificateId: string,
+  ): Promise<RevokedCertificate | null> {
     try {
-      const contract = new Contract(this.contractId);
+      const contract = new StellarSdk.Contract(this.contractId);
       const response = await this.server.simulateTransaction(
-        contract.call("get_revocation_info", xdr.ScVal.scvString(certificateId))
+        contract.call(
+          'get_revocation_info',
+          StellarSdk.xdr.ScVal.scvString(certificateId),
+        ),
       );
 
       if (response.result?.retval) {
         // Parse the result - this would need proper XDR parsing
         // For now, returning null as parsing complex XDR structures requires more implementation
-        this.logger.debug(`Revocation info for ${certificateId}:`, response.result.retval);
+        this.logger.debug(
+          `Revocation info for ${certificateId}:`,
+          response.result.retval,
+        );
         return null;
       }
 
       return null;
     } catch (error) {
-      this.logger.error(`Failed to get revocation info for ${certificateId}`, error);
+      this.logger.error(
+        `Failed to get revocation info for ${certificateId}`,
+        error,
+      );
       return null;
     }
   }
@@ -261,36 +313,41 @@ export class CRLService {
   /**
    * Get paginated list of revoked certificates
    */
-  async getRevokedCertificates(pagination: Pagination): Promise<PaginatedResult> {
+  async getRevokedCertificates(
+    pagination: Pagination,
+  ): Promise<PaginatedResult> {
     try {
-      const contract = new Contract(this.contractId);
-      
+      const contract = new StellarSdk.Contract(this.contractId);
+
       // Convert pagination to ScVal
-      const paginationScVal = xdr.ScVal.scvMap([
-        new xdr.ScMapEntry({
-          key: xdr.ScVal.scvString('page'),
-          val: xdr.ScVal.scvU32(pagination.page)
+      const paginationScVal = StellarSdk.xdr.ScVal.scvMap([
+        new StellarSdk.xdr.ScMapEntry({
+          key: StellarSdk.xdr.ScVal.scvString('page'),
+          val: StellarSdk.xdr.ScVal.scvU32(pagination.page),
         }),
-        new xdr.ScMapEntry({
-          key: xdr.ScVal.scvString('limit'),
-          val: xdr.ScVal.scvU32(pagination.limit)
-        })
+        new StellarSdk.xdr.ScMapEntry({
+          key: StellarSdk.xdr.ScVal.scvString('limit'),
+          val: StellarSdk.xdr.ScVal.scvU32(pagination.limit),
+        }),
       ]);
 
       const response = await this.server.simulateTransaction(
-        contract.call("get_revoked_certificates", paginationScVal)
+        contract.call('get_revoked_certificates', paginationScVal),
       );
 
       if (response.result?.retval) {
         // Parse the result - would need proper XDR parsing
-        this.logger.debug('Revoked certificates response:', response.result.retval);
+        this.logger.debug(
+          'Revoked certificates response:',
+          response.result.retval,
+        );
         // Return mock data for now
         return {
           data: [],
           total: 0,
           page: pagination.page,
           limit: pagination.limit,
-          has_next: false
+          has_next: false,
         };
       }
 
@@ -306,9 +363,9 @@ export class CRLService {
    */
   async getCRLInfo(): Promise<CertificateRevocationList> {
     try {
-      const contract = new Contract(this.contractId);
+      const contract = new StellarSdk.Contract(this.contractId);
       const response = await this.server.simulateTransaction(
-        contract.call("get_crl_info")
+        contract.call('get_crl_info'),
       );
 
       if (response.result?.retval) {
@@ -322,7 +379,7 @@ export class CRLService {
           revoked_certificates: [],
           merkle_root: undefined,
           crl_number: 1,
-          authority_key_identifier: undefined
+          authority_key_identifier: undefined,
         };
       }
 
@@ -338,19 +395,25 @@ export class CRLService {
    */
   async verifyCertificate(certificateId: string): Promise<VerificationResult> {
     try {
-      const contract = new Contract(this.contractId);
+      const contract = new StellarSdk.Contract(this.contractId);
       const response = await this.server.simulateTransaction(
-        contract.call("verify_certificate", xdr.ScVal.scvString(certificateId))
+        contract.call(
+          'verify_certificate',
+          StellarSdk.xdr.ScVal.scvString(certificateId),
+        ),
       );
 
       if (response.result?.retval) {
         // Parse the result - would need proper XDR parsing
-        this.logger.debug(`Verification result for ${certificateId}:`, response.result.retval);
+        this.logger.debug(
+          `Verification result for ${certificateId}:`,
+          response.result.retval,
+        );
         // Return mock data for now
         return {
           is_revoked: false,
           crl_number: 1,
-          this_update: Date.now()
+          this_update: Date.now(),
         };
       }
 
@@ -366,9 +429,9 @@ export class CRLService {
    */
   async getMerkleRoot(): Promise<string | null> {
     try {
-      const contract = new Contract(this.contractId);
+      const contract = new StellarSdk.Contract(this.contractId);
       const response = await this.server.simulateTransaction(
-        contract.call("get_merkle_root")
+        contract.call('get_merkle_root'),
       );
 
       if (response.result?.retval) {
@@ -389,9 +452,9 @@ export class CRLService {
    */
   async getRevokedCount(): Promise<number> {
     try {
-      const contract = new Contract(this.contractId);
+      const contract = new StellarSdk.Contract(this.contractId);
       const response = await this.server.simulateTransaction(
-        contract.call("get_revoked_count")
+        contract.call('get_revoked_count'),
       );
 
       if (response.result?.retval) {
@@ -413,9 +476,9 @@ export class CRLService {
    */
   async needsUpdate(): Promise<boolean> {
     try {
-      const contract = new Contract(this.contractId);
+      const contract = new StellarSdk.Contract(this.contractId);
       const response = await this.server.simulateTransaction(
-        contract.call("needs_update")
+        contract.call('needs_update'),
       );
 
       if (response.result?.retval) {
@@ -441,25 +504,34 @@ export class CRLService {
     authorityKeyIdentifier?: string,
   ): Promise<string> {
     try {
-      const issuerKeyPair = this.stellarService.getKeypairFromPublicKey(issuerPublicKey);
+      const issuerKeyPair =
+        this.stellarService.getKeypairFromPublicKey(issuerPublicKey);
       const sourceAccount = await this.server.getAccount(issuerPublicKey);
 
-      const contract = new Contract(this.contractId);
-      
-      // Convert parameters to ScVal
-      const nextUpdateScVal = nextUpdate 
-        ? xdr.ScVal.scvSome(xdr.ScVal.scvU64(nextUpdate))
-        : xdr.ScVal.scvVoid();
-      
-      const akiScVal = authorityKeyIdentifier
-        ? xdr.ScVal.scvSome(xdr.ScVal.scvBytes(Buffer.from(authorityKeyIdentifier, 'hex')))
-        : xdr.ScVal.scvVoid();
+      const contract = new StellarSdk.Contract(this.contractId);
 
-      const transaction = new TransactionBuilder(sourceAccount, {
+      // Convert parameters to ScVal
+      const nextUpdateScVal =
+        typeof nextUpdate === 'number'
+          ? StellarSdk.xdr.ScVal.scvU64(
+              BigInt(Math.max(0, Math.floor(nextUpdate))) as any,
+            )
+          : StellarSdk.xdr.ScVal.scvVoid();
+
+      const akiScVal =
+        authorityKeyIdentifier && authorityKeyIdentifier.length > 0
+          ? StellarSdk.xdr.ScVal.scvBytes(
+              Buffer.from(authorityKeyIdentifier, 'hex'),
+            )
+          : StellarSdk.xdr.ScVal.scvVoid();
+
+      const transaction = new StellarSdk.TransactionBuilder(sourceAccount, {
         fee: '100000',
         networkPassphrase: this.networkPassphrase,
       })
-        .addOperation(contract.call("update_crl_metadata", nextUpdateScVal, akiScVal))
+        .addOperation(
+          contract.call('update_crl_metadata', nextUpdateScVal, akiScVal),
+        )
         .setTimeout(30)
         .build();
 

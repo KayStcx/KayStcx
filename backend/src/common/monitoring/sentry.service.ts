@@ -16,8 +16,12 @@ export class SentryService {
    */
   private initializeSentry(): void {
     const sentryDsn = this.configService.get<string>('SENTRY_DSN');
-    const environment = this.configService.get<string>('NODE_ENV') || 'development';
-    const enableSentry = this.configService.get<boolean>('ENABLE_SENTRY', false);
+    const environment =
+      this.configService.get<string>('NODE_ENV') || 'development';
+    const enableSentry = this.configService.get<boolean>(
+      'ENABLE_SENTRY',
+      false,
+    );
 
     if (enableSentry && sentryDsn) {
       Sentry.init({

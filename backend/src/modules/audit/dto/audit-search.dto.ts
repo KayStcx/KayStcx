@@ -1,4 +1,10 @@
-import { IsOptional, IsString, IsDateString, IsEnum, IsUUID } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsDateString,
+  IsEnum,
+  IsUUID,
+} from 'class-validator';
 import { AuditAction, AuditResourceType } from '../constants';
 import { Type } from 'class-transformer';
 

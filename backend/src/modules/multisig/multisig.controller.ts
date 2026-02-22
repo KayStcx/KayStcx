@@ -106,7 +106,10 @@ export class MultisigController {
       );
       return { transactionHash };
     } catch (error) {
-      this.logger.error(`Failed to update multisig config for issuer ${issuer}`, error);
+      this.logger.error(
+        `Failed to update multisig config for issuer ${issuer}`,
+        error,
+      );
       throw new HttpException(
         'Failed to update multisig configuration',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -131,7 +134,10 @@ export class MultisigController {
       );
       return result;
     } catch (error) {
-      this.logger.error(`Failed to propose certificate ${proposeDto.requestId}`, error);
+      this.logger.error(
+        `Failed to propose certificate ${proposeDto.requestId}`,
+        error,
+      );
       throw new HttpException(
         'Failed to propose certificate',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -196,7 +202,10 @@ export class MultisigController {
       );
       return { success };
     } catch (error) {
-      this.logger.error(`Failed to issue certificate for request ${requestId}`, error);
+      this.logger.error(
+        `Failed to issue certificate for request ${requestId}`,
+        error,
+      );
       throw new HttpException(
         'Failed to issue certificate',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -227,14 +236,15 @@ export class MultisigController {
 
   @Get('config/:issuer')
   @Roles(UserRole.ADMIN, UserRole.ISSUER, UserRole.USER)
-  async getMultisigConfig(
-    @Param('issuer') issuer: string,
-  ): Promise<any> {
+  async getMultisigConfig(@Param('issuer') issuer: string): Promise<any> {
     try {
       const config = await this.multisigService.getMultisigConfig(issuer);
       return config;
     } catch (error) {
-      this.logger.error(`Failed to get multisig config for issuer ${issuer}`, error);
+      this.logger.error(
+        `Failed to get multisig config for issuer ${issuer}`,
+        error,
+      );
       throw new HttpException(
         'Failed to get multisig configuration',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -244,9 +254,7 @@ export class MultisigController {
 
   @Get('request/:requestId')
   @Roles(UserRole.ADMIN, UserRole.ISSUER, UserRole.USER)
-  async getPendingRequest(
-    @Param('requestId') requestId: string,
-  ): Promise<any> {
+  async getPendingRequest(@Param('requestId') requestId: string): Promise<any> {
     try {
       const request = await this.multisigService.getPendingRequest(requestId);
       return request;
@@ -267,11 +275,20 @@ export class MultisigController {
     @Query('limit') limit: number = 20,
   ): Promise<any> {
     try {
-      const pagination: Pagination = { page: Number(page), limit: Number(limit) };
-      const result = await this.multisigService.getPendingRequestsForIssuer(issuer, pagination);
+      const pagination: Pagination = {
+        page: Number(page),
+        limit: Number(limit),
+      };
+      const result = await this.multisigService.getPendingRequestsForIssuer(
+        issuer,
+        pagination,
+      );
       return result;
     } catch (error) {
-      this.logger.error(`Failed to get pending requests for issuer ${issuer}`, error);
+      this.logger.error(
+        `Failed to get pending requests for issuer ${issuer}`,
+        error,
+      );
       throw new HttpException(
         'Failed to get pending requests for issuer',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -287,11 +304,20 @@ export class MultisigController {
     @Query('limit') limit: number = 20,
   ): Promise<any> {
     try {
-      const pagination: Pagination = { page: Number(page), limit: Number(limit) };
-      const result = await this.multisigService.getPendingRequestsForSigner(signer, pagination);
+      const pagination: Pagination = {
+        page: Number(page),
+        limit: Number(limit),
+      };
+      const result = await this.multisigService.getPendingRequestsForSigner(
+        signer,
+        pagination,
+      );
       return result;
     } catch (error) {
-      this.logger.error(`Failed to get pending requests for signer ${signer}`, error);
+      this.logger.error(
+        `Failed to get pending requests for signer ${signer}`,
+        error,
+      );
       throw new HttpException(
         'Failed to get pending requests for signer',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -308,7 +334,10 @@ export class MultisigController {
       const expired = await this.multisigService.isRequestExpired(requestId);
       return { expired };
     } catch (error) {
-      this.logger.error(`Failed to check if request ${requestId} is expired`, error);
+      this.logger.error(
+        `Failed to check if request ${requestId} is expired`,
+        error,
+      );
       throw new HttpException(
         'Failed to check request expiration status',
         HttpStatus.INTERNAL_SERVER_ERROR,

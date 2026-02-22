@@ -36,10 +36,7 @@ export class RolesGuard implements CanActivate {
     const userRole = user.role as UserRole;
 
     if (!userRole) {
-      throw new AuthException(
-        ErrorCode.UNAUTHORIZED,
-        'User role not found',
-      );
+      throw new AuthException(ErrorCode.UNAUTHORIZED, 'User role not found');
     }
 
     // Check if user has any of the required roles
@@ -59,7 +56,10 @@ export class RolesGuard implements CanActivate {
    * Check if user role has permission to access required roles
    * Uses role hierarchy to determine permissions
    */
-  private checkRoleHierarchy(userRole: UserRole, requiredRoles: UserRole[]): boolean {
+  private checkRoleHierarchy(
+    userRole: UserRole,
+    requiredRoles: UserRole[],
+  ): boolean {
     const allowedRoles = ROLE_HIERARCHY[userRole];
 
     if (!allowedRoles) {

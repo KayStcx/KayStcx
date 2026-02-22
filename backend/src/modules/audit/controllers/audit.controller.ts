@@ -62,7 +62,10 @@ export class AuditController {
 
       res.send(csv);
     } catch (error) {
-      this.logger.error(`Failed to export audit logs: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to export audit logs: ${error.message}`,
+        error.stack,
+      );
       res.status(500).json({ error: 'Failed to export audit logs' });
     }
   }

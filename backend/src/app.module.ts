@@ -58,4 +58,4 @@ import { AuditModule } from './modules/audit/audit.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}

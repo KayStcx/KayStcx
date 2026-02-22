@@ -225,7 +225,10 @@ describe('AuditController', () => {
 
       const result = await controller.getResourceAudits('resource-123', 50);
 
-      expect(service.getResourceAudits).toHaveBeenCalledWith('resource-123', 50);
+      expect(service.getResourceAudits).toHaveBeenCalledWith(
+        'resource-123',
+        50,
+      );
       expect(result).toEqual([mockAuditLog]);
     });
 
@@ -236,7 +239,10 @@ describe('AuditController', () => {
 
       await controller.getResourceAudits('resource-123');
 
-      expect(service.getResourceAudits).toHaveBeenCalledWith('resource-123', 50);
+      expect(service.getResourceAudits).toHaveBeenCalledWith(
+        'resource-123',
+        50,
+      );
     });
   });
 });

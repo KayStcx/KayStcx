@@ -157,7 +157,9 @@ describe('UsersService', () => {
       expect(result).toHaveProperty('tokens');
       expect(result.tokens).toHaveProperty('accessToken');
       expect(result.tokens).toHaveProperty('refreshToken');
-      expect(mockUserRepository.existsByEmail).toHaveBeenCalledWith(createUserDto.email);
+      expect(mockUserRepository.existsByEmail).toHaveBeenCalledWith(
+        createUserDto.email,
+      );
       expect(bcrypt.hash).toHaveBeenCalled();
     });
 
@@ -185,7 +187,8 @@ describe('UsersService', () => {
       await expect(
         service.register({
           ...createUserDto,
-          stellarPublicKey: 'GBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+          stellarPublicKey:
+            'GBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
         }),
       ).rejects.toThrow(ConflictException);
     });
@@ -199,7 +202,9 @@ describe('UsersService', () => {
 
     it('should successfully login a user', async () => {
       const userWithPassword = { ...mockUser, password: 'hashedPassword123' };
-      mockUserRepository.findByEmailWithPassword.mockResolvedValue(userWithPassword);
+      mockUserRepository.findByEmailWithPassword.mockResolvedValue(
+        userWithPassword,
+      );
       mockUserRepository.update.mockResolvedValue(mockUser);
 
       const result = await service.login(loginDto);
@@ -213,14 +218,18 @@ describe('UsersService', () => {
     it('should throw UnauthorizedException for invalid email', async () => {
       mockUserRepository.findByEmailWithPassword.mockResolvedValue(null);
 
-      await expect(service.login(loginDto)).rejects.toThrow(UnauthorizedException);
+      await expect(service.login(loginDto)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('should throw UnauthorizedException for invalid password', async () => {
       mockUserRepository.findByEmailWithPassword.mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
-      await expect(service.login(loginDto)).rejects.toThrow(UnauthorizedException);
+      await expect(service.login(loginDto)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('should throw ForbiddenException for locked account', async () => {
@@ -236,7 +245,9 @@ describe('UsersService', () => {
 
     it('should throw ForbiddenException for deactivated account', async () => {
       const inactiveUser = { ...mockUser, isActive: false };
-      mockUserRepository.findByEmailWithPassword.mockResolvedValue(inactiveUser);
+      mockUserRepository.findByEmailWithPassword.mockResolvedValue(
+        inactiveUser,
+      );
 
       await expect(service.login(loginDto)).rejects.toThrow(ForbiddenException);
     });
@@ -245,13 +256,19 @@ describe('UsersService', () => {
       mockUserRepository.findByEmailWithPassword.mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
-      await expect(service.login(loginDto)).rejects.toThrow(UnauthorizedException);
-      expect(mockUserRepository.incrementLoginAttempts).toHaveBeenCalledWith(mockUser.id);
+      await expect(service.login(loginDto)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(mockUserRepository.incrementLoginAttempts).toHaveBeenCalledWith(
+        mockUser.id,
+      );
     });
 
     it('should lock account after max failed attempts', async () => {
       const userWithAttempts = { ...mockUser, loginAttempts: 4 };
-      mockUserRepository.findByEmailWithPassword.mockResolvedValue(userWithAttempts);
+      mockUserRepository.findByEmailWithPassword.mockResolvedValue(
+        userWithAttempts,
+      );
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
       await expect(service.login(loginDto)).rejects.toThrow(ForbiddenException);
@@ -279,10 +296,14 @@ describe('UsersService', () => {
         refreshToken: 'valid-refresh-token',
         refreshTokenExpires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       };
-      mockUserRepository.findByRefreshToken.mockResolvedValue(userWithRefreshToken);
+      mockUserRepository.findByRefreshToken.mockResolvedValue(
+        userWithRefreshToken,
+      );
       mockUserRepository.update.mockResolvedValue(mockUser);
 
-      const result = await service.refreshTokens({ refreshToken: 'valid-refresh-token' });
+      const result = await service.refreshTokens({
+        refreshToken: 'valid-refresh-token',
+      });
 
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
@@ -302,7 +323,9 @@ describe('UsersService', () => {
         refreshToken: 'expired-token',
         refreshTokenExpires: new Date(Date.now() - 1000),
       };
-      mockUserRepository.findByRefreshToken.mockResolvedValue(userWithExpiredToken);
+      mockUserRepository.findByRefreshToken.mockResolvedValue(
+        userWithExpiredToken,
+      );
 
       await expect(
         service.refreshTokens({ refreshToken: 'expired-token' }),
@@ -318,7 +341,9 @@ describe('UsersService', () => {
         emailVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
         isEmailVerificationTokenValid: jest.fn().mockReturnValue(true),
       };
-      mockUserRepository.findByEmailVerificationToken.mockResolvedValue(userWithToken);
+      mockUserRepository.findByEmailVerificationToken.mockResolvedValue(
+        userWithToken,
+      );
       mockUserRepository.update.mockResolvedValue(mockUser);
 
       const result = await service.verifyEmail({ token: 'valid-token' });
@@ -340,7 +365,9 @@ describe('UsersService', () => {
         emailVerificationToken: 'expired-token',
         isEmailVerificationTokenValid: jest.fn().mockReturnValue(false),
       };
-      mockUserRepository.findByEmailVerificationToken.mockResolvedValue(userWithExpiredToken);
+      mockUserRepository.findByEmailVerificationToken.mockResolvedValue(
+        userWithExpiredToken,
+      );
 
       await expect(
         service.verifyEmail({ token: 'expired-token' }),
@@ -359,7 +386,10 @@ describe('UsersService', () => {
       mockUserRepository.findByIdWithPassword.mockResolvedValue(mockUser);
       mockUserRepository.update.mockResolvedValue(mockUser);
 
-      const result = await service.changePassword(mockUser.id, changePasswordDto);
+      const result = await service.changePassword(
+        mockUser.id,
+        changePasswordDto,
+      );
 
       expect(result.message).toBe('Password changed successfully');
       expect(bcrypt.hash).toHaveBeenCalled();
@@ -396,7 +426,9 @@ describe('UsersService', () => {
     it('should return success message regardless of email existence', async () => {
       mockUserRepository.findByEmail.mockResolvedValue(null);
 
-      const result = await service.forgotPassword({ email: 'nonexistent@example.com' });
+      const result = await service.forgotPassword({
+        email: 'nonexistent@example.com',
+      });
 
       expect(result.message).toContain('If the email exists');
     });
@@ -419,7 +451,9 @@ describe('UsersService', () => {
         passwordResetToken: 'valid-token',
         isPasswordResetTokenValid: jest.fn().mockReturnValue(true),
       };
-      mockUserRepository.findByPasswordResetToken.mockResolvedValue(userWithToken);
+      mockUserRepository.findByPasswordResetToken.mockResolvedValue(
+        userWithToken,
+      );
       mockUserRepository.update.mockResolvedValue(mockUser);
 
       const result = await service.resetPassword({
@@ -470,7 +504,10 @@ describe('UsersService', () => {
 
     it('should successfully update profile', async () => {
       mockUserRepository.findById.mockResolvedValue(mockUser);
-      mockUserRepository.update.mockResolvedValue({ ...mockUser, ...updateProfileDto });
+      mockUserRepository.update.mockResolvedValue({
+        ...mockUser,
+        ...updateProfileDto,
+      });
 
       const result = await service.updateProfile(mockUser.id, updateProfileDto);
 
@@ -539,7 +576,9 @@ describe('UsersService', () => {
 
       it('should throw ForbiddenException when admin tries to modify own role', async () => {
         await expect(
-          service.updateUserRole(mockUser.id, mockUser.id, { role: UserRole.ADMIN }),
+          service.updateUserRole(mockUser.id, mockUser.id, {
+            role: UserRole.ADMIN,
+          }),
         ).rejects.toThrow(ForbiddenException);
       });
     });

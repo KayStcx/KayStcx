@@ -64,7 +64,11 @@ export class StringUtils {
   /**
    * Checks if a string contains another string
    */
-  static contains(text: string, searchText: string, caseSensitive = false): boolean {
+  static contains(
+    text: string,
+    searchText: string,
+    caseSensitive = false,
+  ): boolean {
     if (!caseSensitive) {
       return text.toLowerCase().includes(searchText.toLowerCase());
     }

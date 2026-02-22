@@ -24,18 +24,25 @@ export class DuplicateDetectionService {
     config: DuplicateDetectionConfig,
   ): Promise<DuplicateCheckResult> {
     if (!config.enabled) {
-      return { isDuplicate: false, confidence: 0, matches: [], action: 'allow' };
+      return {
+        isDuplicate: false,
+        confidence: 0,
+        matches: [],
+        action: 'allow',
+      };
     }
 
     const matches: DuplicateMatch[] = [];
     let maxConfidence = 0;
 
-    for (const rule of config.rules.filter(r => r.enabled)) {
+    for (const rule of config.rules.filter((r) => r.enabled)) {
       const ruleMatches = await this.applyRule(certificateData, rule);
       matches.push(...ruleMatches);
-      
+
       if (ruleMatches.length > 0) {
-        const ruleConfidence = Math.max(...ruleMatches.map(m => m.similarityScore));
+        const ruleConfidence = Math.max(
+          ...ruleMatches.map((m) => m.similarityScore),
+        );
         maxConfidence = Math.max(maxConfidence, ruleConfidence);
       }
     }
@@ -45,9 +52,9 @@ export class DuplicateDetectionService {
 
     if (isDuplicate) {
       const highestPriorityRule = config.rules
-        .filter(r => r.enabled)
+        .filter((r) => r.enabled)
         .sort((a, b) => b.priority - a.priority)[0];
-      
+
       action = highestPriorityRule?.action || config.defaultAction;
     }
 
@@ -71,15 +78,21 @@ export class DuplicateDetectionService {
     if (rule.timeWindow) {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - rule.timeWindow);
-      queryBuilder.andWhere('certificate.issuedAt >= :cutoffDate', { cutoffDate });
+      queryBuilder.andWhere('certificate.issuedAt >= :cutoffDate', {
+        cutoffDate,
+      });
     }
 
     const certificates = await queryBuilder.getMany();
     const matches: DuplicateMatch[] = [];
 
     for (const cert of certificates) {
-      const similarityScore = this.calculateSimilarity(certificateData, cert, rule);
-      
+      const similarityScore = this.calculateSimilarity(
+        certificateData,
+        cert,
+        rule,
+      );
+
       if (similarityScore >= rule.threshold) {
         matches.push({
           certificateId: cert.id,
@@ -113,9 +126,16 @@ export class DuplicateDetectionService {
         let fieldScore = 0;
 
         if (rule.fuzzyMatching) {
-          fieldScore = this.fuzzyMatch(newValue.toString(), existingValue.toString());
+          fieldScore = this.fuzzyMatch(
+            newValue.toString(),
+            existingValue.toString(),
+          );
         } else {
-          fieldScore = newValue.toString().toLowerCase() === existingValue.toString().toLowerCase() ? 1 : 0;
+          fieldScore =
+            newValue.toString().toLowerCase() ===
+            existingValue.toString().toLowerCase()
+              ? 1
+              : 0;
         }
 
         totalScore += fieldScore;
@@ -136,9 +156,13 @@ export class DuplicateDetectionService {
     if (s1.includes('@') && s2.includes('@')) {
       const email1 = s1.split('@');
       const email2 = s2.split('@');
-      
-      if (email1[1] === email2[1]) { // Same domain
-        const localSimilarity = this.levenshteinSimilarity(email1[0], email2[0]);
+
+      if (email1[1] === email2[1]) {
+        // Same domain
+        const localSimilarity = this.levenshteinSimilarity(
+          email1[0],
+          email2[0],
+        );
         return localSimilarity * 0.8 + 0.2; // Boost for same domain
       }
     }
@@ -153,7 +177,7 @@ export class DuplicateDetectionService {
   }
 
   private levenshteinSimilarity(str1: string, str2: string): number {
-    const matrix = [];
+    const matrix: number[][] = [];
     const len1 = str1.length;
     const len2 = str2.length;
 
@@ -202,10 +226,7 @@ export class DuplicateDetectionService {
       newData.recipientName || '',
       existingCert.recipientName,
     );
-    const titleMatch = this.fuzzyMatch(
-      newData.title || '',
-      existingCert.title,
-    );
+    const titleMatch = this.fuzzyMatch(newData.title || '', existingCert.title);
 
     if (emailMatch >= 0.9) return 'fuzzy_email';
     if (nameMatch >= 0.9) return 'fuzzy_name';
@@ -219,8 +240,8 @@ export class DuplicateDetectionService {
     action: 'block' | 'warn' | 'allow',
   ): string {
     const count = matches.length;
-    const highestMatch = matches.reduce((prev, current) => 
-      prev.similarityScore > current.similarityScore ? prev : current
+    const highestMatch = matches.reduce((prev, current) =>
+      prev.similarityScore > current.similarityScore ? prev : current,
     );
 
     switch (action) {
@@ -233,10 +254,7 @@ export class DuplicateDetectionService {
     }
   }
 
-  async generateDuplicateReport(
-    startDate: Date,
-    endDate: Date,
-  ): Promise<any> {
+  async generateDuplicateReport(startDate: Date, endDate: Date): Promise<any> {
     const duplicates = await this.certificateRepository
       .createQueryBuilder('certificate')
       .where('certificate.isDuplicate = :isDuplicate', { isDuplicate: true })
@@ -247,16 +265,22 @@ export class DuplicateDetectionService {
       .leftJoinAndSelect('certificate.issuer', 'issuer')
       .getMany();
 
-    const duplicatesByIssuer = duplicates.reduce((acc: Record<string, number>, cert) => {
-      acc[cert.issuerId] = (acc[cert.issuerId] || 0) + 1;
-      return acc;
-    }, {});
+    const duplicatesByIssuer = duplicates.reduce(
+      (acc: Record<string, number>, cert) => {
+        acc[cert.issuerId] = (acc[cert.issuerId] || 0) + 1;
+        return acc;
+      },
+      {},
+    );
 
-    const duplicatesByType = duplicates.reduce((acc: Record<string, number>, cert) => {
-      const type = cert.duplicateOfId ? 'exact' : 'fuzzy';
-      acc[type] = (acc[type] || 0) + 1;
-      return acc;
-    }, {});
+    const duplicatesByType = duplicates.reduce(
+      (acc: Record<string, number>, cert) => {
+        const type = cert.duplicateOfId ? 'exact' : 'fuzzy';
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      },
+      {},
+    );
 
     return {
       id: `report_${Date.now()}`,
@@ -265,7 +289,7 @@ export class DuplicateDetectionService {
       duplicatesByType,
       timeRange: { start: startDate, end: endDate },
       generatedAt: new Date(),
-      duplicates: duplicates.map(cert => ({
+      duplicates: duplicates.map((cert) => ({
         certificateId: cert.id,
         issuerId: cert.issuerId,
         recipientEmail: cert.recipientEmail,
@@ -293,8 +317,10 @@ export class DuplicateDetectionService {
     };
 
     // In a real implementation, you would save this to a database
-    this.logger.log(`Override request created for certificate ${certificateId}`);
-    
+    this.logger.log(
+      `Override request created for certificate ${certificateId}`,
+    );
+
     return request;
   }
 
@@ -304,7 +330,7 @@ export class DuplicateDetectionService {
   ): Promise<OverrideRequest> {
     // In a real implementation, you would update the request in the database
     this.logger.log(`Override request ${requestId} approved by ${approvedBy}`);
-    
+
     return {
       id: requestId,
       certificateId: '',

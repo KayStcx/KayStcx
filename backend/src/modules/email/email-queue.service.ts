@@ -15,33 +15,43 @@ export class EmailQueueService {
 
   async queueCertificateIssued(dto: SendCertificateIssuedDto): Promise<void> {
     try {
-      const job = await this.emailQueue.add(EmailJobType.SEND_CERTIFICATE_ISSUED, dto, {
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 2000,
+      const job = await this.emailQueue.add(
+        EmailJobType.SEND_CERTIFICATE_ISSUED,
+        dto,
+        {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 2000,
+          },
+          removeOnComplete: true,
+          removeOnFail: false,
         },
-        removeOnComplete: true,
-        removeOnFail: false,
-      });
+      );
       this.logger.log(`Queued certificate issued email job: ${job.id}`);
     } catch (error) {
-      this.logger.error(`Failed to queue certificate issued email: ${error.message}`);
+      this.logger.error(
+        `Failed to queue certificate issued email: ${error.message}`,
+      );
       throw error;
     }
   }
 
   async queueVerificationEmail(dto: SendVerificationDto): Promise<void> {
     try {
-      const job = await this.emailQueue.add(EmailJobType.SEND_VERIFICATION, dto, {
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 2000,
+      const job = await this.emailQueue.add(
+        EmailJobType.SEND_VERIFICATION,
+        dto,
+        {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 2000,
+          },
+          removeOnComplete: true,
+          removeOnFail: false,
         },
-        removeOnComplete: true,
-        removeOnFail: false,
-      });
+      );
       this.logger.log(`Queued verification email job: ${job.id}`);
     } catch (error) {
       this.logger.error(`Failed to queue verification email: ${error.message}`);
@@ -51,18 +61,24 @@ export class EmailQueueService {
 
   async queuePasswordReset(dto: SendPasswordResetDto): Promise<void> {
     try {
-      const job = await this.emailQueue.add(EmailJobType.SEND_PASSWORD_RESET, dto, {
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 2000,
+      const job = await this.emailQueue.add(
+        EmailJobType.SEND_PASSWORD_RESET,
+        dto,
+        {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 2000,
+          },
+          removeOnComplete: true,
+          removeOnFail: false,
         },
-        removeOnComplete: true,
-        removeOnFail: false,
-      });
+      );
       this.logger.log(`Queued password reset email job: ${job.id}`);
     } catch (error) {
-      this.logger.error(`Failed to queue password reset email: ${error.message}`);
+      this.logger.error(
+        `Failed to queue password reset email: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -80,7 +96,9 @@ export class EmailQueueService {
       });
       this.logger.log(`Queued revocation notice email job: ${job.id}`);
     } catch (error) {
-      this.logger.error(`Failed to queue revocation notice email: ${error.message}`);
+      this.logger.error(
+        `Failed to queue revocation notice email: ${error.message}`,
+      );
       throw error;
     }
   }

@@ -68,7 +68,9 @@ describe('EmailQueueProcessor', () => {
         data: jobData,
       };
 
-      jest.spyOn(emailService, 'sendCertificateIssued').mockResolvedValue(undefined);
+      jest
+        .spyOn(emailService, 'sendCertificateIssued')
+        .mockResolvedValue(undefined);
 
       await processor.processCertificateIssued(job as any);
 
@@ -89,7 +91,9 @@ describe('EmailQueueProcessor', () => {
         data: jobData,
       };
 
-      jest.spyOn(emailService, 'sendVerificationEmail').mockResolvedValue(undefined);
+      jest
+        .spyOn(emailService, 'sendVerificationEmail')
+        .mockResolvedValue(undefined);
 
       await processor.processVerificationEmail(job as any);
 
@@ -110,7 +114,9 @@ describe('EmailQueueProcessor', () => {
         data: jobData,
       };
 
-      jest.spyOn(emailService, 'sendPasswordReset').mockResolvedValue(undefined);
+      jest
+        .spyOn(emailService, 'sendPasswordReset')
+        .mockResolvedValue(undefined);
 
       await processor.processPasswordReset(job as any);
 
@@ -134,7 +140,9 @@ describe('EmailQueueProcessor', () => {
         data: jobData,
       };
 
-      jest.spyOn(emailService, 'sendRevocationNotice').mockResolvedValue(undefined);
+      jest
+        .spyOn(emailService, 'sendRevocationNotice')
+        .mockResolvedValue(undefined);
 
       await processor.processRevocationNotice(job as any);
 

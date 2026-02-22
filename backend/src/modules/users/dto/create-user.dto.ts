@@ -21,20 +21,18 @@ export class CreateUserDto {
   email: string;
 
   @ApiProperty({
-    description: 'User password (min 8 characters, must contain uppercase, lowercase, number, and special character)',
+    description:
+      'User password (min 8 characters, must contain uppercase, lowercase, number, and special character)',
     example: 'SecureP@ss123',
     minLength: 8,
   })
   @IsNotEmpty({ message: 'Password is required' })
   @MinLength(8, { message: 'Password must be at least 8 characters long' })
   @MaxLength(128, { message: 'Password must not exceed 128 characters' })
-  @Matches(
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
-    {
-      message:
-        'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)',
-    },
-  )
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, {
+    message:
+      'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)',
+  })
   password: string;
 
   @ApiProperty({
@@ -66,7 +64,8 @@ export class CreateUserDto {
   @MinLength(3, { message: 'Username must be at least 3 characters long' })
   @MaxLength(30, { message: 'Username must not exceed 30 characters' })
   @Matches(/^[a-zA-Z0-9_-]+$/, {
-    message: 'Username can only contain letters, numbers, underscores, and hyphens',
+    message:
+      'Username can only contain letters, numbers, underscores, and hyphens',
   })
   username?: string;
 

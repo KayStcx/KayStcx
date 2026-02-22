@@ -1,6 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SorobanRpc, TransactionBuilder, Networks, Contract, xdr, Address } from '@stellar/stellar-sdk';
+import {
+  SorobanRpc,
+  TransactionBuilder,
+  Networks,
+  Contract,
+  xdr,
+  Address,
+} from '@stellar/stellar-sdk';
 import { StellarService } from '../stellar/services/stellar.service';
 
 // Enums and interfaces matching the smart contract
@@ -82,13 +89,18 @@ export class MultisigService {
     const network = this.configService.get<string>('STELLAR_NETWORK');
 
     if (!contractId || !horizonUrl || !network) {
-      this.logger.warn('Multisig configuration missing. MultisigService may not function correctly.');
+      this.logger.warn(
+        'Multisig configuration missing. MultisigService may not function correctly.',
+      );
       return;
     }
 
     this.contractId = contractId;
-    this.networkPassphrase = network === 'testnet' ? Networks.TESTNET : Networks.PUBLIC;
-    this.server = new SorobanRpc.Server(horizonUrl, { allowHttp: horizonUrl.includes('localhost') });
+    this.networkPassphrase =
+      network === 'testnet' ? Networks.TESTNET : Networks.PUBLIC;
+    this.server = new SorobanRpc.Server(horizonUrl, {
+      allowHttp: horizonUrl.includes('localhost'),
+    });
 
     this.logger.log(`MultisigService initialized with contract: ${contractId}`);
   }
@@ -104,16 +116,17 @@ export class MultisigService {
     maxSigners: number,
   ): Promise<string> {
     try {
-      const adminKeyPair = this.stellarService.getKeypairFromPublicKey(adminPublicKey);
+      const adminKeyPair =
+        this.stellarService.getKeypairFromPublicKey(adminPublicKey);
       const sourceAccount = await this.server.getAccount(adminPublicKey);
 
       const contract = new Contract(this.contractId);
-      
+
       // Convert parameters to ScVal
       const issuerScVal = new Address(issuer).toScVal();
       const thresholdScVal = xdr.ScVal.scvU32(threshold);
       const signersScVal = xdr.ScVal.scvVec(
-        signers.map(signer => new Address(signer).toScVal())
+        signers.map((signer) => new Address(signer).toScVal()),
       );
       const maxSignersScVal = xdr.ScVal.scvU32(maxSigners);
       const adminScVal = new Address(adminPublicKey).toScVal();
@@ -122,14 +135,16 @@ export class MultisigService {
         fee: '100000',
         networkPassphrase: this.networkPassphrase,
       })
-        .addOperation(contract.call(
-          "init_multisig_config",
-          issuerScVal,
-          thresholdScVal,
-          signersScVal,
-          maxSignersScVal,
-          adminScVal
-        ))
+        .addOperation(
+          contract.call(
+            'init_multisig_config',
+            issuerScVal,
+            thresholdScVal,
+            signersScVal,
+            maxSignersScVal,
+            adminScVal,
+          ),
+        )
         .setTimeout(30)
         .build();
 
@@ -146,7 +161,10 @@ export class MultisigService {
 
       throw new Error(`Transaction failed: ${response.status}`);
     } catch (error) {
-      this.logger.error(`Failed to initialize multisig config for issuer ${issuer}`, error);
+      this.logger.error(
+        `Failed to initialize multisig config for issuer ${issuer}`,
+        error,
+      );
       throw error;
     }
   }
@@ -162,37 +180,45 @@ export class MultisigService {
     newMaxSigners?: number,
   ): Promise<string> {
     try {
-      const adminKeyPair = this.stellarService.getKeypairFromPublicKey(adminPublicKey);
+      const adminKeyPair =
+        this.stellarService.getKeypairFromPublicKey(adminPublicKey);
       const sourceAccount = await this.server.getAccount(adminPublicKey);
 
       const contract = new Contract(this.contractId);
-      
+
       // Convert parameters to ScVal (using Option types)
-      const thresholdScVal = newThreshold !== undefined 
-        ? xdr.ScVal.scvSome(xdr.ScVal.scvU32(newThreshold))
-        : xdr.ScVal.scvVoid();
-      
-      const signersScVal = newSigners !== undefined
-        ? xdr.ScVal.scvSome(xdr.ScVal.scvVec(
-            newSigners.map(signer => new Address(signer).toScVal())
-          ))
-        : xdr.ScVal.scvVoid();
-      
-      const maxSignersScVal = newMaxSigners !== undefined
-        ? xdr.ScVal.scvSome(xdr.ScVal.scvU32(newMaxSigners))
-        : xdr.ScVal.scvVoid();
+      const thresholdScVal =
+        newThreshold !== undefined
+          ? xdr.ScVal.scvSome(xdr.ScVal.scvU32(newThreshold))
+          : xdr.ScVal.scvVoid();
+
+      const signersScVal =
+        newSigners !== undefined
+          ? xdr.ScVal.scvSome(
+              xdr.ScVal.scvVec(
+                newSigners.map((signer) => new Address(signer).toScVal()),
+              ),
+            )
+          : xdr.ScVal.scvVoid();
+
+      const maxSignersScVal =
+        newMaxSigners !== undefined
+          ? xdr.ScVal.scvSome(xdr.ScVal.scvU32(newMaxSigners))
+          : xdr.ScVal.scvVoid();
 
       const transaction = new TransactionBuilder(sourceAccount, {
         fee: '100000',
         networkPassphrase: this.networkPassphrase,
       })
-        .addOperation(contract.call(
-          "update_multisig_config",
-          new Address(issuer).toScVal(),
-          thresholdScVal,
-          signersScVal,
-          maxSignersScVal
-        ))
+        .addOperation(
+          contract.call(
+            'update_multisig_config',
+            new Address(issuer).toScVal(),
+            thresholdScVal,
+            signersScVal,
+            maxSignersScVal,
+          ),
+        )
         .setTimeout(30)
         .build();
 
@@ -209,7 +235,10 @@ export class MultisigService {
 
       throw new Error(`Transaction failed: ${response.status}`);
     } catch (error) {
-      this.logger.error(`Failed to update multisig config for issuer ${issuer}`, error);
+      this.logger.error(
+        `Failed to update multisig config for issuer ${issuer}`,
+        error,
+      );
       throw error;
     }
   }
@@ -226,11 +255,12 @@ export class MultisigService {
     expirationDays: number,
   ): Promise<PendingRequest> {
     try {
-      const requesterKeyPair = this.stellarService.getKeypairFromPublicKey(requesterPublicKey);
+      const requesterKeyPair =
+        this.stellarService.getKeypairFromPublicKey(requesterPublicKey);
       const sourceAccount = await this.server.getAccount(requesterPublicKey);
 
       const contract = new Contract(this.contractId);
-      
+
       // Convert parameters to ScVal
       const requestIdScVal = xdr.ScVal.scvString(requestId);
       const issuerScVal = new Address(issuer).toScVal();
@@ -242,14 +272,16 @@ export class MultisigService {
         fee: '100000',
         networkPassphrase: this.networkPassphrase,
       })
-        .addOperation(contract.call(
-          "propose_certificate",
-          requestIdScVal,
-          issuerScVal,
-          recipientScVal,
-          metadataScVal,
-          expirationDaysScVal
-        ))
+        .addOperation(
+          contract.call(
+            'propose_certificate',
+            requestIdScVal,
+            issuerScVal,
+            recipientScVal,
+            metadataScVal,
+            expirationDaysScVal,
+          ),
+        )
         .setTimeout(30)
         .build();
 
@@ -270,7 +302,7 @@ export class MultisigService {
             approvals: [],
             rejections: [],
             created_at: Date.now(),
-            expires_at: Date.now() + (expirationDays * 24 * 60 * 60 * 1000), // Convert days to milliseconds
+            expires_at: Date.now() + expirationDays * 24 * 60 * 60 * 1000, // Convert days to milliseconds
             status: RequestStatus.Pending,
           };
         }
@@ -278,7 +310,10 @@ export class MultisigService {
 
       throw new Error(`Transaction failed: ${response.status}`);
     } catch (error) {
-      this.logger.error(`Failed to propose certificate with request ID ${requestId}`, error);
+      this.logger.error(
+        `Failed to propose certificate with request ID ${requestId}`,
+        error,
+      );
       throw error;
     }
   }
@@ -291,11 +326,12 @@ export class MultisigService {
     requestId: string,
   ): Promise<SignatureResult> {
     try {
-      const approverKeyPair = this.stellarService.getKeypairFromPublicKey(approverPublicKey);
+      const approverKeyPair =
+        this.stellarService.getKeypairFromPublicKey(approverPublicKey);
       const sourceAccount = await this.server.getAccount(approverPublicKey);
 
       const contract = new Contract(this.contractId);
-      
+
       // Convert parameters to ScVal
       const requestIdScVal = xdr.ScVal.scvString(requestId);
       const approverScVal = new Address(approverPublicKey).toScVal();
@@ -304,11 +340,9 @@ export class MultisigService {
         fee: '100000',
         networkPassphrase: this.networkPassphrase,
       })
-        .addOperation(contract.call(
-          "approve_request",
-          requestIdScVal,
-          approverScVal
-        ))
+        .addOperation(
+          contract.call('approve_request', requestIdScVal, approverScVal),
+        )
         .setTimeout(30)
         .build();
 
@@ -318,7 +352,9 @@ export class MultisigService {
       if (response.status === 'PENDING') {
         const txResponse = await this.server.getTransaction(response.hash);
         if (txResponse.status === 'SUCCESS') {
-          this.logger.log(`Request ${requestId} approved by ${approverPublicKey}`);
+          this.logger.log(
+            `Request ${requestId} approved by ${approverPublicKey}`,
+          );
           // Return a mock success result
           return {
             success: true,
@@ -343,11 +379,12 @@ export class MultisigService {
     reason?: string,
   ): Promise<SignatureResult> {
     try {
-      const rejectorKeyPair = this.stellarService.getKeypairFromPublicKey(rejectorPublicKey);
+      const rejectorKeyPair =
+        this.stellarService.getKeypairFromPublicKey(rejectorPublicKey);
       const sourceAccount = await this.server.getAccount(rejectorPublicKey);
 
       const contract = new Contract(this.contractId);
-      
+
       // Convert parameters to ScVal
       const requestIdScVal = xdr.ScVal.scvString(requestId);
       const rejectorScVal = new Address(rejectorPublicKey).toScVal();
@@ -359,12 +396,14 @@ export class MultisigService {
         fee: '100000',
         networkPassphrase: this.networkPassphrase,
       })
-        .addOperation(contract.call(
-          "reject_request",
-          requestIdScVal,
-          rejectorScVal,
-          reasonScVal
-        ))
+        .addOperation(
+          contract.call(
+            'reject_request',
+            requestIdScVal,
+            rejectorScVal,
+            reasonScVal,
+          ),
+        )
         .setTimeout(30)
         .build();
 
@@ -374,7 +413,9 @@ export class MultisigService {
       if (response.status === 'PENDING') {
         const txResponse = await this.server.getTransaction(response.hash);
         if (txResponse.status === 'SUCCESS') {
-          this.logger.log(`Request ${requestId} rejected by ${rejectorPublicKey}`);
+          this.logger.log(
+            `Request ${requestId} rejected by ${rejectorPublicKey}`,
+          );
           // Return a mock success result
           return {
             success: true,
@@ -398,11 +439,12 @@ export class MultisigService {
     requestId: string,
   ): Promise<boolean> {
     try {
-      const requesterKeyPair = this.stellarService.getKeypairFromPublicKey(requesterPublicKey);
+      const requesterKeyPair =
+        this.stellarService.getKeypairFromPublicKey(requesterPublicKey);
       const sourceAccount = await this.server.getAccount(requesterPublicKey);
 
       const contract = new Contract(this.contractId);
-      
+
       // Convert parameters to ScVal
       const requestIdScVal = xdr.ScVal.scvString(requestId);
 
@@ -410,10 +452,9 @@ export class MultisigService {
         fee: '100000',
         networkPassphrase: this.networkPassphrase,
       })
-        .addOperation(contract.call(
-          "issue_approved_certificate",
-          requestIdScVal
-        ))
+        .addOperation(
+          contract.call('issue_approved_certificate', requestIdScVal),
+        )
         .setTimeout(30)
         .build();
 
@@ -423,14 +464,19 @@ export class MultisigService {
       if (response.status === 'PENDING') {
         const txResponse = await this.server.getTransaction(response.hash);
         if (txResponse.status === 'SUCCESS') {
-          this.logger.log(`Approved certificate issued for request: ${requestId}`);
+          this.logger.log(
+            `Approved certificate issued for request: ${requestId}`,
+          );
           return true;
         }
       }
 
       throw new Error(`Transaction failed: ${response.status}`);
     } catch (error) {
-      this.logger.error(`Failed to issue certificate for request ${requestId}`, error);
+      this.logger.error(
+        `Failed to issue certificate for request ${requestId}`,
+        error,
+      );
       throw error;
     }
   }
@@ -443,11 +489,12 @@ export class MultisigService {
     requestId: string,
   ): Promise<boolean> {
     try {
-      const requesterKeyPair = this.stellarService.getKeypairFromPublicKey(requesterPublicKey);
+      const requesterKeyPair =
+        this.stellarService.getKeypairFromPublicKey(requesterPublicKey);
       const sourceAccount = await this.server.getAccount(requesterPublicKey);
 
       const contract = new Contract(this.contractId);
-      
+
       // Convert parameters to ScVal
       const requestIdScVal = xdr.ScVal.scvString(requestId);
       const requesterScVal = new Address(requesterPublicKey).toScVal();
@@ -456,11 +503,9 @@ export class MultisigService {
         fee: '100000',
         networkPassphrase: this.networkPassphrase,
       })
-        .addOperation(contract.call(
-          "cancel_request",
-          requestIdScVal,
-          requesterScVal
-        ))
+        .addOperation(
+          contract.call('cancel_request', requestIdScVal, requesterScVal),
+        )
         .setTimeout(30)
         .build();
 
@@ -470,7 +515,9 @@ export class MultisigService {
       if (response.status === 'PENDING') {
         const txResponse = await this.server.getTransaction(response.hash);
         if (txResponse.status === 'SUCCESS') {
-          this.logger.log(`Request ${requestId} cancelled by ${requesterPublicKey}`);
+          this.logger.log(
+            `Request ${requestId} cancelled by ${requesterPublicKey}`,
+          );
           return true;
         }
       }
@@ -488,12 +535,12 @@ export class MultisigService {
   async getMultisigConfig(issuer: string): Promise<MultisigConfig> {
     try {
       const contract = new Contract(this.contractId);
-      
+
       // Convert parameters to ScVal
       const issuerScVal = new Address(issuer).toScVal();
 
       const response = await this.server.simulateTransaction(
-        contract.call("get_multisig_config", issuerScVal)
+        contract.call('get_multisig_config', issuerScVal),
       );
 
       if (response.result?.retval) {
@@ -508,7 +555,10 @@ export class MultisigService {
 
       throw new Error('Invalid response from contract');
     } catch (error) {
-      this.logger.error(`Failed to get multisig config for issuer ${issuer}`, error);
+      this.logger.error(
+        `Failed to get multisig config for issuer ${issuer}`,
+        error,
+      );
       throw error;
     }
   }
@@ -519,12 +569,12 @@ export class MultisigService {
   async getPendingRequest(requestId: string): Promise<PendingRequest> {
     try {
       const contract = new Contract(this.contractId);
-      
+
       // Convert parameters to ScVal
       const requestIdScVal = xdr.ScVal.scvString(requestId);
 
       const response = await this.server.simulateTransaction(
-        contract.call("get_pending_request", requestIdScVal)
+        contract.call('get_pending_request', requestIdScVal),
       );
 
       if (response.result?.retval) {
@@ -539,7 +589,7 @@ export class MultisigService {
           approvals: [], // Mock data
           rejections: [], // Mock data
           created_at: Date.now(), // Mock data
-          expires_at: Date.now() + (7 * 24 * 60 * 60 * 1000), // Mock data
+          expires_at: Date.now() + 7 * 24 * 60 * 60 * 1000, // Mock data
           status: RequestStatus.Pending, // Mock data
         };
       }
@@ -557,12 +607,12 @@ export class MultisigService {
   async isRequestExpired(requestId: string): Promise<boolean> {
     try {
       const contract = new Contract(this.contractId);
-      
+
       // Convert parameters to ScVal
       const requestIdScVal = xdr.ScVal.scvString(requestId);
 
       const response = await this.server.simulateTransaction(
-        contract.call("is_expired", requestIdScVal)
+        contract.call('is_expired', requestIdScVal),
       );
 
       if (response.result?.retval) {
@@ -574,7 +624,10 @@ export class MultisigService {
 
       throw new Error('Invalid response from contract');
     } catch (error) {
-      this.logger.error(`Failed to check if request ${requestId} is expired`, error);
+      this.logger.error(
+        `Failed to check if request ${requestId} is expired`,
+        error,
+      );
       throw error;
     }
   }
@@ -588,7 +641,7 @@ export class MultisigService {
   ): Promise<PaginatedResult> {
     try {
       const contract = new Contract(this.contractId);
-      
+
       // Convert parameters to ScVal
       const issuerScVal = new Address(issuer).toScVal();
       const paginationScVal = xdr.ScVal.scvMap([
@@ -603,7 +656,11 @@ export class MultisigService {
       ]);
 
       const response = await this.server.simulateTransaction(
-        contract.call("get_pending_requests_for_issuer", issuerScVal, paginationScVal)
+        contract.call(
+          'get_pending_requests_for_issuer',
+          issuerScVal,
+          paginationScVal,
+        ),
       );
 
       if (response.result?.retval) {
@@ -619,7 +676,10 @@ export class MultisigService {
 
       throw new Error('Invalid response from contract');
     } catch (error) {
-      this.logger.error(`Failed to get pending requests for issuer ${issuer}`, error);
+      this.logger.error(
+        `Failed to get pending requests for issuer ${issuer}`,
+        error,
+      );
       throw error;
     }
   }
@@ -633,7 +693,7 @@ export class MultisigService {
   ): Promise<PaginatedResult> {
     try {
       const contract = new Contract(this.contractId);
-      
+
       // Convert parameters to ScVal
       const signerScVal = new Address(signer).toScVal();
       const paginationScVal = xdr.ScVal.scvMap([
@@ -648,7 +708,11 @@ export class MultisigService {
       ]);
 
       const response = await this.server.simulateTransaction(
-        contract.call("get_pending_requests_for_signer", signerScVal, paginationScVal)
+        contract.call(
+          'get_pending_requests_for_signer',
+          signerScVal,
+          paginationScVal,
+        ),
       );
 
       if (response.result?.retval) {
@@ -664,7 +728,10 @@ export class MultisigService {
 
       throw new Error('Invalid response from contract');
     } catch (error) {
-      this.logger.error(`Failed to get pending requests for signer ${signer}`, error);
+      this.logger.error(
+        `Failed to get pending requests for signer ${signer}`,
+        error,
+      );
       throw error;
     }
   }

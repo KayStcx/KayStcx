@@ -15,10 +15,7 @@ import { REQUEST_TIMEOUT_MS } from '../constants';
  */
 @Injectable()
 export class TimeoutInterceptor implements NestInterceptor {
-  intercept(
-    context: ExecutionContext,
-    next: CallHandler,
-  ): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     return next.handle().pipe(
       timeout(REQUEST_TIMEOUT_MS),
       catchError((err) => {

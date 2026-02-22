@@ -39,13 +39,15 @@ describe('MultisigService', () => {
   describe('initMultisigConfig', () => {
     it('should initialize multisig configuration', async () => {
       // Mock the config service to return test values
-      jest.spyOn(configService, 'get')
+      jest
+        .spyOn(configService, 'get')
         .mockReturnValueOnce('test-contract-id')
         .mockReturnValueOnce('https://horizon-testnet.stellar.org')
         .mockReturnValueOnce('testnet');
 
       // Mock the stellar service
-      jest.spyOn(stellarService, 'getKeypairFromPublicKey')
+      jest
+        .spyOn(stellarService, 'getKeypairFromPublicKey')
         .mockReturnValue({} as any);
 
       // We can't fully test this without a real Stellar network connection

@@ -38,7 +38,10 @@ export class EmailService {
 
     let config: EmailConfig = {};
 
-    if (emailService === 'sendgrid' || this.configService.get<string>('SENDGRID_API_KEY')) {
+    if (
+      emailService === 'sendgrid' ||
+      this.configService.get<string>('SENDGRID_API_KEY')
+    ) {
       // SendGrid configuration
       const sendGridApiKey = this.configService.get<string>('SENDGRID_API_KEY');
       config = {
@@ -75,7 +78,12 @@ export class EmailService {
 
   private loadTemplates(): void {
     const templatesDir = path.join(__dirname, 'templates');
-    const templates = ['certificate-issued', 'verification-email', 'password-reset', 'revocation-notice'];
+    const templates = [
+      'certificate-issued',
+      'verification-email',
+      'password-reset',
+      'revocation-notice',
+    ];
 
     templates.forEach((templateName) => {
       const templatePath = path.join(templatesDir, `${templateName}.hbs`);
@@ -85,7 +93,9 @@ export class EmailService {
         this.templates.set(templateName, compiled);
         this.logger.log(`Template loaded: ${templateName}`);
       } catch (error) {
-        this.logger.error(`Failed to load template ${templateName}: ${error.message}`);
+        this.logger.error(
+          `Failed to load template ${templateName}: ${error.message}`,
+        );
       }
     });
   }
@@ -98,7 +108,9 @@ export class EmailService {
       }
 
       const htmlContent = template(dto.data || {});
-      const emailFrom = this.configService.get<string>('EMAIL_FROM') || 'noreply@kaystcx.com';
+      const emailFrom =
+        this.configService.get<string>('EMAIL_FROM') ||
+        'noreply@kaystcx.com';
 
       const mailOptions = {
         from: emailFrom,
@@ -175,11 +187,14 @@ export class EmailService {
         certificateId: dto.certificateId,
         certificateName: dto.certificateName,
         reason: dto.reason,
-        revocationDate: new Date(dto.revocationDate).toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        }),
+        revocationDate: new Date(dto.revocationDate).toLocaleDateString(
+          'en-US',
+          {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          },
+        ),
       },
     };
 

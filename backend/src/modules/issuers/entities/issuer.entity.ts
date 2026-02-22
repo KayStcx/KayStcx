@@ -1,4 +1,11 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { IssuerTier } from '../../../common/rate-limiting/rate-limit.service';
 
 @Entity('issuers')
 export class Issuer {
@@ -22,6 +29,16 @@ export class Issuer {
 
   @Column({ nullable: true })
   contactEmail?: string;
+
+  @Column({
+    type: 'enum',
+    enum: IssuerTier,
+    default: IssuerTier.FREE,
+  })
+  tier: IssuerTier;
+
+  @Column({ nullable: true, unique: true })
+  apiKeyHash?: string;
 
   @CreateDateColumn()
   createdAt: Date;

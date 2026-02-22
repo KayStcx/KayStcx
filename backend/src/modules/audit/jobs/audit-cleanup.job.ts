@@ -11,7 +11,7 @@ export class AuditCleanupJob {
   constructor(
     private auditService: AuditService,
     private configService: ConfigService,
-  ) { }
+  ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleCron() {
@@ -37,7 +37,8 @@ export class AuditCleanupJob {
         ipAddress: 'system',
       });
 
-      const deletedCount = await this.auditService.cleanupOldLogs(retentionDays);
+      const deletedCount =
+        await this.auditService.cleanupOldLogs(retentionDays);
       this.logger.log(`Audit cleanup completed: ${deletedCount} logs removed`);
 
       // Log the cleanup completion

@@ -99,7 +99,9 @@ describe('AuditContextMiddleware', () => {
       );
 
       const calls = (mockResponse.setHeader as jest.Mock).mock.calls;
-      const correlationIdCall = calls.find((call) => call[0] === 'x-correlation-id');
+      const correlationIdCall = calls.find(
+        (call) => call[0] === 'x-correlation-id',
+      );
 
       expect(correlationIdCall).toBeDefined();
       expect(correlationIdCall[1]).toMatch(

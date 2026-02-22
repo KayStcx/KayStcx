@@ -9,12 +9,15 @@ export class StellarService {
   private networkPassphrase: string;
 
   constructor(private configService: ConfigService) {
-    this.networkPassphrase = 
+    this.networkPassphrase =
       configService.get<string>('STELLAR_NETWORK') === 'testnet'
         ? StellarSdk.Networks.TESTNET
         : StellarSdk.Networks.PUBLIC;
-    
-    this.server = new StellarSdk.Horizon.Server(configService.get<string>('STELLAR_HORIZON_URL') || 'https://horizon-testnet.stellar.org');
+
+    this.server = new StellarSdk.Horizon.Server(
+      configService.get<string>('STELLAR_HORIZON_URL') ||
+        'https://horizon-testnet.stellar.org',
+    );
   }
 
   /**
@@ -22,10 +25,16 @@ export class StellarService {
    */
   async verifyTransaction(txHash: string): Promise<boolean> {
     try {
-      const transaction = await this.server.transactions().transaction(txHash).call();
+      const transaction = await this.server
+        .transactions()
+        .transaction(txHash)
+        .call();
       return !!transaction;
     } catch (error) {
-      this.logger.error(`Transaction verification failed for hash: ${txHash}`, error);
+      this.logger.error(
+        `Transaction verification failed for hash: ${txHash}`,
+        error,
+      );
       return false;
     }
   }
@@ -49,6 +58,10 @@ export class StellarService {
   static getPublicKeyFromSecret(secretKey: string): string {
     const keypair = StellarSdk.Keypair.fromSecret(secretKey);
     return keypair.publicKey();
+  }
+
+  getKeypairFromPublicKey(publicKey: string): StellarSdk.Keypair {
+    return StellarSdk.Keypair.fromPublicKey(publicKey);
   }
 
   /**
@@ -94,7 +107,9 @@ export class StellarService {
   getNetworkInfo(): { network: string; horizon: string } {
     return {
       network: this.configService.get<string>('STELLAR_NETWORK') || 'testnet',
-      horizon: this.configService.get<string>('STELLAR_HORIZON_URL') || 'https://horizon-testnet.stellar.org',
+      horizon:
+        this.configService.get<string>('STELLAR_HORIZON_URL') ||
+        'https://horizon-testnet.stellar.org',
     };
   }
 }

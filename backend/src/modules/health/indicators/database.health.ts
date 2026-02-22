@@ -1,5 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { HealthIndicator, HealthIndicatorResult, HealthCheckError } from '@nestjs/terminus';
+import {
+  HealthIndicator,
+  HealthIndicatorResult,
+  HealthCheckError,
+} from '@nestjs/terminus';
 import { DataSource } from 'typeorm';
 
 @Injectable()
@@ -13,7 +17,7 @@ export class DatabaseHealthIndicator extends HealthIndicator {
   async isHealthy(): Promise<HealthIndicatorResult> {
     try {
       const isConnected = this.dataSource.isInitialized;
-      
+
       if (!isConnected) {
         throw new Error('Database is not initialized');
       }
@@ -25,7 +29,7 @@ export class DatabaseHealthIndicator extends HealthIndicator {
       await queryRunner.release();
 
       this.logger.debug('Database health check passed');
-      
+
       return this.getStatus('database', true, {
         message: 'Database connection is healthy',
       });

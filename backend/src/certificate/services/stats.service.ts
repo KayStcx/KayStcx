@@ -192,9 +192,13 @@ export class CertificateStatsService {
     // Clear all stats-related cache entries
     const store = (this.cacheManager as any).store;
     if (store && store.keys) {
-        const keys = await store.keys();
-        const statsKeys = keys.filter((key: string) => key.startsWith('cert-stats'));
-        await Promise.all(statsKeys.map((key: string) => this.cacheManager.del(key)));
+      const keys = await store.keys();
+      const statsKeys = keys.filter((key: string) =>
+        key.startsWith('cert-stats'),
+      );
+      await Promise.all(
+        statsKeys.map((key: string) => this.cacheManager.del(key)),
+      );
     }
   }
 }

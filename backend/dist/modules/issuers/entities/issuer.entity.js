@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Issuer = void 0;
 const typeorm_1 = require("typeorm");
+const rate_limit_service_1 = require("../../../common/rate-limiting/rate-limit.service");
 let Issuer = class Issuer {
     id;
     name;
@@ -19,6 +20,8 @@ let Issuer = class Issuer {
     isActive;
     website;
     contactEmail;
+    tier;
+    apiKeyHash;
     createdAt;
     updatedAt;
 };
@@ -51,6 +54,18 @@ __decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
 ], Issuer.prototype, "contactEmail", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        type: 'enum',
+        enum: rate_limit_service_1.IssuerTier,
+        default: rate_limit_service_1.IssuerTier.FREE,
+    }),
+    __metadata("design:type", String)
+], Issuer.prototype, "tier", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, unique: true }),
+    __metadata("design:type", String)
+], Issuer.prototype, "apiKeyHash", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)

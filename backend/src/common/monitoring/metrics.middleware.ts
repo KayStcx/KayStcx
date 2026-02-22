@@ -20,7 +20,12 @@ export class MetricsMiddleware implements NestMiddleware {
       const route = this.metricsService.normalizeRoute(path);
 
       // Record metrics
-      this.metricsService.recordHttpRequestDuration(method, route, status, duration);
+      this.metricsService.recordHttpRequestDuration(
+        method,
+        route,
+        status,
+        duration,
+      );
 
       if (status >= 400) {
         this.metricsService.recordHttpError(method, route, status);

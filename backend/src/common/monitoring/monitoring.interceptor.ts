@@ -29,7 +29,7 @@ export class MonitoringInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest();
     const { method, path, url } = request;
     const startTime = Date.now();
-    const routeContext = (request as any).context;
+    const routeContext = request.context;
 
     return next.handle().pipe(
       tap((response) => {

@@ -97,9 +97,7 @@ export class TransformUtils {
   /**
    * Merges multiple objects (shallow merge)
    */
-  static merge<T extends Record<string, any>>(
-    ...objects: Partial<T>[]
-  ): T {
+  static merge<T extends Record<string, any>>(...objects: Partial<T>[]): T {
     return objects.reduce((acc, obj) => ({ ...acc, ...obj }), {}) as T;
   }
 

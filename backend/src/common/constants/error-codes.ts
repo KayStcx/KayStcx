@@ -51,7 +51,8 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ErrorCode.INVALID_CREDENTIALS]: 'Invalid email or password',
   [ErrorCode.TOKEN_EXPIRED]: 'Token has expired',
   [ErrorCode.TOKEN_INVALID]: 'Invalid token',
-  [ErrorCode.INSUFFICIENT_PERMISSIONS]: 'Insufficient permissions to perform this action',
+  [ErrorCode.INSUFFICIENT_PERMISSIONS]:
+    'Insufficient permissions to perform this action',
 
   [ErrorCode.VALIDATION_ERROR]: 'Validation error',
   [ErrorCode.INVALID_INPUT]: 'Invalid input provided',

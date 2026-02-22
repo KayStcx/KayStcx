@@ -1,5 +1,7 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import { BullModule } from '@nestjs/bull';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { LoggingService } from './logging/logging.service';
 import { CorrelationIdMiddleware } from './logging/correlation-id.middleware';
 import { MetricsService } from './monitoring/metrics.service';
@@ -13,7 +15,18 @@ import { TimeoutInterceptor } from './interceptors/timeout.interceptor';
 import { LoggingInterceptor } from './interceptors/logging.interceptor';
 import { GlobalExceptionFilter } from './exceptions/global-exception.filter';
 import { ValidationPipe } from './pipes/validation.pipe';
-import { ValidationUtils, CryptoUtils, TransformUtils, StringUtils } from './utils';
+import {
+  ValidationUtils,
+  CryptoUtils,
+  TransformUtils,
+  StringUtils,
+} from './utils';
+import {
+  RateLimitService,
+  RATE_LIMIT_QUEUE_NAME,
+} from './rate-limiting/rate-limit.service';
+import { RateLimitGuard } from './guards/rate-limit.guard';
+import { Issuer } from '../modules/issuers/entities/issuer.entity';
 
 @Module({
   imports: [
@@ -21,14 +34,21 @@ import { ValidationUtils, CryptoUtils, TransformUtils, StringUtils } from './uti
       secret: process.env.JWT_SECRET || 'your-secret-key',
       signOptions: { expiresIn: '1h' },
     }),
+    TypeOrmModule.forFeature([Issuer]),
+    BullModule.registerQueue({
+      name: RATE_LIMIT_QUEUE_NAME,
+      defaultJobOptions: {
+        removeOnComplete: true,
+        removeOnFail: false,
+      },
+    }),
   ],
   providers: [
-    // Services
     LoggingService,
     MetricsService,
     SentryService,
+    RateLimitService,
 
-    // Global Guards
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
@@ -37,8 +57,11 @@ import { ValidationUtils, CryptoUtils, TransformUtils, StringUtils } from './uti
       provide: APP_GUARD,
       useClass: RolesGuard,
     },
+    {
+      provide: APP_GUARD,
+      useClass: RateLimitGuard,
+    },
 
-    // Global Interceptors
     {
       provide: APP_INTERCEPTOR,
       useClass: ResponseInterceptor,
@@ -52,19 +75,16 @@ import { ValidationUtils, CryptoUtils, TransformUtils, StringUtils } from './uti
       useClass: LoggingInterceptor,
     },
 
-    // Global Exception Filter
     {
       provide: APP_FILTER,
       useClass: GlobalExceptionFilter,
     },
 
-    // Global Validation Pipe
     {
       provide: APP_PIPE,
       useClass: ValidationPipe,
     },
 
-    // Utility Providers (for DI if needed)
     {
       provide: 'VALIDATION_UTILS',
       useValue: ValidationUtils,
@@ -87,12 +107,11 @@ import { ValidationUtils, CryptoUtils, TransformUtils, StringUtils } from './uti
     MetricsService,
     SentryService,
     JwtModule,
+    RateLimitService,
   ],
 })
 export class CommonModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(CorrelationIdMiddleware, MetricsMiddleware)
-      .forRoutes('*');
+    consumer.apply(CorrelationIdMiddleware, MetricsMiddleware).forRoutes('*');
   }
 }

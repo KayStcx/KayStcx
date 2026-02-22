@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Certificate } from '../entities/certificate.entity';
-import { DuplicateDetectionService } from '../services/duplicate-detection.service';
-import { DuplicateDetectionController } from '../controllers/duplicate-detection.controller';
+import { Certificate } from './entities/certificate.entity';
+import { DuplicateDetectionService } from './services/duplicate-detection.service';
+import { DuplicateDetectionController } from './controllers/duplicate-detection.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Certificate])],

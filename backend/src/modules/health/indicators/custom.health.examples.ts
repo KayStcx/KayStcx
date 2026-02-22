@@ -1,12 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { HealthIndicator, HealthIndicatorResult, HealthCheckError } from '@nestjs/terminus';
+import {
+  HealthIndicator,
+  HealthIndicatorResult,
+  HealthCheckError,
+} from '@nestjs/terminus';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { timeout } from 'rxjs/operators';
 
 /**
  * Example: Custom Health Indicator for External Service
- * 
+ *
  * This example shows how to create health indicators for external services
  * or any custom dependency that needs health checking.
  */
@@ -23,18 +27,17 @@ export class ExternalServiceHealthIndicator extends HealthIndicator {
    */
   async isHealthy(): Promise<HealthIndicatorResult> {
     try {
-      const serviceUrl = process.env.EXTERNAL_SERVICE_URL || 'http://external-service:3000';
-      
+      const serviceUrl =
+        process.env.EXTERNAL_SERVICE_URL || 'http://external-service:3000';
+
       // Make health check request with timeout
       const response = await firstValueFrom(
-        this.httpService
-          .get(`${serviceUrl}/health`)
-          .pipe(timeout(5000)),
+        this.httpService.get(`${serviceUrl}/health`).pipe(timeout(5000)),
       );
 
       if (response.status === 200) {
         this.logger.debug('External service health check passed');
-        
+
         return this.getStatus('external_service', true, {
           message: 'External service is healthy',
           url: serviceUrl,
@@ -71,7 +74,7 @@ export class CacheHealthIndicator extends HealthIndicator {
       await this.cacheService.ping();
 
       this.logger.debug('Cache health check passed');
-      
+
       return this.getStatus('cache', true, {
         message: 'Cache is healthy',
       });
@@ -108,7 +111,7 @@ export class MessageQueueHealthIndicator extends HealthIndicator {
       }
 
       this.logger.debug('Message queue health check passed');
-      
+
       return this.getStatus('message_queue', true, {
         message: 'Message queue is healthy',
       });
@@ -144,7 +147,7 @@ export class MemoryHealthIndicator extends HealthIndicator {
       }
 
       this.logger.debug('Memory health check passed');
-      
+
       return this.getStatus('memory', true, {
         message: 'Memory usage is healthy',
         heapUsedPercent: `${(heapUsedPercent * 100).toFixed(2)}%`,
