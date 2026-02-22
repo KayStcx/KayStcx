@@ -8,6 +8,7 @@ import { CertificateStatsService } from './services/stats.service';
 import { CertificateStatsController } from './certificate.controller';
 import { DuplicateDetectionModule } from './duplicate-detection.module';
 import { WebhooksModule } from '../modules/webhooks/webhooks.module';
+import { MetadataSchemaModule } from '../modules/metadata-schema/metadata-schema.module';
 
 @Module({
   imports: [
@@ -18,9 +19,10 @@ import { WebhooksModule } from '../modules/webhooks/webhooks.module';
     }),
     DuplicateDetectionModule,
     WebhooksModule,
+    MetadataSchemaModule,
   ],
   controllers: [CertificateStatsController],
   providers: [CertificateService, CertificateStatsService],
   exports: [CertificateService, CertificateStatsService],
 })
-export class CertificateModule { }
+export class CertificateModule {}
