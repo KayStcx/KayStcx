@@ -1,4 +1,10 @@
-import { Controller, Get, Logger, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Logger,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
 import { DatabaseHealthIndicator } from './indicators/database.health';
@@ -48,7 +54,9 @@ export class HealthController {
    */
   @Get('ready')
   @HealthCheck()
-  @ApiOperation({ summary: 'Readiness probe - checks all critical dependencies' })
+  @ApiOperation({
+    summary: 'Readiness probe - checks all critical dependencies',
+  })
   @ApiResponse({
     status: 200,
     description: 'Application is ready to serve traffic',
@@ -81,7 +89,9 @@ export class HealthController {
    * Checks if the application is running
    */
   @Get('live')
-  @ApiOperation({ summary: 'Liveness probe - checks if application is running' })
+  @ApiOperation({
+    summary: 'Liveness probe - checks if application is running',
+  })
   @ApiResponse({
     status: 200,
     description: 'Application is alive',
@@ -110,9 +120,7 @@ export class HealthController {
   })
   async databaseCheck() {
     try {
-      return await this.health.check([
-        () => this.databaseHealth.isHealthy(),
-      ]);
+      return await this.health.check([() => this.databaseHealth.isHealthy()]);
     } catch (error) {
       this.logger.error('Database health check failed', error);
       throw new HttpException(
@@ -142,9 +150,7 @@ export class HealthController {
   })
   async stellarCheck() {
     try {
-      return await this.health.check([
-        () => this.stellarHealth.isHealthy(),
-      ]);
+      return await this.health.check([() => this.stellarHealth.isHealthy()]);
     } catch (error) {
       this.logger.error('Stellar health check failed', error);
       throw new HttpException(

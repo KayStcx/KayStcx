@@ -47,7 +47,9 @@ describe('EmailService', () => {
         issuerName: 'AWS Academy',
       };
 
-      const sendEmailSpy = jest.spyOn(service, 'sendEmail').mockResolvedValue(undefined);
+      const sendEmailSpy = jest
+        .spyOn(service, 'sendEmail')
+        .mockResolvedValue(undefined);
 
       await service.sendCertificateIssued(dto);
 
@@ -69,7 +71,9 @@ describe('EmailService', () => {
         verificationLink: 'http://localhost:3000/verify?token=abc123',
       };
 
-      const sendEmailSpy = jest.spyOn(service, 'sendEmail').mockResolvedValue(undefined);
+      const sendEmailSpy = jest
+        .spyOn(service, 'sendEmail')
+        .mockResolvedValue(undefined);
 
       await service.sendVerificationEmail(dto);
 
@@ -91,7 +95,9 @@ describe('EmailService', () => {
         resetLink: 'http://localhost:3000/reset?token=xyz789',
       };
 
-      const sendEmailSpy = jest.spyOn(service, 'sendEmail').mockResolvedValue(undefined);
+      const sendEmailSpy = jest
+        .spyOn(service, 'sendEmail')
+        .mockResolvedValue(undefined);
 
       await service.sendPasswordReset(dto);
 
@@ -116,7 +122,9 @@ describe('EmailService', () => {
         revocationDate: new Date().toISOString(),
       };
 
-      const sendEmailSpy = jest.spyOn(service, 'sendEmail').mockResolvedValue(undefined);
+      const sendEmailSpy = jest
+        .spyOn(service, 'sendEmail')
+        .mockResolvedValue(undefined);
 
       await service.sendRevocationNotice(dto);
 

@@ -39,9 +39,13 @@ export class CRLController {
 
   @Post('initialize')
   @Roles(UserRole.ADMIN)
-  async initializeCRL(@CurrentUser() user: User): Promise<{ transactionHash: string }> {
+  async initializeCRL(
+    @CurrentUser() user: User,
+  ): Promise<{ transactionHash: string }> {
     try {
-      const transactionHash = await this.crlService.initializeCRL(user.stellarPublicKey);
+      const transactionHash = await this.crlService.initializeCRL(
+        user.stellarPublicKey,
+      );
       return { transactionHash };
     } catch (error) {
       this.logger.error('Failed to initialize CRL', error);
@@ -67,7 +71,10 @@ export class CRLController {
       );
       return { transactionHash };
     } catch (error) {
-      this.logger.error(`Failed to revoke certificate ${revokeDto.certificateId}`, error);
+      this.logger.error(
+        `Failed to revoke certificate ${revokeDto.certificateId}`,
+        error,
+      );
       if (error.message.includes('already revoked')) {
         throw new HttpException(
           'Certificate already revoked',
@@ -94,7 +101,10 @@ export class CRLController {
       );
       return { transactionHash };
     } catch (error) {
-      this.logger.error(`Failed to unrevoke certificate ${certificateId}`, error);
+      this.logger.error(
+        `Failed to unrevoke certificate ${certificateId}`,
+        error,
+      );
       if (error.message.includes('not found in revocation list')) {
         throw new HttpException(
           'Certificate not found in revocation list',
@@ -129,10 +139,14 @@ export class CRLController {
     @Param('certificateId') certificateId: string,
   ): Promise<{ isRevoked: boolean }> {
     try {
-      const isRevoked = await this.crlService.isCertificateRevoked(certificateId);
+      const isRevoked =
+        await this.crlService.isCertificateRevoked(certificateId);
       return { isRevoked };
     } catch (error) {
-      this.logger.error(`Failed to check revocation status for ${certificateId}`, error);
+      this.logger.error(
+        `Failed to check revocation status for ${certificateId}`,
+        error,
+      );
       throw new HttpException(
         'Failed to check revocation status',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -146,7 +160,10 @@ export class CRLController {
     @Query('limit') limit: number = 20,
   ): Promise<any> {
     try {
-      const pagination: Pagination = { page: Number(page), limit: Number(limit) };
+      const pagination: Pagination = {
+        page: Number(page),
+        limit: Number(limit),
+      };
       const result = await this.crlService.getRevokedCertificates(pagination);
       return result;
     } catch (error) {

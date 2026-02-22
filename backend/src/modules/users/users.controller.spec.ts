@@ -143,7 +143,9 @@ describe('UsersController', () => {
         const result = await controller.refreshToken(refreshTokenDto);
 
         expect(result).toEqual(mockTokens);
-        expect(usersService.refreshTokens).toHaveBeenCalledWith(refreshTokenDto);
+        expect(usersService.refreshTokens).toHaveBeenCalledWith(
+          refreshTokenDto,
+        );
       });
     });
   });
@@ -166,14 +168,20 @@ describe('UsersController', () => {
     describe('resendVerification', () => {
       it('should resend verification email', async () => {
         const resendDto = { email: 'test@example.com' };
-        const expectedResult = { message: 'If the email exists, a verification link has been sent' };
+        const expectedResult = {
+          message: 'If the email exists, a verification link has been sent',
+        };
 
-        mockUsersService.resendVerificationEmail.mockResolvedValue(expectedResult);
+        mockUsersService.resendVerificationEmail.mockResolvedValue(
+          expectedResult,
+        );
 
         const result = await controller.resendVerification(resendDto);
 
         expect(result).toEqual(expectedResult);
-        expect(usersService.resendVerificationEmail).toHaveBeenCalledWith(resendDto);
+        expect(usersService.resendVerificationEmail).toHaveBeenCalledWith(
+          resendDto,
+        );
       });
     });
   });
@@ -182,14 +190,18 @@ describe('UsersController', () => {
     describe('forgotPassword', () => {
       it('should request password reset', async () => {
         const forgotPasswordDto = { email: 'test@example.com' };
-        const expectedResult = { message: 'If the email exists, a password reset link has been sent' };
+        const expectedResult = {
+          message: 'If the email exists, a password reset link has been sent',
+        };
 
         mockUsersService.forgotPassword.mockResolvedValue(expectedResult);
 
         const result = await controller.forgotPassword(forgotPasswordDto);
 
         expect(result).toEqual(expectedResult);
-        expect(usersService.forgotPassword).toHaveBeenCalledWith(forgotPasswordDto);
+        expect(usersService.forgotPassword).toHaveBeenCalledWith(
+          forgotPasswordDto,
+        );
       });
     });
 
@@ -207,7 +219,9 @@ describe('UsersController', () => {
         const result = await controller.resetPassword(resetPasswordDto);
 
         expect(result).toEqual(expectedResult);
-        expect(usersService.resetPassword).toHaveBeenCalledWith(resetPasswordDto);
+        expect(usersService.resetPassword).toHaveBeenCalledWith(
+          resetPasswordDto,
+        );
       });
     });
 
@@ -222,7 +236,10 @@ describe('UsersController', () => {
 
         mockUsersService.changePassword.mockResolvedValue(expectedResult);
 
-        const result = await controller.changePassword(mockUser.id!, changePasswordDto);
+        const result = await controller.changePassword(
+          mockUser.id!,
+          changePasswordDto,
+        );
 
         expect(result).toEqual(expectedResult);
         expect(usersService.changePassword).toHaveBeenCalledWith(
@@ -255,7 +272,10 @@ describe('UsersController', () => {
 
         mockUsersService.updateProfile.mockResolvedValue(updatedUser as User);
 
-        const result = await controller.updateProfile(mockUser.id!, updateProfileDto);
+        const result = await controller.updateProfile(
+          mockUser.id!,
+          updateProfileDto,
+        );
 
         expect(result).toEqual(updatedUser);
         expect(usersService.updateProfile).toHaveBeenCalledWith(
@@ -351,7 +371,11 @@ describe('UsersController', () => {
 
         mockUsersService.adminUpdateUser.mockResolvedValue(updatedUser as User);
 
-        const result = await controller.adminUpdate(adminId, mockUser.id!, updateDto);
+        const result = await controller.adminUpdate(
+          adminId,
+          mockUser.id!,
+          updateDto,
+        );
 
         expect(result).toEqual(updatedUser);
         expect(usersService.adminUpdateUser).toHaveBeenCalledWith(
@@ -369,7 +393,11 @@ describe('UsersController', () => {
 
         mockUsersService.updateUserRole.mockResolvedValue(updatedUser as User);
 
-        const result = await controller.updateRole(adminId, mockUser.id!, updateRoleDto);
+        const result = await controller.updateRole(
+          adminId,
+          mockUser.id!,
+          updateRoleDto,
+        );
 
         expect(result).toEqual(updatedUser);
         expect(usersService.updateUserRole).toHaveBeenCalledWith(
@@ -382,12 +410,20 @@ describe('UsersController', () => {
 
     describe('updateStatus', () => {
       it('should update user status', async () => {
-        const updateStatusDto: UpdateUserStatusDto = { status: UserStatus.SUSPENDED };
+        const updateStatusDto: UpdateUserStatusDto = {
+          status: UserStatus.SUSPENDED,
+        };
         const updatedUser = { ...mockUser, status: UserStatus.SUSPENDED };
 
-        mockUsersService.updateUserStatus.mockResolvedValue(updatedUser as User);
+        mockUsersService.updateUserStatus.mockResolvedValue(
+          updatedUser as User,
+        );
 
-        const result = await controller.updateStatus(adminId, mockUser.id!, updateStatusDto);
+        const result = await controller.updateStatus(
+          adminId,
+          mockUser.id!,
+          updateStatusDto,
+        );
 
         expect(result).toEqual(updatedUser);
         expect(usersService.updateUserStatus).toHaveBeenCalledWith(
@@ -401,11 +437,21 @@ describe('UsersController', () => {
     describe('deactivate', () => {
       it('should deactivate a user', async () => {
         const deactivateDto = { reason: 'Test reason' };
-        const deactivatedUser = { ...mockUser, isActive: false, status: UserStatus.INACTIVE };
+        const deactivatedUser = {
+          ...mockUser,
+          isActive: false,
+          status: UserStatus.INACTIVE,
+        };
 
-        mockUsersService.deactivateUser.mockResolvedValue(deactivatedUser as User);
+        mockUsersService.deactivateUser.mockResolvedValue(
+          deactivatedUser as User,
+        );
 
-        const result = await controller.deactivate(adminId, mockUser.id!, deactivateDto);
+        const result = await controller.deactivate(
+          adminId,
+          mockUser.id!,
+          deactivateDto,
+        );
 
         expect(result).toEqual(deactivatedUser);
         expect(usersService.deactivateUser).toHaveBeenCalledWith(
@@ -418,14 +464,23 @@ describe('UsersController', () => {
 
     describe('reactivate', () => {
       it('should reactivate a user', async () => {
-        const reactivatedUser = { ...mockUser, isActive: true, status: UserStatus.ACTIVE };
+        const reactivatedUser = {
+          ...mockUser,
+          isActive: true,
+          status: UserStatus.ACTIVE,
+        };
 
-        mockUsersService.reactivateUser.mockResolvedValue(reactivatedUser as User);
+        mockUsersService.reactivateUser.mockResolvedValue(
+          reactivatedUser as User,
+        );
 
         const result = await controller.reactivate(adminId, mockUser.id!);
 
         expect(result).toEqual(reactivatedUser);
-        expect(usersService.reactivateUser).toHaveBeenCalledWith(adminId, mockUser.id);
+        expect(usersService.reactivateUser).toHaveBeenCalledWith(
+          adminId,
+          mockUser.id,
+        );
       });
     });
 
@@ -438,7 +493,10 @@ describe('UsersController', () => {
         const result = await controller.remove(adminId, mockUser.id!);
 
         expect(result).toEqual(expectedResult);
-        expect(usersService.deleteUser).toHaveBeenCalledWith(adminId, mockUser.id);
+        expect(usersService.deleteUser).toHaveBeenCalledWith(
+          adminId,
+          mockUser.id,
+        );
       });
     });
   });

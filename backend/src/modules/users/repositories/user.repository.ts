@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder, FindOptionsWhere, ILike } from 'typeorm';
+import {
+  Repository,
+  SelectQueryBuilder,
+  FindOptionsWhere,
+  ILike,
+} from 'typeorm';
 import { User, UserRole, UserStatus } from '../entities/user.entity';
 import { IPaginatedResult, IPaginationOptions } from '../interfaces';
 import { IUserFilter, ISortOptions } from '../interfaces/user.interface';
@@ -50,7 +55,9 @@ export class UserRepository {
   }
 
   async findByEmailVerificationToken(token: string): Promise<User | null> {
-    return this.repository.findOne({ where: { emailVerificationToken: token } });
+    return this.repository.findOne({
+      where: { emailVerificationToken: token },
+    });
   }
 
   async findByPasswordResetToken(token: string): Promise<User | null> {
@@ -212,7 +219,10 @@ export class UserRepository {
   }
 
   async resetLoginAttempts(id: string): Promise<void> {
-    await this.repository.update(id, { loginAttempts: 0, lockedUntil: undefined as any });
+    await this.repository.update(id, {
+      loginAttempts: 0,
+      lockedUntil: undefined as any,
+    });
   }
 
   async lockAccount(id: string, until: Date): Promise<void> {

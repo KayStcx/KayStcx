@@ -10,7 +10,8 @@ export const defaultDuplicateDetectionConfig: DuplicateDetectionConfig = {
     {
       id: 'exact_match',
       name: 'Exact Match Detection',
-      description: 'Detect exact matches on recipient email, name, title, and issuer',
+      description:
+        'Detect exact matches on recipient email, name, title, and issuer',
       enabled: true,
       action: 'block',
       threshold: 1.0,
@@ -57,7 +58,8 @@ export const defaultDuplicateDetectionConfig: DuplicateDetectionConfig = {
     {
       id: 'same_recipient_different_issuer',
       name: 'Same Recipient Different Issuer',
-      description: 'Detect when same recipient gets certificates from different issuers',
+      description:
+        'Detect when same recipient gets certificates from different issuers',
       enabled: true,
       action: 'warn',
       threshold: 0.9,
@@ -69,7 +71,8 @@ export const defaultDuplicateDetectionConfig: DuplicateDetectionConfig = {
     {
       id: 'high_frequency_recipient',
       name: 'High Frequency Recipient',
-      description: 'Detect recipients receiving many certificates in short time',
+      description:
+        'Detect recipients receiving many certificates in short time',
       enabled: true,
       action: 'warn',
       threshold: 0.7,
@@ -85,7 +88,7 @@ export const strictDuplicateDetectionConfig: DuplicateDetectionConfig = {
   ...defaultDuplicateDetectionConfig,
   defaultAction: 'block',
   allowOverride: false,
-  rules: defaultDuplicateDetectionConfig.rules.map(rule => ({
+  rules: defaultDuplicateDetectionConfig.rules.map((rule) => ({
     ...rule,
     action: 'block' as const,
     threshold: Math.max(rule.threshold, 0.8),
@@ -97,7 +100,7 @@ export const lenientDuplicateDetectionConfig: DuplicateDetectionConfig = {
   defaultAction: 'allow',
   allowOverride: true,
   requireAdminApproval: false,
-  rules: defaultDuplicateDetectionConfig.rules.map(rule => ({
+  rules: defaultDuplicateDetectionConfig.rules.map((rule) => ({
     ...rule,
     action: 'warn' as const,
     threshold: Math.min(rule.threshold, 0.6),

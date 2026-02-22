@@ -11,7 +11,7 @@ export class CorrelationIdMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction): void {
     // Check if correlation ID is provided in headers
     let correlationId = req.headers['x-correlation-id'] as string;
-    
+
     if (!correlationId) {
       correlationId = this.loggingService.generateCorrelationId();
     }

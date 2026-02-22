@@ -30,7 +30,11 @@ import { User, UserRole } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto, RefreshTokenDto } from './dto/login-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { ChangePasswordDto, ForgotPasswordDto, ResetPasswordDto } from './dto/change-password.dto';
+import {
+  ChangePasswordDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+} from './dto/change-password.dto';
 import { UserFilterDto } from './dto/pagination.dto';
 import {
   AdminUpdateUserDto,
@@ -38,14 +42,21 @@ import {
   UpdateUserStatusDto,
   DeactivateUserDto,
 } from './dto/admin-user.dto';
-import { VerifyEmailDto, ResendVerificationDto } from './dto/email-verification.dto';
+import {
+  VerifyEmailDto,
+  ResendVerificationDto,
+} from './dto/email-verification.dto';
 import {
   UserResponseDto,
   AuthResponseDto,
   PaginatedUsersResponseDto,
   MessageResponseDto,
 } from './dto/user-response.dto';
-import { IssuerProfileStatsDto, IssuerActivityResponseDto, UpdateIssuerProfileDto } from './dto/issuer-profile.dto';
+import {
+  IssuerProfileStatsDto,
+  IssuerActivityResponseDto,
+  UpdateIssuerProfileDto,
+} from './dto/issuer-profile.dto';
 
 @ApiTags('Users')
 @Controller('users')
@@ -204,7 +215,10 @@ export class UsersController {
     type: UserResponseDto,
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 409, description: 'Username or Stellar key already taken' })
+  @ApiResponse({
+    status: 409,
+    description: 'Username or Stellar key already taken',
+  })
   async updateProfile(
     @CurrentUser('id') userId: string,
     @Body() updateProfileDto: UpdateProfileDto,
@@ -311,7 +325,10 @@ export class UsersController {
     type: UserResponseDto,
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Cannot modify own role' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Cannot modify own role',
+  })
   @ApiResponse({ status: 404, description: 'User not found' })
   async updateRole(
     @CurrentUser('id') adminId: string,
@@ -355,7 +372,10 @@ export class UsersController {
     type: UserResponseDto,
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Cannot deactivate self' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Cannot deactivate self',
+  })
   @ApiResponse({ status: 404, description: 'User not found' })
   async deactivate(
     @CurrentUser('id') adminId: string,
@@ -430,8 +450,18 @@ export class UsersController {
   @Roles(UserRole.ISSUER, UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get issuer activity log' })
-  @ApiQuery({ name: 'page', required: false, description: 'Page number', example: 1 })
-  @ApiQuery({ name: 'limit', required: false, description: 'Items per page', example: 10 })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    description: 'Page number',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Items per page',
+    example: 10,
+  })
   @ApiResponse({
     status: 200,
     description: 'Activity log',
@@ -459,7 +489,10 @@ export class UsersController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Issuer/Admin only' })
-  @ApiResponse({ status: 409, description: 'Username or Stellar key already taken' })
+  @ApiResponse({
+    status: 409,
+    description: 'Username or Stellar key already taken',
+  })
   async updateIssuerProfile(
     @CurrentUser('id') userId: string,
     @Body() updateDto: UpdateIssuerProfileDto,

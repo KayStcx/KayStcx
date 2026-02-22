@@ -52,8 +52,7 @@ describe('AuditCleanupJob', () => {
 
       const calls = (auditService.log as jest.Mock).mock.calls;
       const startCall = calls.find(
-        (call) =>
-          call[0].action === AuditAction.BACKGROUND_JOB_START,
+        (call) => call[0].action === AuditAction.BACKGROUND_JOB_START,
       );
 
       expect(startCall).toBeDefined();
@@ -74,8 +73,7 @@ describe('AuditCleanupJob', () => {
 
       const calls = (auditService.log as jest.Mock).mock.calls;
       const completeCall = calls.find(
-        (call) =>
-          call[0].action === AuditAction.BACKGROUND_JOB_COMPLETE,
+        (call) => call[0].action === AuditAction.BACKGROUND_JOB_COMPLETE,
       );
 
       expect(completeCall).toBeDefined();
@@ -95,16 +93,13 @@ describe('AuditCleanupJob', () => {
 
     it('should handle cleanup errors gracefully', async () => {
       const error = new Error('Cleanup failed');
-      jest
-        .spyOn(auditService, 'cleanupOldLogs')
-        .mockRejectedValue(error);
+      jest.spyOn(auditService, 'cleanupOldLogs').mockRejectedValue(error);
 
       await job.handleCron();
 
       const calls = (auditService.log as jest.Mock).mock.calls;
       const errorCall = calls.find(
-        (call) =>
-          call[0].action === AuditAction.BACKGROUND_JOB_FAILED,
+        (call) => call[0].action === AuditAction.BACKGROUND_JOB_FAILED,
       );
 
       expect(errorCall).toBeDefined();

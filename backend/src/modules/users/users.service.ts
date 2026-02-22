@@ -15,7 +15,11 @@ import { User, UserRole, UserStatus } from './entities/user.entity';
 import { UserRepository } from './repositories/user.repository';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { ChangePasswordDto, ForgotPasswordDto, ResetPasswordDto } from './dto/change-password.dto';
+import {
+  ChangePasswordDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+} from './dto/change-password.dto';
 import { LoginUserDto, RefreshTokenDto } from './dto/login-user.dto';
 import { UserFilterDto } from './dto/pagination.dto';
 import {
@@ -24,7 +28,10 @@ import {
   UpdateUserStatusDto,
   DeactivateUserDto,
 } from './dto/admin-user.dto';
-import { VerifyEmailDto, ResendVerificationDto } from './dto/email-verification.dto';
+import {
+  VerifyEmailDto,
+  ResendVerificationDto,
+} from './dto/email-verification.dto';
 import { IPaginatedResult } from './interfaces';
 import { IAuthTokens, IUserPublic } from './interfaces/user.interface';
 
@@ -45,7 +52,9 @@ export class UsersService {
 
   // ==================== Authentication ====================
 
-  async register(createUserDto: CreateUserDto): Promise<{ user: IUserPublic; tokens: IAuthTokens }> {
+  async register(
+    createUserDto: CreateUserDto,
+  ): Promise<{ user: IUserPublic; tokens: IAuthTokens }> {
     const { email, password, stellarPublicKey, username } = createUserDto;
 
     // Check if email already exists
@@ -54,12 +63,15 @@ export class UsersService {
     }
 
     // Check if username already exists (if provided)
-    if (username && await this.userRepository.existsByUsername(username)) {
+    if (username && (await this.userRepository.existsByUsername(username))) {
       throw new ConflictException('Username already taken');
     }
 
     // Check if Stellar public key already exists (if provided)
-    if (stellarPublicKey && await this.userRepository.existsByStellarPublicKey(stellarPublicKey)) {
+    if (
+      stellarPublicKey &&
+      (await this.userRepository.existsByStellarPublicKey(stellarPublicKey))
+    ) {
       throw new ConflictException('Stellar public key already registered');
     }
 
@@ -70,7 +82,8 @@ export class UsersService {
     const emailVerificationToken = this.generateToken();
     const emailVerificationExpires = new Date();
     emailVerificationExpires.setHours(
-      emailVerificationExpires.getHours() + this.EMAIL_VERIFICATION_EXPIRY_HOURS,
+      emailVerificationExpires.getHours() +
+        this.EMAIL_VERIFICATION_EXPIRY_HOURS,
     );
 
     // Create user
@@ -97,7 +110,9 @@ export class UsersService {
     };
   }
 
-  async login(loginDto: LoginUserDto): Promise<{ user: IUserPublic; tokens: IAuthTokens }> {
+  async login(
+    loginDto: LoginUserDto,
+  ): Promise<{ user: IUserPublic; tokens: IAuthTokens }> {
     const { email, password } = loginDto;
 
     // Find user with password
@@ -110,7 +125,7 @@ export class UsersService {
     // Check if account is locked
     if (user.isLocked()) {
       const remainingTime = Math.ceil(
-        (user.lockedUntil!.getTime() - Date.now()) / 60000,
+        (user.lockedUntil.getTime() - Date.now()) / 60000,
       );
       throw new ForbiddenException(
         `Account is locked. Please try again in ${remainingTime} minutes`,
@@ -188,7 +203,9 @@ export class UsersService {
 
   // ==================== Email Verification ====================
 
-  async verifyEmail(verifyEmailDto: VerifyEmailDto): Promise<{ message: string }> {
+  async verifyEmail(
+    verifyEmailDto: VerifyEmailDto,
+  ): Promise<{ message: string }> {
     const { token } = verifyEmailDto;
 
     const user = await this.userRepository.findByEmailVerificationToken(token);
@@ -222,7 +239,9 @@ export class UsersService {
 
     if (!user) {
       // Don't reveal if email exists
-      return { message: 'If the email exists, a verification link has been sent' };
+      return {
+        message: 'If the email exists, a verification link has been sent',
+      };
     }
 
     if (user.isEmailVerified) {
@@ -233,7 +252,8 @@ export class UsersService {
     const emailVerificationToken = this.generateToken();
     const emailVerificationExpires = new Date();
     emailVerificationExpires.setHours(
-      emailVerificationExpires.getHours() + this.EMAIL_VERIFICATION_EXPIRY_HOURS,
+      emailVerificationExpires.getHours() +
+        this.EMAIL_VERIFICATION_EXPIRY_HOURS,
     );
 
     await this.userRepository.update(user.id, {
@@ -244,7 +264,9 @@ export class UsersService {
     // TODO: Send verification email
     // await this.emailService.sendVerificationEmail(user.email, emailVerificationToken);
 
-    return { message: 'If the email exists, a verification link has been sent' };
+    return {
+      message: 'If the email exists, a verification link has been sent',
+    };
   }
 
   // ==================== Password Management ====================
@@ -266,7 +288,10 @@ export class UsersService {
     }
 
     // Verify current password
-    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    const isPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.password,
+    );
 
     if (!isPasswordValid) {
       throw new UnauthorizedException('Current password is incorrect');
@@ -282,14 +307,18 @@ export class UsersService {
     return { message: 'Password changed successfully' };
   }
 
-  async forgotPassword(forgotPasswordDto: ForgotPasswordDto): Promise<{ message: string }> {
+  async forgotPassword(
+    forgotPasswordDto: ForgotPasswordDto,
+  ): Promise<{ message: string }> {
     const { email } = forgotPasswordDto;
 
     const user = await this.userRepository.findByEmail(email);
 
     if (!user) {
       // Don't reveal if email exists
-      return { message: 'If the email exists, a password reset link has been sent' };
+      return {
+        message: 'If the email exists, a password reset link has been sent',
+      };
     }
 
     // Generate password reset token
@@ -309,10 +338,14 @@ export class UsersService {
 
     this.logger.log(`Password reset requested for: ${email}`);
 
-    return { message: 'If the email exists, a password reset link has been sent' };
+    return {
+      message: 'If the email exists, a password reset link has been sent',
+    };
   }
 
-  async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<{ message: string }> {
+  async resetPassword(
+    resetPasswordDto: ResetPasswordDto,
+  ): Promise<{ message: string }> {
     const { token, newPassword, confirmPassword } = resetPasswordDto;
 
     if (newPassword !== confirmPassword) {
@@ -355,7 +388,10 @@ export class UsersService {
     return user;
   }
 
-  async updateProfile(userId: string, updateProfileDto: UpdateProfileDto): Promise<User> {
+  async updateProfile(
+    userId: string,
+    updateProfileDto: UpdateProfileDto,
+  ): Promise<User> {
     const user = await this.userRepository.findById(userId);
 
     if (!user) {
@@ -367,7 +403,9 @@ export class UsersService {
       updateProfileDto.username &&
       updateProfileDto.username !== user.username
     ) {
-      if (await this.userRepository.existsByUsername(updateProfileDto.username)) {
+      if (
+        await this.userRepository.existsByUsername(updateProfileDto.username)
+      ) {
         throw new ConflictException('Username already taken');
       }
     }
@@ -386,7 +424,10 @@ export class UsersService {
       }
     }
 
-    const updatedUser = await this.userRepository.update(userId, updateProfileDto);
+    const updatedUser = await this.userRepository.update(
+      userId,
+      updateProfileDto,
+    );
 
     this.logger.log(`Profile updated for user: ${user.email}`);
 
@@ -410,7 +451,9 @@ export class UsersService {
 
   // ==================== Admin Operations ====================
 
-  async findAllUsers(filterDto: UserFilterDto): Promise<IPaginatedResult<User>> {
+  async findAllUsers(
+    filterDto: UserFilterDto,
+  ): Promise<IPaginatedResult<User>> {
     const { page, limit, sortBy, sortOrder, ...filters } = filterDto;
 
     return this.userRepository.findPaginated(
@@ -559,7 +602,10 @@ export class UsersService {
     return updatedUser!;
   }
 
-  async deleteUser(adminId: string, userId: string): Promise<{ message: string }> {
+  async deleteUser(
+    adminId: string,
+    userId: string,
+  ): Promise<{ message: string }> {
     // Prevent admin from deleting themselves
     if (adminId === userId) {
       throw new ForbiddenException('Cannot delete your own account');
@@ -588,7 +634,9 @@ export class UsersService {
     }
 
     if (user.role !== UserRole.ISSUER && user.role !== UserRole.ADMIN) {
-      throw new ForbiddenException('Only issuers and admins can access issuer stats');
+      throw new ForbiddenException(
+        'Only issuers and admins can access issuer stats',
+      );
     }
 
     // In a real implementation, this would:
@@ -602,11 +650,15 @@ export class UsersService {
       revokedCertificates: 7,
       expiredCertificates: 0,
       totalVerifications: 2847,
-      lastLogin: user.lastLoginAt || user.updatedAt
+      lastLogin: user.lastLoginAt || user.updatedAt,
     };
   }
 
-  async getIssuerActivity(userId: string, page: number = 1, limit: number = 10): Promise<any> {
+  async getIssuerActivity(
+    userId: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<any> {
     // Mock implementation - would integrate with audit service
     const user = await this.userRepository.findById(userId);
     if (!user) {
@@ -614,7 +666,9 @@ export class UsersService {
     }
 
     if (user.role !== UserRole.ISSUER && user.role !== UserRole.ADMIN) {
-      throw new ForbiddenException('Only issuers and admins can access activity logs');
+      throw new ForbiddenException(
+        'Only issuers and admins can access activity logs',
+      );
     }
 
     // In a real implementation, this would query the audit log service
@@ -622,27 +676,31 @@ export class UsersService {
       {
         id: '1',
         action: 'ISSUE_CERTIFICATE',
-        description: 'Issued "Blockchain Fundamentals" certificate to Alice Johnson',
+        description:
+          'Issued "Blockchain Fundamentals" certificate to Alice Johnson',
         ipAddress: '192.168.1.100',
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+        userAgent:
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
       },
       {
         id: '2',
         action: 'REVOKE_CERTIFICATE',
         description: 'Revoked certificate #CERT-2024-045',
         ipAddress: '192.168.1.100',
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
+        userAgent:
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
       },
       {
         id: '3',
         action: 'UPDATE_PROFILE',
         description: 'Updated organization details',
         ipAddress: '192.168.1.100',
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-      }
+        userAgent:
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      },
     ];
 
     const total = mockActivities.length;
@@ -657,8 +715,8 @@ export class UsersService {
         total,
         page,
         limit,
-        totalPages
-      }
+        totalPages,
+      },
     };
   }
 
@@ -669,7 +727,9 @@ export class UsersService {
     }
 
     if (user.role !== UserRole.ISSUER && user.role !== UserRole.ADMIN) {
-      throw new ForbiddenException('Only issuers and admins can update issuer profile');
+      throw new ForbiddenException(
+        'Only issuers and admins can update issuer profile',
+      );
     }
 
     // Check if username is already taken (if updating)
@@ -680,8 +740,15 @@ export class UsersService {
     }
 
     // Check if Stellar public key is already taken (if updating)
-    if (updateDto.stellarPublicKey && updateDto.stellarPublicKey !== user.stellarPublicKey) {
-      if (await this.userRepository.existsByStellarPublicKey(updateDto.stellarPublicKey)) {
+    if (
+      updateDto.stellarPublicKey &&
+      updateDto.stellarPublicKey !== user.stellarPublicKey
+    ) {
+      if (
+        await this.userRepository.existsByStellarPublicKey(
+          updateDto.stellarPublicKey,
+        )
+      ) {
         throw new ConflictException('Stellar public key already registered');
       }
     }
@@ -692,14 +759,16 @@ export class UsersService {
     if (updateDto.lastName) updateData.lastName = updateDto.lastName;
     if (updateDto.username) updateData.username = updateDto.username;
     if (updateDto.phone) updateData.phone = updateDto.phone;
-    if (updateDto.profilePicture) updateData.profilePicture = updateDto.profilePicture;
-    if (updateDto.stellarPublicKey) updateData.stellarPublicKey = updateDto.stellarPublicKey;
+    if (updateDto.profilePicture)
+      updateData.profilePicture = updateDto.profilePicture;
+    if (updateDto.stellarPublicKey)
+      updateData.stellarPublicKey = updateDto.stellarPublicKey;
 
     // Update metadata if organization is provided
     if (updateDto.organization !== undefined) {
       updateData.metadata = {
         ...user.metadata,
-        organization: updateDto.organization
+        organization: updateDto.organization,
       };
     }
 
@@ -718,13 +787,14 @@ export class UsersService {
     byRole: Record<UserRole, number>;
     byStatus: Record<UserStatus, number>;
   }> {
-    const [total, active, userCount, issuerCount, adminCount] = await Promise.all([
-      this.userRepository.countTotal(),
-      this.userRepository.countActive(),
-      this.userRepository.countByRole(UserRole.USER),
-      this.userRepository.countByRole(UserRole.ISSUER),
-      this.userRepository.countByRole(UserRole.ADMIN),
-    ]);
+    const [total, active, userCount, issuerCount, adminCount] =
+      await Promise.all([
+        this.userRepository.countTotal(),
+        this.userRepository.countActive(),
+        this.userRepository.countByRole(UserRole.USER),
+        this.userRepository.countByRole(UserRole.ISSUER),
+        this.userRepository.countByRole(UserRole.ADMIN),
+      ]);
 
     const [activeStatus, inactiveStatus, suspendedStatus, pendingStatus] =
       await Promise.all([

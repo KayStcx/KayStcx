@@ -38,7 +38,9 @@ describe('DuplicateDetectionService', () => {
     }).compile();
 
     service = module.get<DuplicateDetectionService>(DuplicateDetectionService);
-    repository = module.get<Repository<Certificate>>(getRepositoryToken(Certificate));
+    repository = module.get<Repository<Certificate>>(
+      getRepositoryToken(Certificate),
+    );
   });
 
   it('should be defined', () => {
@@ -76,7 +78,12 @@ describe('DuplicateDetectionService', () => {
             enabled: true,
             action: 'block',
             threshold: 1.0,
-            checkFields: ['recipientEmail', 'recipientName', 'title', 'issuerId'],
+            checkFields: [
+              'recipientEmail',
+              'recipientName',
+              'title',
+              'issuerId',
+            ],
             fuzzyMatching: false,
             priority: 100,
           },
@@ -293,14 +300,17 @@ describe('DuplicateDetectionService', () => {
     it('should calculate levenshtein similarity correctly', () => {
       // Access private method through prototype for testing
       const serviceInstance = service as any;
-      
+
       const exactMatch = serviceInstance.levenshteinSimilarity('test', 'test');
       expect(exactMatch).toBe(1);
 
       const closeMatch = serviceInstance.levenshteinSimilarity('test', 'testt');
       expect(closeMatch).toBeGreaterThan(0.8);
 
-      const differentMatch = serviceInstance.levenshteinSimilarity('test', 'completely');
+      const differentMatch = serviceInstance.levenshteinSimilarity(
+        'test',
+        'completely',
+      );
       expect(differentMatch).toBeLessThan(0.5);
 
       const emptyMatch = serviceInstance.levenshteinSimilarity('', 'test');
@@ -309,14 +319,23 @@ describe('DuplicateDetectionService', () => {
 
     it('should handle email fuzzy matching', () => {
       const serviceInstance = service as any;
-      
-      const sameDomain = serviceInstance.fuzzyMatch('john@domain.com', 'jon@domain.com');
+
+      const sameDomain = serviceInstance.fuzzyMatch(
+        'john@domain.com',
+        'jon@domain.com',
+      );
       expect(sameDomain).toBeGreaterThan(0.8);
 
-      const differentDomain = serviceInstance.fuzzyMatch('john@domain.com', 'john@other.com');
+      const differentDomain = serviceInstance.fuzzyMatch(
+        'john@domain.com',
+        'john@other.com',
+      );
       expect(differentDomain).toBeLessThan(0.8);
 
-      const exactEmail = serviceInstance.fuzzyMatch('john@domain.com', 'john@domain.com');
+      const exactEmail = serviceInstance.fuzzyMatch(
+        'john@domain.com',
+        'john@domain.com',
+      );
       expect(exactEmail).toBe(1);
     });
   });

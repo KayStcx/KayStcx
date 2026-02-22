@@ -8,16 +8,9 @@ import { AuditContextMiddleware } from './middleware';
 import { AuditCleanupJob } from './jobs';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([AuditLog]),
-    ScheduleModule.forRoot(),
-  ],
+  imports: [TypeOrmModule.forFeature([AuditLog]), ScheduleModule.forRoot()],
   controllers: [AuditController],
-  providers: [
-    AuditService,
-    RequestContextService,
-    AuditCleanupJob,
-  ],
+  providers: [AuditService, RequestContextService, AuditCleanupJob],
   exports: [AuditService, RequestContextService],
 })
 export class AuditModule implements NestModule {

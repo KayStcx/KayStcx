@@ -16,27 +16,27 @@ export class CleanupService {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleCleanup() {
     this.logger.log('Running cleanup job for temp files...');
-    
+
     if (!fs.existsSync(this.tempDir)) {
-        return;
+      return;
     }
 
     try {
-        const files = await readdir(this.tempDir);
-        const now = Date.now();
-        const oneDay = 24 * 60 * 60 * 1000;
+      const files = await readdir(this.tempDir);
+      const now = Date.now();
+      const oneDay = 24 * 60 * 60 * 1000;
 
-        for (const file of files) {
-            const filePath = path.join(this.tempDir, file);
-            const stats = await stat(filePath);
+      for (const file of files) {
+        const filePath = path.join(this.tempDir, file);
+        const stats = await stat(filePath);
 
-            if (now - stats.mtimeMs > oneDay) {
-                await unlink(filePath);
-                this.logger.log(`Deleted old temp file: ${file}`);
-            }
+        if (now - stats.mtimeMs > oneDay) {
+          await unlink(filePath);
+          this.logger.log(`Deleted old temp file: ${file}`);
         }
+      }
     } catch (error) {
-        this.logger.error(`Error during cleanup: ${error.message}`, error.stack);
+      this.logger.error(`Error during cleanup: ${error.message}`, error.stack);
     }
   }
 }

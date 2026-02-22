@@ -1,4 +1,15 @@
-import { IsString, IsEmail, IsOptional, IsUUID, IsEnum, IsBoolean, IsNumber, IsArray, Min, Max } from 'class-validator';
+import {
+  IsString,
+  IsEmail,
+  IsOptional,
+  IsUUID,
+  IsEnum,
+  IsBoolean,
+  IsNumber,
+  IsArray,
+  Min,
+  Max,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateCertificateDto {
@@ -71,7 +82,9 @@ export class DuplicateRuleDto {
   threshold: number;
 
   @IsArray()
-  @IsEnum(['recipientEmail', 'recipientName', 'title', 'issuerId'], { each: true })
+  @IsEnum(['recipientEmail', 'recipientName', 'title', 'issuerId'], {
+    each: true,
+  })
   checkFields: ('recipientEmail' | 'recipientName' | 'title' | 'issuerId')[];
 
   @IsBoolean()

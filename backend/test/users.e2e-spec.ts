@@ -2,7 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
-import { UserRole, UserStatus } from '../src/modules/users/entities/user.entity';
+import {
+  UserRole,
+  UserStatus,
+} from '../src/modules/users/entities/user.entity';
 
 describe('UsersController (e2e)', () => {
   let app: INestApplication;
@@ -141,9 +144,7 @@ describe('UsersController (e2e)', () => {
       });
 
       it('should fail without authentication', () => {
-        return request(app.getHttpServer())
-          .post('/users/logout')
-          .expect(401);
+        return request(app.getHttpServer()).post('/users/logout').expect(401);
       });
     });
 
@@ -309,9 +310,7 @@ describe('UsersController (e2e)', () => {
       });
 
       it('should fail without authentication', () => {
-        return request(app.getHttpServer())
-          .get('/users/profile')
-          .expect(401);
+        return request(app.getHttpServer()).get('/users/profile').expect(401);
       });
     });
 
@@ -379,9 +378,7 @@ describe('UsersController (e2e)', () => {
       });
 
       it('should fail without authentication', () => {
-        return request(app.getHttpServer())
-          .get('/users')
-          .expect(401);
+        return request(app.getHttpServer()).get('/users').expect(401);
       });
     });
 

@@ -9,7 +9,12 @@ export enum UserRole {
 }
 
 export const ROLE_HIERARCHY = {
-  [UserRole.ADMIN]: [UserRole.ADMIN, UserRole.ISSUER, UserRole.USER, UserRole.AUDITOR],
+  [UserRole.ADMIN]: [
+    UserRole.ADMIN,
+    UserRole.ISSUER,
+    UserRole.USER,
+    UserRole.AUDITOR,
+  ],
   [UserRole.ISSUER]: [UserRole.ISSUER, UserRole.USER],
   [UserRole.AUDITOR]: [UserRole.AUDITOR, UserRole.USER],
   [UserRole.USER]: [UserRole.USER],

@@ -1,3 +1,4 @@
+import { IssuerTier } from '../../../common/rate-limiting/rate-limit.service';
 export declare class Issuer {
     id: string;
     name: string;
@@ -6,6 +7,8 @@ export declare class Issuer {
     isActive: boolean;
     website?: string;
     contactEmail?: string;
+    tier: IssuerTier;
+    apiKeyHash?: string;
     createdAt: Date;
     updatedAt: Date;
 }

@@ -38,9 +38,13 @@ export class EmailQueueProcessor {
     try {
       this.logger.log(`Processing certificate issued job: ${job.id}`);
       await this.emailService.sendCertificateIssued(job.data);
-      this.logger.log(`Certificate issued job ${job.id} completed successfully`);
+      this.logger.log(
+        `Certificate issued job ${job.id} completed successfully`,
+      );
     } catch (error) {
-      this.logger.error(`Certificate issued job ${job.id} failed: ${error.message}`);
+      this.logger.error(
+        `Certificate issued job ${job.id} failed: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -50,9 +54,13 @@ export class EmailQueueProcessor {
     try {
       this.logger.log(`Processing verification email job: ${job.id}`);
       await this.emailService.sendVerificationEmail(job.data);
-      this.logger.log(`Verification email job ${job.id} completed successfully`);
+      this.logger.log(
+        `Verification email job ${job.id} completed successfully`,
+      );
     } catch (error) {
-      this.logger.error(`Verification email job ${job.id} failed: ${error.message}`);
+      this.logger.error(
+        `Verification email job ${job.id} failed: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -64,7 +72,9 @@ export class EmailQueueProcessor {
       await this.emailService.sendPasswordReset(job.data);
       this.logger.log(`Password reset job ${job.id} completed successfully`);
     } catch (error) {
-      this.logger.error(`Password reset job ${job.id} failed: ${error.message}`);
+      this.logger.error(
+        `Password reset job ${job.id} failed: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -76,13 +86,17 @@ export class EmailQueueProcessor {
       await this.emailService.sendRevocationNotice(job.data);
       this.logger.log(`Revocation notice job ${job.id} completed successfully`);
     } catch (error) {
-      this.logger.error(`Revocation notice job ${job.id} failed: ${error.message}`);
+      this.logger.error(
+        `Revocation notice job ${job.id} failed: ${error.message}`,
+      );
       throw error;
     }
   }
 
   @Process('failed')
   async handleFailedJob(job: Job): Promise<void> {
-    this.logger.error(`Job ${job.id} failed after ${job.attemptsMade} attempts: ${job.failedReason}`);
+    this.logger.error(
+      `Job ${job.id} failed after ${job.attemptsMade} attempts: ${job.failedReason}`,
+    );
   }
 }

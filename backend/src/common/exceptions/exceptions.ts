@@ -29,12 +29,7 @@ export abstract class AppException extends HttpException {
  */
 export class ValidationException extends AppException {
   constructor(message?: string, details?: Record<string, any>) {
-    super(
-      ErrorCode.VALIDATION_ERROR,
-      HttpStatus.BAD_REQUEST,
-      message,
-      details,
-    );
+    super(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST, message, details);
   }
 }
 
@@ -47,9 +42,10 @@ export class StellarException extends AppException {
     message?: string,
     details?: Record<string, any>,
   ) {
-    const statusCode = errorCode === ErrorCode.INVALID_STELLAR_ADDRESS
-      ? HttpStatus.BAD_REQUEST
-      : HttpStatus.BAD_GATEWAY;
+    const statusCode =
+      errorCode === ErrorCode.INVALID_STELLAR_ADDRESS
+        ? HttpStatus.BAD_REQUEST
+        : HttpStatus.BAD_GATEWAY;
     super(errorCode, statusCode, message, details);
   }
 }
@@ -102,12 +98,7 @@ export class AuthException extends AppException {
  */
 export class NotFoundException extends AppException {
   constructor(message?: string, details?: Record<string, any>) {
-    super(
-      ErrorCode.NOT_FOUND,
-      HttpStatus.NOT_FOUND,
-      message,
-      details,
-    );
+    super(ErrorCode.NOT_FOUND, HttpStatus.NOT_FOUND, message, details);
   }
 }
 
@@ -116,12 +107,7 @@ export class NotFoundException extends AppException {
  */
 export class ConflictException extends AppException {
   constructor(message?: string, details?: Record<string, any>) {
-    super(
-      ErrorCode.CONFLICT,
-      HttpStatus.CONFLICT,
-      message,
-      details,
-    );
+    super(ErrorCode.CONFLICT, HttpStatus.CONFLICT, message, details);
   }
 }
 

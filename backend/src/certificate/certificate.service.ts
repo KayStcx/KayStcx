@@ -1,4 +1,9 @@
-import { Injectable, ConflictException, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
@@ -24,10 +29,11 @@ export class CertificateService {
   ): Promise<Certificate> {
     // Check for duplicates if config is provided
     if (duplicateConfig?.enabled) {
-      const duplicateCheck = await this.duplicateDetectionService.checkForDuplicates(
-        createCertificateDto,
-        duplicateConfig,
-      );
+      const duplicateCheck =
+        await this.duplicateDetectionService.checkForDuplicates(
+          createCertificateDto,
+          duplicateConfig,
+        );
 
       if (duplicateCheck.isDuplicate) {
         if (duplicateCheck.action === 'block') {
@@ -37,7 +43,8 @@ export class CertificateService {
           });
         } else if (duplicateCheck.action === 'warn' && !overrideReason) {
           throw new ConflictException({
-            message: 'Warning: Potential duplicate detected. Override reason required.',
+            message:
+              'Warning: Potential duplicate detected. Override reason required.',
             details: duplicateCheck,
             requiresOverride: true,
           });
@@ -47,8 +54,11 @@ export class CertificateService {
 
     const certificate = this.certificateRepository.create({
       ...createCertificateDto,
-      expiresAt: createCertificateDto.expiresAt || this.calculateDefaultExpiry(),
-      verificationCode: createCertificateDto.verificationCode || this.generateVerificationCode(),
+      expiresAt:
+        createCertificateDto.expiresAt || this.calculateDefaultExpiry(),
+      verificationCode:
+        createCertificateDto.verificationCode ||
+        this.generateVerificationCode(),
       isDuplicate: false,
     });
 
@@ -61,7 +71,9 @@ export class CertificateService {
       await this.certificateRepository.save(savedCertificate);
     }
 
-    this.logger.log(`Certificate created: ${savedCertificate.id} for ${createCertificateDto.recipientEmail}`);
+    this.logger.log(
+      `Certificate created: ${savedCertificate.id} for ${createCertificateDto.recipientEmail}`,
+    );
     return savedCertificate;
   }
 
@@ -111,28 +123,35 @@ export class CertificateService {
     const certificate = await this.certificateRepository
       .createQueryBuilder('certificate')
       .leftJoinAndSelect('certificate.issuer', 'issuer')
-      .where('certificate.verificationCode = :verificationCode', { verificationCode })
+      .where('certificate.verificationCode = :verificationCode', {
+        verificationCode,
+      })
       .andWhere('certificate.status = :status', { status: 'active' })
       .getOne();
 
     if (!certificate) {
-      throw new NotFoundException('Certificate not found or invalid verification code');
+      throw new NotFoundException(
+        'Certificate not found or invalid verification code',
+      );
     }
 
     return certificate;
   }
 
-  async update(id: string, updateCertificateDto: UpdateCertificateDto): Promise<Certificate> {
+  async update(
+    id: string,
+    updateCertificateDto: UpdateCertificateDto,
+  ): Promise<Certificate> {
     const certificate = await this.findOne(id);
-    
+
     Object.assign(certificate, updateCertificateDto);
-    
+
     return this.certificateRepository.save(certificate);
   }
 
   async revoke(id: string, reason?: string): Promise<Certificate> {
     const certificate = await this.findOne(id);
-    
+
     certificate.status = 'revoked';
     if (reason) {
       certificate.metadata = {
@@ -141,7 +160,7 @@ export class CertificateService {
         revokedAt: new Date(),
       };
     }
-    
+
     return this.certificateRepository.save(certificate);
   }
 

@@ -41,20 +41,27 @@ export class StellarService implements OnModuleInit {
   private initializeStellar() {
     const horizonUrl = this.configService.get<string>('STELLAR_HORIZON_URL');
     const network = this.configService.get<string>('STELLAR_NETWORK');
-    const issuerSecret = this.configService.get<string>('STELLAR_ISSUER_SECRET_KEY');
+    const issuerSecret = this.configService.get<string>(
+      'STELLAR_ISSUER_SECRET_KEY',
+    );
 
     if (!horizonUrl || !network || !issuerSecret) {
-      this.logger.warn('Stellar configuration missing. StellarService may not function correctly.');
+      this.logger.warn(
+        'Stellar configuration missing. StellarService may not function correctly.',
+      );
       return;
     }
 
-    this.server = new Horizon.Server(horizonUrl, { allowHttp: horizonUrl.includes('localhost') });
-    this.networkPassphrase = network === 'testnet' ? Networks.TESTNET : Networks.PUBLIC;
-    
+    this.server = new Horizon.Server(horizonUrl, {
+      allowHttp: horizonUrl.includes('localhost'),
+    });
+    this.networkPassphrase =
+      network === 'testnet' ? Networks.TESTNET : Networks.PUBLIC;
+
     try {
-        this.issuerKeypair = Keypair.fromSecret(issuerSecret);
+      this.issuerKeypair = Keypair.fromSecret(issuerSecret);
     } catch (e) {
-        this.logger.error('Invalid Stellar Issuer Secret Key provided.');
+      this.logger.error('Invalid Stellar Issuer Secret Key provided.');
     }
 
     this.logger.log(`StellarService initialized on ${network}`);
@@ -77,7 +84,9 @@ export class StellarService implements OnModuleInit {
         funded = true;
         this.logger.log(`Account ${publicKey} funded successfully.`);
       } catch (error) {
-        this.logger.error(`Failed to fund account via Friendbot: ${error.message}`);
+        this.logger.error(
+          `Failed to fund account via Friendbot: ${error.message}`,
+        );
       }
     }
 
@@ -91,7 +100,9 @@ export class StellarService implements OnModuleInit {
     try {
       return await this.server.loadAccount(publicKey);
     } catch (error) {
-      this.logger.error(`Failed to load account ${publicKey}: ${error.message}`);
+      this.logger.error(
+        `Failed to load account ${publicKey}: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -105,14 +116,16 @@ export class StellarService implements OnModuleInit {
   async createCertificateTransaction(
     destination: string,
     memoText: string,
-    assetCode?: string
+    assetCode?: string,
   ): Promise<TransactionResult> {
     try {
       if (!this.issuerKeypair) {
         throw new Error('Issuer keypair not configured.');
       }
 
-      const sourceAccount = await this.server.loadAccount(this.issuerKeypair.publicKey());
+      const sourceAccount = await this.server.loadAccount(
+        this.issuerKeypair.publicKey(),
+      );
 
       const transaction = new TransactionBuilder(sourceAccount, {
         fee: (await this.server.fetchBaseFee()).toString(),
@@ -123,7 +136,7 @@ export class StellarService implements OnModuleInit {
             destination: destination,
             asset: Asset.native(), // Could be custom asset if assetCode provided
             amount: '1', // Nominal amount
-          })
+          }),
         )
         .addMemo(Memo.text(memoText))
         .setTimeout(TimeoutInfinite)
@@ -132,7 +145,7 @@ export class StellarService implements OnModuleInit {
       transaction.sign(this.issuerKeypair);
 
       const result = await this.server.submitTransaction(transaction);
-      
+
       this.logger.log(`Transaction submitted with hash: ${result.hash}`);
 
       return {
@@ -141,7 +154,10 @@ export class StellarService implements OnModuleInit {
         ledger: result.ledger,
       };
     } catch (error) {
-      this.logger.error(`Transaction failed: ${error.message}`, error.response?.data);
+      this.logger.error(
+        `Transaction failed: ${error.message}`,
+        error.response?.data,
+      );
       return {
         hash: '',
         successful: false,
@@ -162,12 +178,18 @@ export class StellarService implements OnModuleInit {
         ledger: tx.ledger_attr,
       };
     } catch (error) {
-      this.logger.error(`Failed to verify transaction ${hash}: ${error.message}`);
+      this.logger.error(
+        `Failed to verify transaction ${hash}: ${error.message}`,
+      );
       return {
         hash,
         successful: false,
         error: error.message,
       };
     }
+  }
+
+  getKeypairFromPublicKey(publicKey: string): Keypair {
+    return Keypair.fromPublicKey(publicKey);
   }
 }

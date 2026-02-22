@@ -53,9 +53,7 @@ describe('AuditService', () => {
     }).compile();
 
     service = module.get<AuditService>(AuditService);
-    repository = module.get<Repository<AuditLog>>(
-      getRepositoryToken(AuditLog),
-    );
+    repository = module.get<Repository<AuditLog>>(getRepositoryToken(AuditLog));
     requestContextService = module.get<RequestContextService>(
       RequestContextService,
     );
@@ -168,7 +166,9 @@ describe('AuditService', () => {
 
   describe('getLog', () => {
     it('should retrieve a single audit log by id', async () => {
-      const result = await service.getLog('123e4567-e89b-12d3-a456-426614174000');
+      const result = await service.getLog(
+        '123e4567-e89b-12d3-a456-426614174000',
+      );
 
       expect(repository.findOne).toHaveBeenCalledWith({
         where: { id: '123e4567-e89b-12d3-a456-426614174000' },
@@ -272,9 +272,7 @@ describe('AuditService', () => {
         orderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest
-          .fn()
-          .mockResolvedValue([[mockAuditLog], 1]),
+        getManyAndCount: jest.fn().mockResolvedValue([[mockAuditLog], 1]),
       };
 
       jest

@@ -10,7 +10,10 @@ export class CryptoUtils {
    * @param password - Plain text password to hash
    * @param rounds - Number of salt rounds (default: 12)
    */
-  static async hashPassword(password: string, rounds: number = 12): Promise<string> {
+  static async hashPassword(
+    password: string,
+    rounds: number = 12,
+  ): Promise<string> {
     return bcrypt.hash(password, rounds);
   }
 
@@ -19,7 +22,10 @@ export class CryptoUtils {
    * @param password - Plain text password
    * @param hash - Hashed password to compare against
    */
-  static async comparePassword(password: string, hash: string): Promise<boolean> {
+  static async comparePassword(
+    password: string,
+    hash: string,
+  ): Promise<boolean> {
     return bcrypt.compare(password, hash);
   }
 

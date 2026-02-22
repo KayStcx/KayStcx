@@ -20,7 +20,9 @@ export class EmailController {
   @Post('send-certificate-issued')
   @ApiOperation({ summary: 'Send certificate issued notification email' })
   @ApiResponse({ status: 200, description: 'Email queued successfully' })
-  async sendCertificateIssued(@Body() dto: SendCertificateIssuedDto): Promise<{ success: boolean; message: string }> {
+  async sendCertificateIssued(
+    @Body() dto: SendCertificateIssuedDto,
+  ): Promise<{ success: boolean; message: string }> {
     try {
       await this.emailQueueService.queueCertificateIssued(dto);
       return {
@@ -28,7 +30,9 @@ export class EmailController {
         message: 'Certificate issued email queued successfully',
       };
     } catch (error) {
-      this.logger.error(`Error queuing certificate issued email: ${error.message}`);
+      this.logger.error(
+        `Error queuing certificate issued email: ${error.message}`,
+      );
       return {
         success: false,
         message: 'Failed to queue certificate issued email',
@@ -38,8 +42,13 @@ export class EmailController {
 
   @Post('send-verification')
   @ApiOperation({ summary: 'Send email verification email' })
-  @ApiResponse({ status: 200, description: 'Verification email queued successfully' })
-  async sendVerificationEmail(@Body() dto: SendVerificationDto): Promise<{ success: boolean; message: string }> {
+  @ApiResponse({
+    status: 200,
+    description: 'Verification email queued successfully',
+  })
+  async sendVerificationEmail(
+    @Body() dto: SendVerificationDto,
+  ): Promise<{ success: boolean; message: string }> {
     try {
       await this.emailQueueService.queueVerificationEmail(dto);
       return {
@@ -57,8 +66,13 @@ export class EmailController {
 
   @Post('send-password-reset')
   @ApiOperation({ summary: 'Send password reset email' })
-  @ApiResponse({ status: 200, description: 'Password reset email queued successfully' })
-  async sendPasswordReset(@Body() dto: SendPasswordResetDto): Promise<{ success: boolean; message: string }> {
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset email queued successfully',
+  })
+  async sendPasswordReset(
+    @Body() dto: SendPasswordResetDto,
+  ): Promise<{ success: boolean; message: string }> {
     try {
       await this.emailQueueService.queuePasswordReset(dto);
       return {
@@ -76,8 +90,13 @@ export class EmailController {
 
   @Post('send-revocation-notice')
   @ApiOperation({ summary: 'Send certificate revocation notice email' })
-  @ApiResponse({ status: 200, description: 'Revocation notice email queued successfully' })
-  async sendRevocationNotice(@Body() dto: SendRevocationNoticeDto): Promise<{ success: boolean; message: string }> {
+  @ApiResponse({
+    status: 200,
+    description: 'Revocation notice email queued successfully',
+  })
+  async sendRevocationNotice(
+    @Body() dto: SendRevocationNoticeDto,
+  ): Promise<{ success: boolean; message: string }> {
     try {
       await this.emailQueueService.queueRevocationNotice(dto);
       return {
@@ -85,7 +104,9 @@ export class EmailController {
         message: 'Revocation notice email queued successfully',
       };
     } catch (error) {
-      this.logger.error(`Error queuing revocation notice email: ${error.message}`);
+      this.logger.error(
+        `Error queuing revocation notice email: ${error.message}`,
+      );
       return {
         success: false,
         message: 'Failed to queue revocation notice email',

@@ -1,6 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, In, Like, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
+import {
+  Repository,
+  Between,
+  In,
+  Like,
+  MoreThanOrEqual,
+  LessThanOrEqual,
+} from 'typeorm';
 import { AuditLog } from '../entities';
 import { AuditAction, AuditResourceType } from '../constants';
 import { AuditSearchDto, AuditStatisticsDto } from '../dto';
@@ -36,13 +43,19 @@ export class AuditService {
     @InjectRepository(AuditLog)
     private auditLogRepository: Repository<AuditLog>,
     private requestContextService: RequestContextService,
-  ) { }
+  ) {}
 
   async log(params: LogAuditParams): Promise<AuditLog | null> {
     try {
-      const redactedChanges = params.changes ? this.redactSensitiveData(params.changes) : undefined;
-      const redactedResourceData = params.resourceData ? this.redactSensitiveData(params.resourceData) : undefined;
-      const redactedMetadata = params.metadata ? this.redactSensitiveData(params.metadata) : undefined;
+      const redactedChanges = params.changes
+        ? this.redactSensitiveData(params.changes)
+        : undefined;
+      const redactedResourceData = params.resourceData
+        ? this.redactSensitiveData(params.resourceData)
+        : undefined;
+      const redactedMetadata = params.metadata
+        ? this.redactSensitiveData(params.metadata)
+        : undefined;
 
       const auditLog = this.auditLogRepository.create({
         action: params.action,
@@ -66,7 +79,10 @@ export class AuditService {
       const saved = await this.auditLogRepository.save(auditLog);
       return saved;
     } catch (error) {
-      this.logger.error(`Failed to log audit event: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to log audit event: ${error.message}`,
+        error.stack,
+      );
       // Don't throw - audit failures should not break main operations
       return null;
     }
@@ -162,7 +178,9 @@ export class AuditService {
     }
 
     if (searchDto.startDate || searchDto.endDate) {
-      const startTime = searchDto.startDate ? new Date(searchDto.startDate).getTime() : 0;
+      const startTime = searchDto.startDate
+        ? new Date(searchDto.startDate).getTime()
+        : 0;
       const endTime = searchDto.endDate
         ? new Date(searchDto.endDate).getTime() + 86400000 // Add 24 hours for end of day
         : Date.now();
@@ -185,7 +203,9 @@ export class AuditService {
     return { data, total };
   }
 
-  async getStatistics(filters?: Partial<AuditSearchDto>): Promise<AuditStatisticsDto> {
+  async getStatistics(
+    filters?: Partial<AuditSearchDto>,
+  ): Promise<AuditStatisticsDto> {
     const query = this.auditLogRepository.createQueryBuilder('audit');
 
     if (filters?.action) {
@@ -203,8 +223,12 @@ export class AuditService {
     }
 
     if (filters?.startDate || filters?.endDate) {
-      const startTime = filters.startDate ? new Date(filters.startDate).getTime() : 0;
-      const endTime = filters.endDate ? new Date(filters.endDate).getTime() + 86400000 : Date.now();
+      const startTime = filters.startDate
+        ? new Date(filters.startDate).getTime()
+        : 0;
+      const endTime = filters.endDate
+        ? new Date(filters.endDate).getTime() + 86400000
+        : Date.now();
       query.andWhere('audit.timestamp BETWEEN :startTime AND :endTime', {
         startTime,
         endTime,
@@ -261,10 +285,10 @@ export class AuditService {
 
     // Events per day
     const eventsPerDayRaw = await query
-      .select("DATE(to_timestamp(audit.timestamp / 1000))", 'date')
+      .select('DATE(to_timestamp(audit.timestamp / 1000))', 'date')
       .addSelect('COUNT(*)', 'count')
-      .groupBy("DATE(to_timestamp(audit.timestamp / 1000))")
-      .orderBy("DATE(to_timestamp(audit.timestamp / 1000))", 'DESC')
+      .groupBy('DATE(to_timestamp(audit.timestamp / 1000))')
+      .orderBy('DATE(to_timestamp(audit.timestamp / 1000))', 'DESC')
       .limit(30)
       .getRawMany();
 
@@ -358,7 +382,9 @@ export class AuditService {
 
     const csvContent = [
       headers.join(','),
-      ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
+      ...rows.map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','),
+      ),
     ].join('\n');
 
     return csvContent;
@@ -390,7 +416,10 @@ export class AuditService {
     return this.auditLogRepository.countBy({ userId });
   }
 
-  async getUserActions(userId: string, limit: number = 50): Promise<AuditLog[]> {
+  async getUserActions(
+    userId: string,
+    limit: number = 50,
+  ): Promise<AuditLog[]> {
     return this.auditLogRepository.find({
       where: { userId },
       order: { timestamp: 'DESC' },
@@ -398,7 +427,10 @@ export class AuditService {
     });
   }
 
-  async getResourceAudits(resourceId: string, limit: number = 50): Promise<AuditLog[]> {
+  async getResourceAudits(
+    resourceId: string,
+    limit: number = 50,
+  ): Promise<AuditLog[]> {
     return this.auditLogRepository.find({
       where: { resourceId },
       order: { timestamp: 'DESC' },

@@ -1,4 +1,7 @@
-import { STELLAR_ADDRESS_REGEX, STELLAR_TRANSACTION_HASH_REGEX } from '../constants';
+import {
+  STELLAR_ADDRESS_REGEX,
+  STELLAR_TRANSACTION_HASH_REGEX,
+} from '../constants';
 
 /**
  * Validation utility helpers

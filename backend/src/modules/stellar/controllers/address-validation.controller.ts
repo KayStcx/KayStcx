@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Delete, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Delete,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { AddressValidationService } from '../services/address-validation.service';
 import {
@@ -12,7 +20,9 @@ import { StellarNetwork } from '../dto/address-validation.dto';
 @ApiTags('stellar-address-validation')
 @Controller('stellar/address-validation')
 export class AddressValidationController {
-  constructor(private readonly addressValidationService: AddressValidationService) {}
+  constructor(
+    private readonly addressValidationService: AddressValidationService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.OK)
@@ -26,7 +36,9 @@ export class AddressValidationController {
     status: 400,
     description: 'Invalid request parameters',
   })
-  async validateAddress(@Body() request: AddressValidationRequest): Promise<AddressValidationResult> {
+  async validateAddress(
+    @Body() request: AddressValidationRequest,
+  ): Promise<AddressValidationResult> {
     return this.addressValidationService.validate(request);
   }
 
@@ -42,12 +54,16 @@ export class AddressValidationController {
     status: 400,
     description: 'Invalid request parameters',
   })
-  async validateBulk(@Body() request: BulkAddressValidationRequest): Promise<BulkAddressValidationResult> {
+  async validateBulk(
+    @Body() request: BulkAddressValidationRequest,
+  ): Promise<BulkAddressValidationResult> {
     return this.addressValidationService.validateBulk(request);
   }
 
   @Get('check/:address')
-  @ApiOperation({ summary: 'Validate and check existence of a Stellar address' })
+  @ApiOperation({
+    summary: 'Validate and check existence of a Stellar address',
+  })
   @ApiParam({ name: 'address', description: 'Stellar address to validate' })
   @ApiResponse({
     status: 200,
@@ -68,7 +84,9 @@ export class AddressValidationController {
 
   @Post('check/:address')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Validate and check existence of a Stellar address' })
+  @ApiOperation({
+    summary: 'Validate and check existence of a Stellar address',
+  })
   @ApiParam({ name: 'address', description: 'Stellar address to validate' })
   @ApiResponse({
     status: 200,
@@ -79,7 +97,10 @@ export class AddressValidationController {
     @Body('address') address: string,
     @Body('network') network?: StellarNetwork,
   ): Promise<AddressValidationResult> {
-    return this.addressValidationService.validateAndCheckExists(address, network);
+    return this.addressValidationService.validateAndCheckExists(
+      address,
+      network,
+    );
   }
 
   @Delete('cache')
@@ -108,7 +129,11 @@ export class AddressValidationController {
       },
     },
   })
-  async getCacheStats(): Promise<{ size: number; ttl: number; maxSize: number }> {
+  async getCacheStats(): Promise<{
+    size: number;
+    ttl: number;
+    maxSize: number;
+  }> {
     return this.addressValidationService.getCacheStats();
   }
 }

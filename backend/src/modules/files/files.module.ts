@@ -8,10 +8,7 @@ import { QrCodeService } from './services/qrcode.service';
 import { CleanupService } from './services/cleanup.service';
 
 @Module({
-  imports: [
-    ConfigModule,
-    ScheduleModule.forRoot(),
-  ],
+  imports: [ConfigModule, ScheduleModule.forRoot()],
   providers: [
     FilesService,
     StorageService,

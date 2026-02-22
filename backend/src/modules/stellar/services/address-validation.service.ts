@@ -55,30 +55,50 @@ export class AddressValidationService {
   private loadConfig(): StellarConfig {
     return {
       horizonUrls: {
-        public: this.configService.get<string>('STELLAR_HORIZON_PUBLIC_URL', 'https://horizon.stellar.org'),
-        testnet: this.configService.get<string>('STELLAR_HORIZON_TESTNET_URL', 'https://horizon-testnet.stellar.org'),
+        public: this.configService.get<string>(
+          'STELLAR_HORIZON_PUBLIC_URL',
+          'https://horizon.stellar.org',
+        ),
+        testnet: this.configService.get<string>(
+          'STELLAR_HORIZON_TESTNET_URL',
+          'https://horizon-testnet.stellar.org',
+        ),
       },
       cache: {
         ttl: this.configService.get<number>('STELLAR_CACHE_TTL', 300000), // 5 minutes
         maxSize: this.configService.get<number>('STELLAR_CACHE_MAX_SIZE', 1000),
       },
       rateLimit: {
-        requestsPerSecond: this.configService.get<number>('STELLAR_RATE_LIMIT_RPS', 10),
-        burstSize: this.configService.get<number>('STELLAR_RATE_LIMIT_BURST', 20),
+        requestsPerSecond: this.configService.get<number>(
+          'STELLAR_RATE_LIMIT_RPS',
+          10,
+        ),
+        burstSize: this.configService.get<number>(
+          'STELLAR_RATE_LIMIT_BURST',
+          20,
+        ),
       },
     };
   }
 
   private initializeServers(): Map<StellarNetwork, Horizon.Server> {
     const servers = new Map<StellarNetwork, Horizon.Server>();
-    
-    servers.set(StellarNetwork.PUBLIC, new Horizon.Server(this.config.horizonUrls.public));
-    servers.set(StellarNetwork.TESTNET, new Horizon.Server(this.config.horizonUrls.testnet));
+
+    servers.set(
+      StellarNetwork.PUBLIC,
+      new Horizon.Server(this.config.horizonUrls.public),
+    );
+    servers.set(
+      StellarNetwork.TESTNET,
+      new Horizon.Server(this.config.horizonUrls.testnet),
+    );
 
     return servers;
   }
 
-  async validate(request: AddressValidationRequest): Promise<AddressValidationResult> {
+  async validate(
+    request: AddressValidationRequest,
+  ): Promise<AddressValidationResult> {
     const options: AddressValidationOptions = {
       network: request.network || StellarNetwork.PUBLIC,
       checkExists: request.checkExists || false,
@@ -86,7 +106,7 @@ export class AddressValidationService {
     };
 
     const result = await this.validateAddress(request.address, options);
-    
+
     return {
       isValid: result.isValid,
       error: result.error,
@@ -102,7 +122,10 @@ export class AddressValidationService {
     await (this.cache as any).reset();
   }
 
-  async validateAndCheckExists(address: string, network: StellarNetwork = StellarNetwork.PUBLIC): Promise<AddressValidationResult> {
+  async validateAndCheckExists(
+    address: string,
+    network: StellarNetwork = StellarNetwork.PUBLIC,
+  ): Promise<AddressValidationResult> {
     const options: AddressValidationOptions = {
       network,
       checkExists: true,
@@ -110,7 +133,7 @@ export class AddressValidationService {
     };
 
     const result = await this.validateAddress(address, options);
-    
+
     return {
       isValid: result.isValid,
       error: result.error,
@@ -122,43 +145,50 @@ export class AddressValidationService {
     };
   }
 
-  async validateBulk(request: BulkAddressValidationRequest): Promise<BulkAddressValidationResult> {
+  async validateBulk(
+    request: BulkAddressValidationRequest,
+  ): Promise<BulkAddressValidationResult> {
     const options: AddressValidationOptions = {
       network: request.network || StellarNetwork.PUBLIC,
       checkExists: request.checkExists || false,
       cacheResults: true,
     };
 
-    const validationPromises = request.addresses.map(address => 
-      this.validateAddress(address, options)
+    const validationPromises = request.addresses.map((address) =>
+      this.validateAddress(address, options),
     );
 
     const results = await Promise.allSettled(validationPromises);
-    
-    const validationResults: AddressValidationResult[] = results.map((result, index) => {
-      if (result.status === 'fulfilled') {
-        return {
-          isValid: result.value.isValid,
-          error: result.value.error,
-          isFormatValid: result.value.isFormatValid,
-          isChecksumValid: result.value.isChecksumValid,
-          isNetworkValid: result.value.isNetworkValid,
-          accountExists: result.value.accountExists,
-          accountDetails: result.value.accountDetails,
-        };
-      } else {
-        this.logger.error(`Failed to validate address ${request.addresses[index]}:`, result.reason);
-        return {
-          isValid: false,
-          error: 'Validation failed due to server error',
-          isFormatValid: false,
-          isChecksumValid: false,
-          isNetworkValid: false,
-        };
-      }
-    });
 
-    const validCount = validationResults.filter(r => r.isValid).length;
+    const validationResults: AddressValidationResult[] = results.map(
+      (result, index) => {
+        if (result.status === 'fulfilled') {
+          return {
+            isValid: result.value.isValid,
+            error: result.value.error,
+            isFormatValid: result.value.isFormatValid,
+            isChecksumValid: result.value.isChecksumValid,
+            isNetworkValid: result.value.isNetworkValid,
+            accountExists: result.value.accountExists,
+            accountDetails: result.value.accountDetails,
+          };
+        } else {
+          this.logger.error(
+            `Failed to validate address ${request.addresses[index]}:`,
+            result.reason,
+          );
+          return {
+            isValid: false,
+            error: 'Validation failed due to server error',
+            isFormatValid: false,
+            isChecksumValid: false,
+            isNetworkValid: false,
+          };
+        }
+      },
+    );
+
+    const validCount = validationResults.filter((r) => r.isValid).length;
     const invalidCount = validationResults.length - validCount;
 
     return {
@@ -169,7 +199,10 @@ export class AddressValidationService {
     };
   }
 
-  async validateAddress(address: string, options: AddressValidationOptions): Promise<AddressValidationResult> {
+  async validateAddress(
+    address: string,
+    options: AddressValidationOptions,
+  ): Promise<AddressValidationResult> {
     const result: AddressValidationResult = {
       isValid: false,
       error: undefined,
@@ -184,16 +217,16 @@ export class AddressValidationService {
       // 1. Basic Format Validation
       // StrKey.isValidEd25519PublicKey(address) is the correct way to validate addresses in newer SDK
       try {
-          if (!StrKey.isValidEd25519PublicKey(address)) {
-              result.error = 'Invalid address format';
-              return result;
-          }
-          result.isFormatValid = true;
-          result.isChecksumValid = true; 
-          result.isValid = true;
+        if (!StrKey.isValidEd25519PublicKey(address)) {
+          result.error = 'Invalid address format';
+          return result;
+        }
+        result.isFormatValid = true;
+        result.isChecksumValid = true;
+        result.isValid = true;
       } catch (e) {
-           result.error = 'Invalid address format';
-           return result;
+        result.error = 'Invalid address format';
+        return result;
       }
 
       // 2. Network Check (if requested)
@@ -207,14 +240,18 @@ export class AddressValidationService {
 
       // Step 4: Account existence check (if requested)
       if (options.checkExists) {
-        const accountData = await this.checkAccountExists(address, options.network, options.cacheResults);
+        const accountData = await this.checkAccountExists(
+          address,
+          options.network,
+          options.cacheResults,
+        );
         result.accountExists = accountData.exists;
         result.accountDetails = accountData.details;
       }
-
     } catch (error) {
       this.logger.error(`Error validating address ${address}:`, error);
-      result.error = error instanceof Error ? error.message : 'Unknown validation error';
+      result.error =
+        error instanceof Error ? error.message : 'Unknown validation error';
     }
 
     return result;
@@ -228,9 +265,9 @@ export class AddressValidationService {
   }
 
   private async checkAccountExists(
-    address: string, 
-    network: StellarNetwork, 
-    useCache: boolean
+    address: string,
+    network: StellarNetwork,
+    useCache: boolean,
   ): Promise<{ exists: boolean; details?: HorizonAccountResponse }> {
     const cacheKey = `stellar:account:${network}:${address}`;
 
@@ -255,7 +292,8 @@ export class AddressValidationService {
       }
 
       const account = await server.loadAccount(address);
-      const accountDetails: HorizonAccountResponse = account as unknown as HorizonAccountResponse;
+      const accountDetails: HorizonAccountResponse =
+        account as unknown as HorizonAccountResponse;
 
       const result = {
         exists: true,
@@ -264,41 +302,57 @@ export class AddressValidationService {
 
       if (useCache) {
         try {
-          await this.cache.set(cacheKey, {
-            isValid: true,
-            accountExists: true,
-            accountDetails,
-            timestamp: Date.now(),
-            ttl: this.config.cache.ttl,
-          }, this.config.cache.ttl);
+          await this.cache.set(
+            cacheKey,
+            {
+              isValid: true,
+              accountExists: true,
+              accountDetails,
+              timestamp: Date.now(),
+              ttl: this.config.cache.ttl,
+            },
+            this.config.cache.ttl,
+          );
         } catch (cacheError) {
           this.logger.warn(`Cache storage failed for ${address}:`, cacheError);
         }
       }
 
       return result;
-
     } catch (error) {
-      if (error instanceof NotFoundException || error.response?.status === 404) {
+      if (
+        error instanceof NotFoundException ||
+        error.response?.status === 404
+      ) {
         const result = { exists: false };
 
         if (useCache) {
           try {
-            await this.cache.set(cacheKey, {
-              isValid: false,
-              accountExists: false,
-              timestamp: Date.now(),
-              ttl: this.config.cache.ttl,
-            }, this.config.cache.ttl);
+            await this.cache.set(
+              cacheKey,
+              {
+                isValid: false,
+                accountExists: false,
+                timestamp: Date.now(),
+                ttl: this.config.cache.ttl,
+              },
+              this.config.cache.ttl,
+            );
           } catch (cacheError) {
-            this.logger.warn(`Cache storage failed for ${address}:`, cacheError);
+            this.logger.warn(
+              `Cache storage failed for ${address}:`,
+              cacheError,
+            );
           }
         }
 
         return result;
       }
 
-      this.logger.error(`Error checking account existence for ${address}:`, error);
+      this.logger.error(
+        `Error checking account existence for ${address}:`,
+        error,
+      );
       throw error;
     }
   }

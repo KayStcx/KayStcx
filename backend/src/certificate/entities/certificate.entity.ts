@@ -61,6 +61,6 @@ export class Certificate {
   @Column({ type: 'timestamp' })
   expiresAt: Date;
 
-//   @ManyToOne(() => Issuer, (issuer) => issuer.certificates)
-//   issuer: Issuer;
+  //   @ManyToOne(() => Issuer, (issuer) => issuer.certificates)
+  //   issuer: Issuer;
 }

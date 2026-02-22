@@ -5,7 +5,7 @@ import { Counter, Histogram, Registry } from 'prom-client';
 export class MetricsService {
   private readonly logger = new Logger(MetricsService.name);
   private readonly registry: Registry;
-  
+
   // HTTP metrics
   private httpRequestDuration: Histogram;
   private httpRequestsTotal: Counter;
@@ -94,7 +94,9 @@ export class MetricsService {
     status: number,
     duration: number,
   ): void {
-    this.httpRequestDuration.labels(method, route, status.toString()).observe(duration);
+    this.httpRequestDuration
+      .labels(method, route, status.toString())
+      .observe(duration);
     this.httpRequestsTotal.labels(method, route, status.toString()).inc();
   }
 
@@ -116,7 +118,9 @@ export class MetricsService {
    * Record database connection status
    */
   recordDbConnectionStatus(connected: boolean): void {
-    this.dbConnectionStatus.labels(connected ? 'connected' : 'disconnected').inc();
+    this.dbConnectionStatus
+      .labels(connected ? 'connected' : 'disconnected')
+      .inc();
   }
 
   /**
@@ -160,11 +164,11 @@ export class MetricsService {
   normalizeRoute(path: string): string {
     // Remove query parameters
     let normalized = path.split('?')[0];
-    
+
     // Replace numeric IDs with {id} to reduce cardinality
     normalized = normalized.replace(/\/\d+/g, '/{id}');
     normalized = normalized.replace(/\/[0-9a-f-]{36}/g, '/{uuid}');
-    
+
     return normalized;
   }
 }
