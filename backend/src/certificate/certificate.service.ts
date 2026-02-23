@@ -109,7 +109,7 @@ export class CertificateService {
         id: savedCertificate.id,
         recipientEmail: savedCertificate.recipientEmail,
         recipientName: savedCertificate.recipientName,
-        courseName: savedCertificate.courseName,
+        title: savedCertificate.title,
         issuedAt: savedCertificate.issuedAt,
         status: savedCertificate.status,
       },
