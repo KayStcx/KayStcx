@@ -5,7 +5,7 @@ import { Certificate } from './entities/certificate.entity';
 import { Verification } from './entities/verification.entity';
 import { CertificateService } from './certificate.service';
 import { CertificateStatsService } from './services/stats.service';
-import { CertificateStatsController } from './certificate.controller';
+import { CertificateController } from './certificate.controller';
 import { DuplicateDetectionModule } from './duplicate-detection.module';
 import { WebhooksModule } from '../modules/webhooks/webhooks.module';
 import { MetadataSchemaModule } from '../modules/metadata-schema/metadata-schema.module';
@@ -21,7 +21,7 @@ import { MetadataSchemaModule } from '../modules/metadata-schema/metadata-schema
     WebhooksModule,
     MetadataSchemaModule,
   ],
-  controllers: [CertificateStatsController],
+  controllers: [CertificateController],
   providers: [CertificateService, CertificateStatsService],
   exports: [CertificateService, CertificateStatsService],
 })
