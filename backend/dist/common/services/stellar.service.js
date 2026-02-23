@@ -58,11 +58,15 @@ let StellarService = StellarService_1 = class StellarService {
             configService.get('STELLAR_NETWORK') === 'testnet'
                 ? StellarSdk.Networks.TESTNET
                 : StellarSdk.Networks.PUBLIC;
-        this.server = new StellarSdk.Horizon.Server(configService.get('STELLAR_HORIZON_URL') || 'https://horizon-testnet.stellar.org');
+        this.server = new StellarSdk.Horizon.Server(configService.get('STELLAR_HORIZON_URL') ||
+            'https://horizon-testnet.stellar.org');
     }
     async verifyTransaction(txHash) {
         try {
-            const transaction = await this.server.transactions().transaction(txHash).call();
+            const transaction = await this.server
+                .transactions()
+                .transaction(txHash)
+                .call();
             return !!transaction;
         }
         catch (error) {
@@ -83,6 +87,9 @@ let StellarService = StellarService_1 = class StellarService {
     static getPublicKeyFromSecret(secretKey) {
         const keypair = StellarSdk.Keypair.fromSecret(secretKey);
         return keypair.publicKey();
+    }
+    getKeypairFromPublicKey(publicKey) {
+        return StellarSdk.Keypair.fromPublicKey(publicKey);
     }
     static isValidPublicKey(publicKey) {
         try {
@@ -115,7 +122,8 @@ let StellarService = StellarService_1 = class StellarService {
     getNetworkInfo() {
         return {
             network: this.configService.get('STELLAR_NETWORK') || 'testnet',
-            horizon: this.configService.get('STELLAR_HORIZON_URL') || 'https://horizon-testnet.stellar.org',
+            horizon: this.configService.get('STELLAR_HORIZON_URL') ||
+                'https://horizon-testnet.stellar.org',
         };
     }
 };

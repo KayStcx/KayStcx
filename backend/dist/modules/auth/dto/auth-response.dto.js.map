@@ -1,1 +1,1 @@
-{"version":3,"file":"auth-response.dto.js","sourceRoot":"","sources":["../../../../src/modules/auth/dto/auth-response.dto.ts"],"names":[],"mappings":";;;AAAA,MAAa,eAAe;IAC1B,WAAW,CAAS;IACpB,SAAS,CAAS;IAClB,IAAI,CAKF;CACH;AATD,0CASC"}
+{"version":3,"file":"auth-response.dto.js","sourceRoot":"","sources":["../../../../src/modules/auth/dto/auth-response.dto.ts"],"names":[],"mappings":";;;AAAA,MAAa,eAAe;IAC1B,WAAW,CAAS;IACpB,SAAS,CAAS;IAClB,IAAI,CAKF;IACF,QAAQ,CAIN;CACH;AAdD,0CAcC"}
