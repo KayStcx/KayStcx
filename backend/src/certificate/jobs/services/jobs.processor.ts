@@ -19,8 +19,13 @@ export class JobsProcessor {
   async handleExpiration(job: Job) {
     console.log(`Running expiration check...`);
     // Load expiry window and sequence threshold from env
-    const expiryWindowDays = parseInt(process.env.CERTIFICATE_EXPIRY_WINDOW_DAYS || '0', 10);
-    const sequenceThreshold = process.env.STELLAR_SEQUENCE_THRESHOLD ? parseInt(process.env.STELLAR_SEQUENCE_THRESHOLD, 10) : undefined;
+    const expiryWindowDays = parseInt(
+      process.env.CERTIFICATE_EXPIRY_WINDOW_DAYS || '0',
+      10,
+    );
+    const sequenceThreshold = process.env.STELLAR_SEQUENCE_THRESHOLD
+      ? parseInt(process.env.STELLAR_SEQUENCE_THRESHOLD, 10)
+      : undefined;
 
     // Dynamically import CertificateService and WebhooksService
     const { Certificate } = await import('../../entities/certificate.entity');
@@ -30,7 +35,8 @@ export class JobsProcessor {
 
     // Find certificates that are expired by date
     const now = new Date();
-    let query = certificateRepo.createQueryBuilder('certificate')
+    let query = certificateRepo
+      .createQueryBuilder('certificate')
       .where('certificate.status = :status', { status: 'active' })
       .andWhere('certificate.expiresAt <= :now', { now });
 
@@ -38,14 +44,18 @@ export class JobsProcessor {
     if (sequenceThreshold) {
       query = query.orWhere(
         "(certificate.metadata->>'stellarSequence')::bigint <= :sequenceThreshold",
-        { sequenceThreshold }
+        { sequenceThreshold },
       );
     }
 
     // Optionally apply expiry window
     if (expiryWindowDays > 0) {
-      const windowDate = new Date(now.getTime() - expiryWindowDays * 24 * 60 * 60 * 1000);
-      query = query.andWhere('certificate.expiresAt >= :windowDate', { windowDate });
+      const windowDate = new Date(
+        now.getTime() - expiryWindowDays * 24 * 60 * 60 * 1000,
+      );
+      query = query.andWhere('certificate.expiresAt >= :windowDate', {
+        windowDate,
+      });
     }
 
     const expiredCertificates = await query.getMany();
@@ -61,9 +71,13 @@ export class JobsProcessor {
       await certificateRepo.save(cert);
       // Emit expiry event (webhook)
       try {
-        const { WebhooksService } = await import('../../../modules/webhooks/webhooks.service');
-        const { WebhookEvent } = await import('../../../modules/webhooks/entities/webhook-subscription.entity');
-        const webhooksService = connection.getCustomRepository(WebhooksService as any);
+        const { WebhooksService } =
+          await import('../../../modules/webhooks/webhooks.service');
+        const { WebhookEvent } =
+          await import('../../../modules/webhooks/entities/webhook-subscription.entity');
+        const webhooksService = connection.getCustomRepository(
+          WebhooksService as any,
+        );
         await webhooksService.triggerEvent(
           WebhookEvent.CERTIFICATE_EXPIRED,
           cert.issuerId,

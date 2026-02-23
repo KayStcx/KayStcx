@@ -13,10 +13,8 @@ import { CertificateStatsService } from './services/stats.service';
 @Controller('certificates')
 // @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
-
 export class CertificateController {
   constructor(private readonly certificateService: CertificateService) {}
-
 
   @Get()
   @ApiOperation({ summary: 'Get certificates (with optional status filter)' })
