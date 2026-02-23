@@ -8,20 +8,25 @@ import {
 } from '@nestjs/swagger';
 import { CertificateStatsDto, StatsQueryDto } from './dto/stats.dto';
 import { CertificateStatsService } from './services/stats.service';
+import { JwtAuthGuard } from '../modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { UserRole } from '../common/constants/roles';
 
-@ApiTags('Certificates')
-@Controller('certificates')
-// @UseGuards(JwtAuthGuard, RolesGuard)
+@ApiTags('Certificate Statistics')
+@Controller('certificates/stats')
 @ApiBearerAuth()
-export class CertificateController {
-  constructor(private readonly certificateService: CertificateService) {}
+export class CertificateStatsController {
+  constructor(private readonly statsService: CertificateStatsService) { }
 
   @Get()
-  @ApiOperation({ summary: 'Get certificates (with optional status filter)' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.ISSUER)
+  @ApiOperation({ summary: 'Get detailed certificate statistics' })
   @ApiResponse({
     status: 200,
-    description: 'Returns certificates',
-    type: Array,
+    description: 'Returns detailed certificate statistics',
+    type: CertificateStatsDto,
   })
   async getCertificates(
     @Query('status') status?: string,
@@ -30,5 +35,15 @@ export class CertificateController {
     @Query('issuerId') issuerId?: string,
   ) {
     return this.certificateService.findAll(page, limit, issuerId, status);
+  }
+
+  @Get('summary')
+  @ApiOperation({ summary: 'Get public certificate summary statistics' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns basic certificate summary',
+  })
+  async getPublicSummary(): Promise<Partial<CertificateStatsDto>> {
+    return this.statsService.getPublicSummary();
   }
 }
