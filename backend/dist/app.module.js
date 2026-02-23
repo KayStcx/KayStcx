@@ -27,6 +27,7 @@ const stellar_module_1 = require("./modules/stellar/stellar.module");
 const files_module_1 = require("./modules/files/files.module");
 const versioning_module_1 = require("./common/versioning/versioning.module");
 const audit_module_1 = require("./modules/audit/audit.module");
+const webhooks_module_1 = require("./modules/webhooks/webhooks.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -66,6 +67,7 @@ exports.AppModule = AppModule = __decorate([
             email_module_1.EmailModule,
             files_module_1.FilesModule,
             audit_module_1.AuditModule,
+            webhooks_module_1.WebhooksModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],
