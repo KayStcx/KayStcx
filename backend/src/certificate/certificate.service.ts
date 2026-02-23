@@ -14,6 +14,7 @@ import { DuplicateDetectionService } from './services/duplicate-detection.servic
 import { DuplicateDetectionConfig } from './interfaces/duplicate-detection.interface';
 import { WebhooksService } from '../modules/webhooks/webhooks.service';
 import { WebhookEvent } from '../modules/webhooks/entities/webhook-subscription.entity';
+import { MetadataSchemaService } from '../modules/metadata-schema/services/metadata-schema.service';
 
 @Injectable()
 export class CertificateService {
@@ -26,7 +27,8 @@ export class CertificateService {
     private readonly verificationRepository: Repository<Verification>,
     private readonly duplicateDetectionService: DuplicateDetectionService,
     private readonly webhooksService: WebhooksService,
-  ) { }
+    private readonly metadataSchemaService: MetadataSchemaService,
+  ) {}
 
   async create(
     createCertificateDto: CreateCertificateDto,
@@ -55,6 +57,24 @@ export class CertificateService {
             requiresOverride: true,
           });
         }
+      }
+    }
+
+    if (
+      createCertificateDto.metadataSchemaId &&
+      createCertificateDto.metadata
+    ) {
+      const validationResult = await this.metadataSchemaService.validate(
+        createCertificateDto.metadataSchemaId,
+        createCertificateDto.metadata,
+      );
+      if (!validationResult.valid) {
+        throw new ConflictException({
+          message: 'Certificate metadata failed schema validation',
+          errors: validationResult.errors,
+          schemaId: validationResult.schemaId,
+          schemaVersion: validationResult.schemaVersion,
+        });
       }
     }
 
