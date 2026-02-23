@@ -1,4 +1,5 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { CertificateService } from './certificate.service';
 import {
   ApiTags,
   ApiOperation,
@@ -8,24 +9,28 @@ import {
 import { CertificateStatsDto, StatsQueryDto } from './dto/stats.dto';
 import { CertificateStatsService } from './services/stats.service';
 
-@ApiTags('Certificate Statistics')
-@Controller('certificates/stats')
+@ApiTags('Certificates')
+@Controller('certificates')
 // @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
-export class CertificateStatsController {
-  constructor(private readonly statsService: CertificateStatsService) {}
+
+export class CertificateController {
+  constructor(private readonly certificateService: CertificateService) {}
+
 
   @Get()
-  // @Roles('admin', 'issuer')
-  @ApiOperation({ summary: 'Get certificate statistics' })
+  @ApiOperation({ summary: 'Get certificates (with optional status filter)' })
   @ApiResponse({
     status: 200,
-    description: 'Returns certificate statistics',
-    type: CertificateStatsDto,
+    description: 'Returns certificates',
+    type: Array,
   })
-  async getStatistics(
-    @Query() query: StatsQueryDto,
-  ): Promise<CertificateStatsDto> {
-    return this.statsService.getStatistics(query);
+  async getCertificates(
+    @Query('status') status?: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+    @Query('issuerId') issuerId?: string,
+  ) {
+    return this.certificateService.findAll(page, limit, issuerId, status);
   }
 }
