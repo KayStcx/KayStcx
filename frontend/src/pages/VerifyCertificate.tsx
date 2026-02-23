@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Html5QrcodeScanner } from 'html5-qrcode';
 import { certificateApi, VerificationResult } from '../api';
 
 type VerificationState = {
@@ -11,6 +12,8 @@ type VerificationState = {
 export default function VerifyCertificate(): JSX.Element {
   const [searchParams] = useSearchParams();
   const [serial, setSerial] = useState('');
+  const [showQrScanner, setShowQrScanner] = useState(false);
+  const qrScannerRef = useRef<Html5QrcodeScanner | null>(null);
   const [state, setState] = useState<VerificationState>({
     loading: false,
     result: null,
@@ -69,6 +72,40 @@ export default function VerifyCertificate(): JSX.Element {
       handleVerify(serialParam.trim());
     }
   }, [searchParams, handleVerify]);
+
+  // Initialize QR scanner
+  useEffect(() => {
+    if (showQrScanner && !qrScannerRef.current) {
+      qrScannerRef.current = new Html5QrcodeScanner(
+        'qr-reader',
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1.0,
+        },
+        false
+      );
+
+      qrScannerRef.current.render(
+        (decodedText) => {
+          setSerial(decodedText);
+          setShowQrScanner(false);
+          qrScannerRef.current?.clear();
+          qrScannerRef.current = null;
+        },
+        (error) => {
+          console.log('QR scan error:', error);
+        }
+      );
+    }
+
+    return () => {
+      if (qrScannerRef.current) {
+        qrScannerRef.current.clear();
+        qrScannerRef.current = null;
+      }
+    };
+  }, [showQrScanner]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -153,6 +190,28 @@ export default function VerifyCertificate(): JSX.Element {
                   aria-required="true"
                 />
                 <button
+                  type="button"
+                  onClick={() => setShowQrScanner(!showQrScanner)}
+                  className="flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white hover:bg-slate-900/70 transition"
+                  aria-label="Scan QR Code"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M12 12l3-3m-3 3l-3-3m-3 7h2.01M12 12l-3 3m3-3l3 3M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <span>Scan QR</span>
+                </button>
+                <button
                   type="submit"
                   disabled={state.loading || !serial.trim()}
                   className="flex items-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-slate-950 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
@@ -206,6 +265,29 @@ export default function VerifyCertificate(): JSX.Element {
             </div>
           </form>
         </div>
+
+        {/* QR Scanner */}
+        {showQrScanner && (
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-white">Scan QR Code</h3>
+                <button
+                  onClick={() => setShowQrScanner(false)}
+                  className="text-slate-400 hover:text-white"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div id="qr-reader" className="w-full max-w-sm mx-auto"></div>
+              <p className="text-sm text-slate-400 text-center">
+                Point your camera at a certificate QR code to scan it.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Results Display */}
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
@@ -344,6 +426,47 @@ export default function VerifyCertificate(): JSX.Element {
                       state.result.certificate.status.slice(1)
                       : 'Unknown'}
                   </span>
+                </div>
+              </div>
+
+              {/* Share Verification Result */}
+              <div className="border-t border-white/10 pt-6">
+                <h4 className="text-sm font-semibold text-white mb-4">Share Verification Result</h4>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      const url = `${window.location.origin}/verify?serial=${encodeURIComponent(serial)}`;
+                      navigator.clipboard.writeText(url);
+                      // Could add a toast notification here
+                    }}
+                    className="flex items-center gap-2 rounded-lg border border-white/10 bg-slate-800/50 px-3 py-2 text-sm text-white hover:bg-slate-700/50 transition"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Copy Link
+                  </button>
+                  <button
+                    onClick={() => {
+                      const text = `Certificate Verified: ${state.result?.certificate?.recipientName || 'N/A'} - ${state.result?.certificate?.courseName || 'N/A'}`;
+                      const url = `${window.location.origin}/verify?serial=${encodeURIComponent(serial)}`;
+                      if (navigator.share) {
+                        navigator.share({
+                          title: 'Certificate Verification',
+                          text: text,
+                          url: url,
+                        });
+                      } else {
+                        navigator.clipboard.writeText(`${text}\n${url}`);
+                      }
+                    }}
+                    className="flex items-center gap-2 rounded-lg border border-white/10 bg-slate-800/50 px-3 py-2 text-sm text-white hover:bg-slate-700/50 transition"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                    </svg>
+                    Share
+                  </button>
                 </div>
               </div>
             </div>
