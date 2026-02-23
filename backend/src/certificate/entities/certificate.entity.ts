@@ -7,6 +7,8 @@ import {
   Index,
 } from 'typeorm';
 
+import { Issuer } from '../../modules/issuers/entities/issuer.entity';
+
 @Entity('certificates')
 export class Certificate {
   @PrimaryGeneratedColumn('uuid')
@@ -61,6 +63,6 @@ export class Certificate {
   @Column({ type: 'timestamp' })
   expiresAt: Date;
 
-  //   @ManyToOne(() => Issuer, (issuer) => issuer.certificates)
-  //   issuer: Issuer;
+  @ManyToOne(() => Issuer)
+  issuer: Issuer;
 }
