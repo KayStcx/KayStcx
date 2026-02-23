@@ -1,4 +1,5 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { CertificateService } from './certificate.service';
 import {
   ApiTags,
   ApiOperation,
@@ -27,10 +28,13 @@ export class CertificateStatsController {
     description: 'Returns detailed certificate statistics',
     type: CertificateStatsDto,
   })
-  async getStatistics(
-    @Query() query: StatsQueryDto,
-  ): Promise<CertificateStatsDto> {
-    return this.statsService.getStatistics(query);
+  async getCertificates(
+    @Query('status') status?: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+    @Query('issuerId') issuerId?: string,
+  ) {
+    return this.certificateService.findAll(page, limit, issuerId, status);
   }
 
   @Get('summary')

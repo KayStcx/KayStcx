@@ -8,6 +8,7 @@ import CertificateWallet from './pages/CertificateWallet';
 import Login from './pages/Login';
 import RevokeCertificatePage from './pages/RevokeCertificate';
 import IssuerProfile from './pages/IssuerProfile';
+import CertificateManagementPage from './pages/CertificateManagement';
 import ProtectedRoute from './guard/protectedRoute';
 
 function App() {
@@ -30,6 +31,7 @@ function App() {
           <Route element={<ProtectedRoute allowedRoles={["issuer", "admin"]} />}>
             <Route path="/issue" element={<IssueCertificate />} />
             <Route path="/revoke" element={<RevokeCertificatePage />} />
+            <Route path="/certificates" element={<CertificateManagementPage />} />
           </Route>
         </Routes>
 

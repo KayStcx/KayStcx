@@ -1,4 +1,11 @@
-import { IsString, IsEmail, IsOptional, IsUUID, IsDate } from 'class-validator';
+import {
+  IsString,
+  IsEmail,
+  IsOptional,
+  IsUUID,
+  IsDate,
+  IsObject,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateCertificateDto {
@@ -27,5 +34,10 @@ export class CreateCertificateDto {
   expiresAt?: Date;
 
   @IsOptional()
+  @IsUUID()
+  metadataSchemaId?: string;
+
+  @IsOptional()
+  @IsObject()
   metadata?: Record<string, any>;
 }

@@ -19,6 +19,7 @@ import { FilesModule } from './modules/files/files.module';
 import { VersioningModule } from './common/versioning/versioning.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
+import { MetadataSchemaModule } from './modules/metadata-schema/metadata-schema.module';
 
 @Module({
   imports: [
@@ -56,8 +57,9 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     FilesModule,
     AuditModule,
     WebhooksModule,
+    MetadataSchemaModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}

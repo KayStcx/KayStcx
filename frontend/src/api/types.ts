@@ -45,11 +45,14 @@ export interface Certificate {
   issuerName: string;
   issueDate: string;
   expiryDate?: string;
-  status: 'active' | 'revoked' | 'expired';
+  status: 'active' | 'revoked' | 'expired' | 'frozen';
   pdfUrl?: string; // Link to certificate file
   txHash?: string; // Stellar transaction hash
   cid?: string; // IPFS CID for certificate file/metadata
   metadata?: Record<string, any>;
+  frozenAt?: string;
+  freezeReason?: string;
+  unfreezeAt?: string;
 }
 
 /**

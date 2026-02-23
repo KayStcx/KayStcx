@@ -8,6 +8,9 @@ import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
+import { LogoutDto } from './dto/logout.dto';
+import { LogoutResponseDto } from './dto/logout-response.dto';
+import { JwtManagementService } from './services/jwt.service';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
@@ -15,6 +18,7 @@ export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
+    private jwtManagementService: JwtManagementService,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<any> {
@@ -99,5 +103,64 @@ export class AuthService {
         lastName: newUser.lastName,
       },
     };
+  }
+
+  async logout(user: any, logoutDto: LogoutDto): Promise<LogoutResponseDto> {
+    // Blacklist the access token
+    if (logoutDto.accessToken) {
+      await this.jwtManagementService.blacklistToken(logoutDto.accessToken);
+    }
+
+    // Optionally invalidate the refresh token stored in the database
+    await this.usersService['userRepository'].update(user.id, { refreshToken: undefined });
+
+    return {
+      message: 'Successfully logged out',
+      success: true,
+    };
+  }
+
+  async refreshTokens(refreshToken: string): Promise<AuthResponseDto> {
+    try {
+      // Verify the refresh token
+      const payload = await this.jwtManagementService.verifyRefreshToken(refreshToken);
+
+      // Check if user still exists and is active
+      const user = await this.usersService.findOneById(payload.sub);
+      if (!user || !user.isActive) {
+        throw new UnauthorizedException('User not found or inactive');
+      }
+
+      // Verify that the refresh token in the DB matches the one provided
+      if (user.refreshToken !== refreshToken) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      // Generate new tokens
+      const newPayload = { 
+        email: user.email, 
+        sub: user.id, 
+        role: user.role 
+      };
+      
+      const tokens = await this.jwtManagementService.refreshAccessToken(refreshToken);
+      
+      // Update the refresh token in the database
+      await this.usersService['userRepository'].update(user.id, { refreshToken: tokens.refreshToken });
+
+      return {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresIn: 3600,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        },
+      };
+    } catch (error) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
   }
 }

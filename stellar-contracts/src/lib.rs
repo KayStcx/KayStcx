@@ -8,6 +8,9 @@ const BASE_VERIFICATION_COST: u64 = 10;
 const COST_PER_CERTIFICATE: u64 = 5;
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec, symbol_short};
 
+// Soroban event emission - topics must be a tuple of up to 4 elements
+// We'll emit events using env.events().publish()
+
 /// Certificate version information
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -85,6 +88,19 @@ mod crl;
 mod crl_test;
 mod multisig;
 mod multisig_test;
+pub mod metadata;
+mod metadata_test;
+
+pub use metadata::{
+    MetadataFieldType,
+    MetadataFieldRule,
+    MetadataSchemaVersion,
+    MetadataSchemaRecord,
+    MetadataFieldError,
+    MetadataValidationResult,
+    MetadataEntry,
+    MetadataError,
+};
 
 pub use crl::{
     CRLContract,
@@ -129,6 +145,9 @@ pub struct Certificate {
     pub is_upgradable: bool,                   // Whether this certificate can be upgraded
     pub upgrade_rules: Vec<UpgradeRule>,       // Valid upgrade paths
     pub compatibility_matrix: CompatibilityMatrix, // Version compatibility info
+    // Freeze-related fields
+    pub frozen: bool,                          // Whether the certificate is frozen
+    pub freeze_info: Option<FrozenCertificateInfo>, // Freeze details
 }
 
 /// Transfer status enum
@@ -268,6 +287,63 @@ pub struct CertificateArchivedEvent {
     pub reason: String,
 }
 
+/// Freeze information for a certificate
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct FrozenCertificateInfo {
+    pub certificate_id: String,
+    pub frozen_at: u64,                    // Timestamp when the certificate was frozen
+    pub unfreeze_at: Option<u64>,          // Optional timestamp for automatic unfreeze
+    pub frozen_by: Address,                // Who froze the certificate
+    pub reason: String,                    // Reason for freezing
+    pub is_permanent: bool,                 // Whether the freeze is permanent (no auto-unfreeze)
+}
+
+/// Freeze event for history tracking
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct FreezeEvent {
+    pub certificate_id: String,
+    pub event_type: FreezeEventType,
+    pub timestamp: u64,
+    pub performed_by: Address,
+    pub reason: String,
+    pub unfreeze_time: Option<u64>,
+}
+
+/// Freeze event types
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum FreezeEventType {
+    Frozen,           // Certificate was frozen
+    Unfrozen,         // Certificate was unfrozen
+    AutoUnfrozen,     // Certificate was automatically unfrozen
+    OverrideUnfrozen, // Admin overrode the freeze
+}
+
+/// Certificate frozen event
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct CertificateFrozenEvent {
+    pub certificate_id: String,
+    pub frozen_by: Address,
+    pub frozen_at: u64,
+    pub unfreeze_at: Option<u64>,
+    pub reason: String,
+    pub is_permanent: bool,
+}
+
+/// Certificate unfrozen event
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct CertificateUnfrozenEvent {
+    pub certificate_id: String,
+    pub unfrozen_by: Address,
+    pub unfrozen_at: u64,
+    pub reason: String,
+    pub was_auto_unfreeze: bool,
+}
+
 /// Error types for the contract
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -293,6 +369,12 @@ pub enum CertificateError {
     CertificateNotUpgradable,
     UpgradeInProgress,
     ParentVersionNotFound,
+    // Freeze errors
+    AlreadyFrozen,
+    NotFrozen,
+    FreezeDurationExceeded,
+    FreezeDurationInvalid,
+    FreezeNotExpired,
 }
 
 /// Storage keys for the contract
@@ -313,6 +395,9 @@ pub enum DataKey {
     UpgradeRules,             // Global upgrade rules
     UpgradeCount,             // Total number of upgrades
     PendingUpgrades(Address), // Address -> Vec<UpgradeID> (upgrades pending approval)
+    // Freeze-related storage
+    FrozenCertificate(String), // Certificate ID -> FrozenCertificateInfo
+    FreezeHistory(String),    // Certificate ID -> Vec<FreezeEvent>
 }
 
 #[contracttype]
@@ -534,6 +619,31 @@ impl CertificateContract {
             revocation_reason: None,
             revoked_at: None,
             revoked_by: None,
+            // Initialize upgrade fields
+            version: CertificateVersion {
+                major: 1,
+                minor: 0,
+                patch: 0,
+                build: None,
+            },
+            parent_certificate_id: None,
+            child_certificate_id: None,
+            is_upgradable: false,
+            upgrade_rules: Vec::new(&env),
+            compatibility_matrix: CompatibilityMatrix {
+                version: CertificateVersion {
+                    major: 1,
+                    minor: 0,
+                    patch: 0,
+                    build: None,
+                },
+                compatible_versions: Vec::new(&env),
+                backward_compatible: true,
+                forward_compatible: true,
+            },
+            // Initialize freeze fields
+            frozen: false,
+            freeze_info: None,
         };
 
         env.storage().instance().set(&id, &cert);
@@ -558,6 +668,236 @@ impl CertificateContract {
         cert.revoked_by = Some(cert.issuer.clone());
 
         env.storage().instance().set(&id, &cert);
+    }
+
+    /// Freeze a certificate temporarily during a dispute
+    /// 
+    /// # Arguments
+    /// * `id` - Certificate ID to freeze
+    /// * `admin` - Admin address that has authority to freeze
+    /// * `reason` - Reason for freezing the certificate
+    /// * `duration_days` - Number of days to freeze (0 for permanent freeze, max 90 days)
+    /// 
+    /// # Returns
+    /// * `CertificateFrozenEvent` - Event emitted when certificate is frozen
+    pub fn freeze_certificate(
+        env: Env,
+        id: String,
+        admin: Address,
+        reason: String,
+        duration_days: u32,
+    ) -> CertificateFrozenEvent {
+        admin.require_auth();
+
+        let mut cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&id)
+            .expect("Certificate not found");
+
+        // Check if already frozen
+        if cert.frozen {
+            panic!("Certificate is already frozen");
+        }
+
+        // Check if certificate is revoked
+        if cert.revoked {
+            panic!("Cannot freeze a revoked certificate");
+        }
+
+        // Validate duration
+        if duration_days > 90 {
+            panic!("Freeze duration cannot exceed 90 days");
+        }
+
+        let current_time = env.ledger().timestamp();
+        let unfreeze_at = if duration_days > 0 {
+            // Calculate unfreeze time (duration_days * 24 * 60 * 60 seconds)
+            Some(current_time + (duration_days as u64) * 24 * 60 * 60)
+        } else {
+            // Permanent freeze
+            None
+        };
+
+        let is_permanent = duration_days == 0;
+
+        // Create freeze info
+        let freeze_info = FrozenCertificateInfo {
+            certificate_id: id.clone(),
+            frozen_at: current_time,
+            unfreeze_at,
+            frozen_by: admin.clone(),
+            reason: reason.clone(),
+            is_permanent,
+        };
+
+        // Update certificate
+        cert.frozen = true;
+        cert.freeze_info = Some(freeze_info.clone());
+
+        env.storage().instance().set(&id, &cert);
+
+        // Store freeze info in separate key for history
+        let freeze_key = DataKey::FrozenCertificate(id.clone());
+        env.storage().instance().set(&freeze_key, &freeze_info);
+
+        // Emit event
+        let event = CertificateFrozenEvent {
+            certificate_id: id.clone(),
+            frozen_by: admin,
+            frozen_at: current_time,
+            unfreeze_at,
+            reason,
+            is_permanent,
+        };
+
+        env.events().publish(
+            (symbol_short!("CertFrz"),),
+            event.clone(),
+        );
+
+        event
+    }
+
+    /// Unfreeze a certificate
+    /// 
+    /// # Arguments
+    /// * `id` - Certificate ID to unfreeze
+    /// * `admin` - Admin address that has authority to unfreeze
+    /// * `reason` - Reason for unfreezing
+    /// 
+    /// # Returns
+    /// * `CertificateUnfrozenEvent` - Event emitted when certificate is unfrozen
+    pub fn unfreeze_certificate(
+        env: Env,
+        id: String,
+        admin: Address,
+        reason: String,
+    ) -> CertificateUnfrozenEvent {
+        admin.require_auth();
+
+        let mut cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&id)
+            .expect("Certificate not found");
+
+        // Check if frozen
+        if !cert.frozen {
+            panic!("Certificate is not frozen");
+        }
+
+        let current_time = env.ledger().timestamp();
+        let was_auto_unfreeze = false;
+
+        // Update certificate
+        cert.frozen = false;
+        cert.freeze_info = None;
+
+        env.storage().instance().set(&id, &cert);
+
+        // Remove freeze info from storage
+        let freeze_key = DataKey::FrozenCertificate(id.clone());
+        env.storage().instance().remove(&freeze_key);
+
+        // Emit event
+        let event = CertificateUnfrozenEvent {
+            certificate_id: id.clone(),
+            unfrozen_by: admin,
+            unfrozen_at: current_time,
+            reason,
+            was_auto_unfreeze,
+        };
+
+        env.events().publish(
+            (symbol_short!("CertUnfrz"),),
+            event.clone(),
+        );
+
+        event
+    }
+
+    /// Check if a certificate is frozen and should be auto-unfrozen
+    /// This function can be called periodically to auto-unfreeze expired freezes
+    /// 
+    /// # Returns
+    /// * `u32` - Number of certificates that were auto-unfrozen
+    pub fn process_auto_unfreeze(env: Env) -> u32 {
+        // This would require iterating through all certificates
+        // For efficiency, in production you'd maintain a separate index of frozen certificates
+        // For now, return 0 as this requires more complex storage management
+        0
+    }
+
+    /// Check if a certificate is currently frozen
+    pub fn is_frozen(env: Env, id: String) -> bool {
+        let cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&id)
+            .expect("Certificate not found");
+        cert.frozen
+    }
+
+    /// Get freeze information for a certificate
+    pub fn get_freeze_info(env: Env, id: String) -> Option<FrozenCertificateInfo> {
+        let cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&id)
+            .expect("Certificate not found");
+        cert.freeze_info
+    }
+
+    /// Override unfreeze - allows admin to unfreeze even before the freeze period ends
+    /// This is useful for resolving disputes quickly
+    pub fn admin_override_unfreeze(
+        env: Env,
+        id: String,
+        admin: Address,
+        reason: String,
+    ) -> CertificateUnfrozenEvent {
+        admin.require_auth();
+
+        let mut cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&id)
+            .expect("Certificate not found");
+
+        // Check if frozen
+        if !cert.frozen {
+            panic!("Certificate is not frozen");
+        }
+
+        let current_time = env.ledger().timestamp();
+        let was_auto_unfreeze = false;
+
+        // Update certificate
+        cert.frozen = false;
+        cert.freeze_info = None;
+
+        env.storage().instance().set(&id, &cert);
+
+        // Remove freeze info from storage
+        let freeze_key = DataKey::FrozenCertificate(id.clone());
+        env.storage().instance().remove(&freeze_key);
+
+        // Emit override event (reusing the unfrozen event with was_auto_unfreeze = false)
+        let event = CertificateUnfrozenEvent {
+            certificate_id: id.clone(),
+            unfrozen_by: admin,
+            unfrozen_at: current_time,
+            reason,
+            was_auto_unfreeze,
+        };
+
+        env.events().publish(
+            (symbol_short!("CertUnfrz"),),
+            event.clone(),
+        );
+
+        event
     }
 
     pub fn is_revoked(env: Env, id: String) -> bool {
@@ -1536,3 +1876,6 @@ pub use crl_test::*;
 
 #[cfg(test)]
 pub use multisig_test::*;
+
+#[cfg(test)]
+pub use metadata_test::*;
