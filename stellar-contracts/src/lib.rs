@@ -344,6 +344,71 @@ pub struct CertificateUnfrozenEvent {
     pub was_auto_unfreeze: bool,
 }
 
+/// Core Certificate Lifecycle Events
+
+/// Event emitted when a certificate is issued
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct CertificateIssuedEvent {
+    pub certificate_id: String,
+    pub issuer: Address,
+    pub owner: Address,
+    pub metadata_uri: String,
+    pub issued_at: u64,
+    pub version: CertificateVersion,
+}
+
+/// Event emitted when a certificate is revoked
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct CertificateRevokedEvent {
+    pub certificate_id: String,
+    pub revoked_by: Address,
+    pub revoked_at: u64,
+    pub reason: String,
+}
+
+/// Event emitted when a certificate expires
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct CertificateExpiredEvent {
+    pub certificate_id: String,
+    pub expired_at: u64,
+    pub issuer: Address,
+}
+
+/// Issuer Management Events
+
+/// Event emitted when an issuer is added
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct IssuerAddedEvent {
+    pub issuer: Address,
+    pub added_by: Address,
+    pub added_at: u64,
+    pub permissions: Vec<String>,
+}
+
+/// Event emitted when an issuer is removed
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct IssuerRemovedEvent {
+    pub issuer: Address,
+    pub removed_by: Address,
+    pub removed_at: u64,
+    pub reason: String,
+}
+
+/// Event emitted when admin rights are transferred
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct AdminTransferredEvent {
+    pub from_admin: Address,
+    pub to_admin: Address,
+    pub transferred_by: Address,
+    pub transferred_at: u64,
+}
+
 /// Error types for the contract
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -398,6 +463,12 @@ pub enum DataKey {
     // Freeze-related storage
     FrozenCertificate(String), // Certificate ID -> FrozenCertificateInfo
     FreezeHistory(String),    // Certificate ID -> Vec<FreezeEvent>
+    // Issuer management storage
+    Issuer(Address),          // Address -> bool (is issuer)
+    IssuerPermissions(Address), // Address -> Vec<String> (issuer permissions)
+    Admin,                    // Current admin address
+    // Expiration storage
+    CertificateExpiry(String), // Certificate ID -> u64 (expiry timestamp)
 }
 
 #[contracttype]
@@ -647,6 +718,19 @@ impl CertificateContract {
         };
 
         env.storage().instance().set(&id, &cert);
+
+        // Emit certificate issued event
+        env.events().publish(
+            (symbol_short!("cert_issued"), id.clone()),
+            CertificateIssuedEvent {
+                certificate_id: id.clone(),
+                issuer: issuer.clone(),
+                owner: owner.clone(),
+                metadata_uri: metadata_uri.clone(),
+                issued_at: cert.issued_at,
+                version: cert.version.clone(),
+            },
+        );
     }
 
     pub fn revoke_certificate(env: Env, id: String, reason: String) {
@@ -668,6 +752,17 @@ impl CertificateContract {
         cert.revoked_by = Some(cert.issuer.clone());
 
         env.storage().instance().set(&id, &cert);
+
+        // Emit certificate revoked event
+        env.events().publish(
+            (symbol_short!("cert_revoked"), id.clone()),
+            CertificateRevokedEvent {
+                certificate_id: id.clone(),
+                revoked_by: cert.issuer.clone(),
+                revoked_at: cert.revoked_at.unwrap(),
+                reason: reason.clone(),
+            },
+        );
     }
 
     /// Freeze a certificate temporarily during a dispute
@@ -1865,6 +1960,236 @@ impl CertificateContract {
         upgrade_rules: Vec<UpgradeRule>,
     ) -> bool {
         Self::validate_upgrade_path(&env, &from_version, &to_version, &upgrade_rules).is_ok()
+    }
+
+    // Issuer Management Functions
+    
+    /// Initialize the contract with an admin
+    pub fn initialize_admin(env: Env, admin: Address) {
+        if env.storage().instance().has(&DataKey::Admin) {
+            panic!("Admin already initialized");
+        }
+        env.storage().instance().set(&DataKey::Admin, &admin);
+    }
+
+    /// Add an issuer with specific permissions
+    pub fn add_issuer(
+        env: Env,
+        issuer: Address,
+        permissions: Vec<String>,
+        admin: Address,
+    ) -> Result<(), CertificateError> {
+        admin.require_auth();
+        
+        // Check if admin is authorized
+        let current_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(CertificateError::Unauthorized)?;
+        
+        if admin != current_admin {
+            return Err(CertificateError::Unauthorized);
+        }
+        
+        // Check if issuer already exists
+        let issuer_key = DataKey::Issuer(issuer.clone());
+        if env.storage().instance().has(&issuer_key) {
+            return Err(CertificateError::AlreadyExists);
+        }
+        
+        // Add issuer
+        env.storage().instance().set(&issuer_key, &true);
+        env.storage().instance().set(&DataKey::IssuerPermissions(issuer.clone()), &permissions);
+        
+        // Emit issuer added event
+        env.events().publish(
+            (symbol_short!("issuer_added"), issuer.clone()),
+            IssuerAddedEvent {
+                issuer: issuer.clone(),
+                added_by: admin,
+                added_at: env.ledger().timestamp(),
+                permissions: permissions.clone(),
+            },
+        );
+        
+        Ok(())
+    }
+
+    /// Remove an issuer
+    pub fn remove_issuer(
+        env: Env,
+        issuer: Address,
+        reason: String,
+        admin: Address,
+    ) -> Result<(), CertificateError> {
+        admin.require_auth();
+        
+        // Check if admin is authorized
+        let current_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(CertificateError::Unauthorized)?;
+        
+        if admin != current_admin {
+            return Err(CertificateError::Unauthorized);
+        }
+        
+        // Check if issuer exists
+        let issuer_key = DataKey::Issuer(issuer.clone());
+        if !env.storage().instance().has(&issuer_key) {
+            return Err(CertificateError::NotFound);
+        }
+        
+        // Remove issuer
+        env.storage().instance().remove(&issuer_key);
+        env.storage().instance().remove(&DataKey::IssuerPermissions(issuer.clone()));
+        
+        // Emit issuer removed event
+        env.events().publish(
+            (symbol_short!("issuer_removed"), issuer.clone()),
+            IssuerRemovedEvent {
+                issuer: issuer.clone(),
+                removed_by: admin,
+                removed_at: env.ledger().timestamp(),
+                reason: reason.clone(),
+            },
+        );
+        
+        Ok(())
+    }
+
+    /// Transfer admin rights to a new address
+    pub fn transfer_admin(
+        env: Env,
+        new_admin: Address,
+        current_admin: Address,
+    ) -> Result<(), CertificateError> {
+        current_admin.require_auth();
+        
+        // Check if current admin is authorized
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(CertificateError::Unauthorized)?;
+        
+        if current_admin != stored_admin {
+            return Err(CertificateError::Unauthorized);
+        }
+        
+        // Transfer admin rights
+        env.storage().instance().set(&DataKey::Admin, &new_admin);
+        
+        // Emit admin transferred event
+        env.events().publish(
+            (symbol_short!("admin_transferred"),),
+            AdminTransferredEvent {
+                from_admin: current_admin.clone(),
+                to_admin: new_admin.clone(),
+                transferred_by: current_admin,
+                transferred_at: env.ledger().timestamp(),
+            },
+        );
+        
+        Ok(())
+    }
+
+    /// Check if an address is an authorized issuer
+    pub fn is_issuer(env: Env, address: Address) -> bool {
+        let issuer_key = DataKey::Issuer(address);
+        env.storage().instance().get(&issuer_key).unwrap_or(false)
+    }
+
+    /// Get issuer permissions
+    pub fn get_issuer_permissions(env: Env, issuer: Address) -> Result<Vec<String>, CertificateError> {
+        let permissions_key = DataKey::IssuerPermissions(issuer);
+        env.storage()
+            .instance()
+            .get(&permissions_key)
+            .ok_or(CertificateError::NotFound)
+    }
+
+    /// Get current admin
+    pub fn get_admin(env: Env) -> Result<Address, CertificateError> {
+        env.storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(CertificateError::NotFound)
+    }
+
+    // Certificate Expiration Functions
+    
+    /// Set expiration time for a certificate
+    pub fn set_certificate_expiry(
+        env: Env,
+        certificate_id: String,
+        expiry_timestamp: u64,
+        admin: Address,
+    ) -> Result<(), CertificateError> {
+        admin.require_auth();
+        
+        // Check if admin is authorized
+        let current_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(CertificateError::Unauthorized)?;
+        
+        if admin != current_admin {
+            return Err(CertificateError::Unauthorized);
+        }
+        
+        // Check if certificate exists
+        let cert_key = DataKey::Certificate(certificate_id.clone());
+        if !env.storage().instance().has(&cert_key) {
+            return Err(CertificateError::NotFound);
+        }
+        
+        // Set expiration
+        let expiry_key = DataKey::CertificateExpiry(certificate_id.clone());
+        env.storage().instance().set(&expiry_key, &expiry_timestamp);
+        
+        Ok(())
+    }
+
+    /// Check if a certificate is expired
+    pub fn is_expired(env: Env, certificate_id: String) -> bool {
+        let expiry_key = DataKey::CertificateExpiry(certificate_id);
+        if let Some(expiry_time) = env.storage().instance().get::<DataKey, u64>(&expiry_key) {
+            let current_time = env.ledger().timestamp();
+            current_time >= expiry_time
+        } else {
+            false // No expiry set means not expired
+        }
+    }
+
+    /// Get certificate expiry time
+    pub fn get_certificate_expiry(env: Env, certificate_id: String) -> Option<u64> {
+        let expiry_key = DataKey::CertificateExpiry(certificate_id);
+        env.storage().instance().get(&expiry_key)
+    }
+
+    /// Process expired certificates and emit events
+    pub fn process_expired_certificates(env: Env, admin: Address) -> u32 {
+        admin.require_auth();
+        
+        // In a real implementation, you would iterate through certificates
+        // For now, we'll return 0 as this requires more complex storage management
+        // This would typically maintain an index of expiring certificates
+        0
+    }
+
+    /// Check certificate validity (not revoked and not expired)
+    pub fn is_valid(env: Env, certificate_id: String) -> bool {
+        let cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&certificate_id)
+            .expect("Certificate not found");
+        
+        !cert.revoked && !Self::is_expired(env, certificate_id)
     }
 }
 
