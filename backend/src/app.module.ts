@@ -20,6 +20,7 @@ import { VersioningModule } from './common/versioning/versioning.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { MetadataSchemaModule } from './modules/metadata-schema/metadata-schema.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -58,8 +59,9 @@ import { MetadataSchemaModule } from './modules/metadata-schema/metadata-schema.
     AuditModule,
     WebhooksModule,
     MetadataSchemaModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

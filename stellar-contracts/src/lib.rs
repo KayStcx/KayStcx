@@ -88,6 +88,8 @@ mod crl;
 mod crl_test;
 mod multisig;
 mod multisig_test;
+pub mod admin_multisig;
+mod admin_multisig_test;
 pub mod metadata;
 mod metadata_test;
 
@@ -124,6 +126,15 @@ pub use multisig::{
     SignatureResult,
     MultisigEvent,
     PaginatedResult as MultisigPaginatedResult,
+};
+
+pub use admin_multisig::{
+    AdminMultisigContract,
+    AdminMultisigContractClient,
+    AdminMultisigConfig,
+    AdminAction,
+    AdminProposalStatus,
+    AdminProposal,
 };
 
 #[contracttype]

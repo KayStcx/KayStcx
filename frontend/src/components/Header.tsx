@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import ThemeToggle from './ThemeToggle';
 import { User } from 'lucide-react';
+import NotificationDropdown from './NotificationDropdown';
 
 type NavItem = {
   label: string;
@@ -39,10 +40,9 @@ export default function Header(): JSX.Element {
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  `transition-colors duration-250 ${
-                    isActive
-                      ? 'text-primary dark:text-primary'
-                      : 'hover:text-gray-900 dark:hover:text-white'
+                  `transition-colors duration-250 ${isActive
+                    ? 'text-primary dark:text-primary'
+                    : 'hover:text-gray-900 dark:hover:text-white'
                   }`
                 }
               >
@@ -51,6 +51,7 @@ export default function Header(): JSX.Element {
             ))}
           </nav>
           <div className="h-6 w-px bg-gray-300 dark:bg-slate-700 transition-colors duration-250"></div>
+          <NotificationDropdown />
           <ThemeToggle />
         </div>
       </div>
@@ -62,10 +63,9 @@ export default function Header(): JSX.Element {
                 key={`${item.to}-mobile`}
                 to={item.to}
                 className={({ isActive }) =>
-                  `rounded-full px-3 py-1 transition-colors duration-250 ${
-                    isActive
-                      ? 'bg-gray-100 dark:bg-white/10 text-primary dark:text-primary'
-                      : 'bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-slate-200'
+                  `rounded-full px-3 py-1 transition-colors duration-250 ${isActive
+                    ? 'bg-gray-100 dark:bg-white/10 text-primary dark:text-primary'
+                    : 'bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-slate-200'
                   }`
                 }
               >
@@ -73,7 +73,10 @@ export default function Header(): JSX.Element {
               </NavLink>
             ))}
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <NotificationDropdown />
+            <ThemeToggle />
+          </div>
         </div>
       </div>
     </header>
