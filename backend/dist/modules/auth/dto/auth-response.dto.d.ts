@@ -7,4 +7,9 @@ export declare class AuthResponseDto {
         firstName: string;
         lastName: string;
     };
+    metadata?: {
+        version: string;
+        timestamp: string;
+        expiresIn: number;
+    };
 }

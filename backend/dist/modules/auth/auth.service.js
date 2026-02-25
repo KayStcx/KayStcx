@@ -58,7 +58,8 @@ let AuthService = class AuthService {
         const user = await this.usersService.findOneByEmail(email);
         if (user) {
             const userWithPassword = await this.usersService['userRepository'].findByEmailWithPassword(email);
-            if (userWithPassword && await bcrypt.compare(pass, userWithPassword.password)) {
+            if (userWithPassword &&
+                (await bcrypt.compare(pass, userWithPassword.password))) {
                 const { password, ...result } = userWithPassword;
                 return result;
             }
@@ -98,7 +99,11 @@ let AuthService = class AuthService {
             lastName: registerDto.lastName,
             password: hashedPassword,
         });
-        const payload = { email: newUser.email, sub: newUser.id, role: newUser.role };
+        const payload = {
+            email: newUser.email,
+            sub: newUser.id,
+            role: newUser.role,
+        };
         const accessToken = this.jwtService.sign(payload);
         return {
             accessToken,

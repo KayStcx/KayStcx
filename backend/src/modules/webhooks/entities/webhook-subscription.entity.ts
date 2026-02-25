@@ -15,6 +15,7 @@ export enum WebhookEvent {
   CERTIFICATE_ISSUED = 'certificate.issued',
   CERTIFICATE_REVOKED = 'certificate.revoked',
   CERTIFICATE_VERIFIED = 'certificate.verified',
+  WEBHOOK_TEST = 'webhook.test',
 }
 
 @Entity('webhook_subscriptions')

@@ -18,7 +18,7 @@ export class CertificateStatsService {
     private verificationRepo: Repository<Verification>,
     @Inject(CACHE_MANAGER)
     private cacheManager: Cache,
-  ) {}
+  ) { }
 
   async getStatistics(query: StatsQueryDto): Promise<CertificateStatsDto> {
     const cacheKey = this.generateCacheKey(query);
@@ -50,9 +50,22 @@ export class CertificateStatsService {
     };
 
     // Cache the result
-    await this.cacheManager.set(cacheKey, result, this.CACHE_TTL);
+    await this.cacheManager.set(cacheKey, result, this.CACHE_TTL * 1000); // cache-manager v5+ uses ms
 
     return result;
+  }
+
+  async getPublicSummary(): Promise<Partial<CertificateStatsDto>> {
+    const cacheKey = 'cert-stats:public-summary';
+    const cached = await this.cacheManager.get<Partial<CertificateStatsDto>>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const stats = await this.getTotalStats({}, {});
+
+    await this.cacheManager.set(cacheKey, stats, this.CACHE_TTL * 1000);
+    return stats;
   }
 
   private async getTotalStats(dateFilter: any, issuerFilter: any) {
@@ -80,17 +93,15 @@ export class CertificateStatsService {
   }
 
   private async getIssuanceTrend(dateFilter: any, issuerFilter: any) {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const startDate = dateFilter.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const endDate = dateFilter.endDate || new Date();
 
     const trendData = await this.certificateRepo
       .createQueryBuilder('cert')
       .select('DATE(cert.issuedAt)', 'date')
       .addSelect('COUNT(*)', 'count')
-      .where('cert.issuedAt >= :startDate', { startDate: thirtyDaysAgo })
-      .andWhere(dateFilter.issuedAt ? 'cert.issuedAt <= :endDate' : '1=1', {
-        endDate: dateFilter.issuedAt?.value,
-      })
+      .where('cert.issuedAt >= :startDate', { startDate })
+      .andWhere('cert.issuedAt <= :endDate', { endDate })
       .andWhere(issuerFilter.issuerId ? 'cert.issuerId = :issuerId' : '1=1', {
         issuerId: issuerFilter.issuerId,
       })
@@ -105,19 +116,21 @@ export class CertificateStatsService {
   }
 
   private async getTopIssuers(dateFilter: any) {
-    const topIssuersData = await this.certificateRepo
+    const query = this.certificateRepo
       .createQueryBuilder('cert')
       .select('cert.issuerId', 'issuerId')
       .addSelect('issuer.name', 'issuerName')
       .addSelect('COUNT(*)', 'certificateCount')
-      .leftJoin('cert.issuer', 'issuer')
-      .where(
-        dateFilter.issuedAt ? 'cert.issuedAt BETWEEN :start AND :end' : '1=1',
-        {
-          start: dateFilter.issuedAt?.value?.[0],
-          end: dateFilter.issuedAt?.value?.[1],
-        },
-      )
+      .leftJoin('cert.issuer', 'issuer');
+
+    if (dateFilter.startDate && dateFilter.endDate) {
+      query.where('cert.issuedAt BETWEEN :start AND :end', {
+        start: dateFilter.startDate,
+        end: dateFilter.endDate,
+      });
+    }
+
+    const topIssuersData = await query
       .groupBy('cert.issuerId')
       .addGroupBy('issuer.name')
       .orderBy('certificateCount', 'DESC')
@@ -136,9 +149,13 @@ export class CertificateStatsService {
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    const baseWhere: any = issuerFilter.issuerId
-      ? { certificate: { issuerId: issuerFilter.issuerId } }
-      : {};
+    const baseWhere: any = {};
+    if (issuerFilter.issuerId) {
+      baseWhere.certificate = { issuerId: issuerFilter.issuerId };
+    }
+    if (dateFilter.startDate && dateFilter.endDate) {
+      baseWhere.verifiedAt = Between(dateFilter.startDate, dateFilter.endDate);
+    }
 
     const [total, successful, failed, daily, weekly] = await Promise.all([
       this.verificationRepo.count({ where: baseWhere }),
@@ -174,6 +191,8 @@ export class CertificateStatsService {
   private buildDateFilter(query: StatsQueryDto) {
     if (query.startDate && query.endDate) {
       return {
+        startDate: new Date(query.startDate),
+        endDate: new Date(query.endDate),
         issuedAt: Between(new Date(query.startDate), new Date(query.endDate)),
       };
     }

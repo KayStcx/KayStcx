@@ -34,17 +34,15 @@ export class WebhooksController {
     @ApiOperation({ summary: 'Register a new webhook subscription' })
     @ApiResponse({ status: 201, description: 'Webhook registered successfully' })
     async create(
-        @CurrentUser('stellarPublicKey') issuerId: string,
+        @CurrentUser('id') issuerId: string,
         @Body() dto: CreateWebhookSubscriptionDto,
     ) {
-        // Note: Using stellarPublicKey as issuerId for now as the Issuer entity 
-        // management is not fully clear in the current codebase state.
         return this.webhooksService.createSubscription(issuerId, dto);
     }
 
     @Get()
     @ApiOperation({ summary: 'List all webhook subscriptions for the issuer' })
-    async findAll(@CurrentUser('stellarPublicKey') issuerId: string) {
+    async findAll(@CurrentUser('id') issuerId: string) {
         return this.webhooksService.findAll(issuerId);
     }
 
@@ -52,7 +50,7 @@ export class WebhooksController {
     @HttpCode(HttpStatus.NO_CONTENT)
     @ApiOperation({ summary: 'Remove a webhook subscription' })
     async remove(
-        @CurrentUser('stellarPublicKey') issuerId: string,
+        @CurrentUser('id') issuerId: string,
         @Param('id') id: string,
     ) {
         return this.webhooksService.remove(id, issuerId);
@@ -61,7 +59,7 @@ export class WebhooksController {
     @Get(':id/logs')
     @ApiOperation({ summary: 'Get delivery logs for a webhook subscription' })
     async getLogs(
-        @CurrentUser('stellarPublicKey') issuerId: string,
+        @CurrentUser('id') issuerId: string,
         @Param('id') id: string,
     ) {
         return this.webhooksService.getLogs(id, issuerId);
@@ -70,25 +68,27 @@ export class WebhooksController {
     @Post('test')
     @ApiOperation({ summary: 'Send a test webhook event' })
     async test(
-        @CurrentUser('stellarPublicKey') issuerId: string,
+        @CurrentUser('id') issuerId: string,
         @Body('subscriptionId') subscriptionId: string,
     ) {
         const subscription = await this.webhooksService.findOne(subscriptionId, issuerId);
 
         const testPayload = {
-            event: 'webhook.test',
+            event: WebhookEvent.WEBHOOK_TEST,
             timestamp: new Date().toISOString(),
             message: 'This is a test webhook from Kaystcx',
             data: {
                 issuerId,
+                subscriptionId: subscription.id,
                 test: true,
             }
         };
 
-        // Reuse the trigger logic to send through the queue
-        await this.webhooksService.triggerEvent(
-            'webhook.test' as WebhookEvent,
-            issuerId,
+        // Use triggerEvent which now handles sending to a specific subscription if needed
+        // or just deliver directly to this sub.
+        await this.webhooksService.triggerEventForSubscription(
+            subscription,
+            WebhookEvent.WEBHOOK_TEST,
             testPayload
         );
 

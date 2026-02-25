@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bull';
-import { Queue } from 'bull';
+import type { Queue } from 'bull';
 import * as crypto from 'crypto';
 import {
     WebhookSubscription,
@@ -68,28 +68,36 @@ export class WebhooksService {
         );
 
         for (const sub of relevantSubs) {
-            await this.webhookQueue.add(
-                'deliver',
-                {
-                    subscriptionId: sub.id,
-                    event,
-                    payload,
-                    attempt: 1,
-                },
-                {
-                    attempts: 5,
-                    backoff: {
-                        type: 'exponential',
-                        delay: 1000,
-                    },
-                    removeOnComplete: true,
-                },
-            );
+            await this.triggerEventForSubscription(sub, event, payload);
         }
 
         if (relevantSubs.length > 0) {
             this.logger.log(`Queued ${relevantSubs.length} webhooks for event ${event}`);
         }
+    }
+
+    async triggerEventForSubscription(
+        subscription: WebhookSubscription,
+        event: WebhookEvent,
+        payload: any,
+    ) {
+        await this.webhookQueue.add(
+            'deliver',
+            {
+                subscriptionId: subscription.id,
+                event,
+                payload,
+                attempt: 1,
+            },
+            {
+                attempts: 5,
+                backoff: {
+                    type: 'exponential',
+                    delay: 1000,
+                },
+                removeOnComplete: true,
+            },
+        );
     }
 
     async getLogs(subscriptionId: string, issuerId: string): Promise<WebhookLog[]> {

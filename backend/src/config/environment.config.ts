@@ -1,3 +1,7 @@
+export const CERTIFICATE_EXPIRY_WINDOW_DAYS =
+  process.env.CERTIFICATE_EXPIRY_WINDOW_DAYS || '0';
+export const STELLAR_SEQUENCE_THRESHOLD =
+  process.env.STELLAR_SEQUENCE_THRESHOLD || '';
 import { plainToClass } from 'class-transformer';
 import {
   IsEnum,

@@ -71,16 +71,18 @@ let UsersService = UsersService_1 = class UsersService {
         if (await this.userRepository.existsByEmail(email)) {
             throw new common_1.ConflictException('Email already registered');
         }
-        if (username && await this.userRepository.existsByUsername(username)) {
+        if (username && (await this.userRepository.existsByUsername(username))) {
             throw new common_1.ConflictException('Username already taken');
         }
-        if (stellarPublicKey && await this.userRepository.existsByStellarPublicKey(stellarPublicKey)) {
+        if (stellarPublicKey &&
+            (await this.userRepository.existsByStellarPublicKey(stellarPublicKey))) {
             throw new common_1.ConflictException('Stellar public key already registered');
         }
         const hashedPassword = await bcrypt.hash(password, this.SALT_ROUNDS);
         const emailVerificationToken = this.generateToken();
         const emailVerificationExpires = new Date();
-        emailVerificationExpires.setHours(emailVerificationExpires.getHours() + this.EMAIL_VERIFICATION_EXPIRY_HOURS);
+        emailVerificationExpires.setHours(emailVerificationExpires.getHours() +
+            this.EMAIL_VERIFICATION_EXPIRY_HOURS);
         const user = await this.userRepository.create({
             ...createUserDto,
             password: hashedPassword,
@@ -169,19 +171,24 @@ let UsersService = UsersService_1 = class UsersService {
         const { email } = resendDto;
         const user = await this.userRepository.findByEmail(email);
         if (!user) {
-            return { message: 'If the email exists, a verification link has been sent' };
+            return {
+                message: 'If the email exists, a verification link has been sent',
+            };
         }
         if (user.isEmailVerified) {
             throw new common_1.BadRequestException('Email is already verified');
         }
         const emailVerificationToken = this.generateToken();
         const emailVerificationExpires = new Date();
-        emailVerificationExpires.setHours(emailVerificationExpires.getHours() + this.EMAIL_VERIFICATION_EXPIRY_HOURS);
+        emailVerificationExpires.setHours(emailVerificationExpires.getHours() +
+            this.EMAIL_VERIFICATION_EXPIRY_HOURS);
         await this.userRepository.update(user.id, {
             emailVerificationToken,
             emailVerificationExpires,
         });
-        return { message: 'If the email exists, a verification link has been sent' };
+        return {
+            message: 'If the email exists, a verification link has been sent',
+        };
     }
     async changePassword(userId, changePasswordDto) {
         const { currentPassword, newPassword, confirmPassword } = changePasswordDto;
@@ -205,7 +212,9 @@ let UsersService = UsersService_1 = class UsersService {
         const { email } = forgotPasswordDto;
         const user = await this.userRepository.findByEmail(email);
         if (!user) {
-            return { message: 'If the email exists, a password reset link has been sent' };
+            return {
+                message: 'If the email exists, a password reset link has been sent',
+            };
         }
         const passwordResetToken = this.generateToken();
         const passwordResetExpires = new Date();
@@ -215,7 +224,9 @@ let UsersService = UsersService_1 = class UsersService {
             passwordResetExpires,
         });
         this.logger.log(`Password reset requested for: ${email}`);
-        return { message: 'If the email exists, a password reset link has been sent' };
+        return {
+            message: 'If the email exists, a password reset link has been sent',
+        };
     }
     async resetPassword(resetPasswordDto) {
         const { token, newPassword, confirmPassword } = resetPasswordDto;
@@ -390,7 +401,7 @@ let UsersService = UsersService_1 = class UsersService {
             revokedCertificates: 7,
             expiredCertificates: 0,
             totalVerifications: 2847,
-            lastLogin: user.lastLoginAt || user.updatedAt
+            lastLogin: user.lastLoginAt || user.updatedAt,
         };
     }
     async getIssuerActivity(userId, page = 1, limit = 10) {
@@ -408,7 +419,7 @@ let UsersService = UsersService_1 = class UsersService {
                 description: 'Issued "Blockchain Fundamentals" certificate to Alice Johnson',
                 ipAddress: '192.168.1.100',
                 userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+                timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
             },
             {
                 id: '2',
@@ -416,7 +427,7 @@ let UsersService = UsersService_1 = class UsersService {
                 description: 'Revoked certificate #CERT-2024-045',
                 ipAddress: '192.168.1.100',
                 userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
+                timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
             },
             {
                 id: '3',
@@ -424,8 +435,8 @@ let UsersService = UsersService_1 = class UsersService {
                 description: 'Updated organization details',
                 ipAddress: '192.168.1.100',
                 userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-            }
+                timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+            },
         ];
         const total = mockActivities.length;
         const totalPages = Math.ceil(total / limit);
@@ -438,8 +449,8 @@ let UsersService = UsersService_1 = class UsersService {
                 total,
                 page,
                 limit,
-                totalPages
-            }
+                totalPages,
+            },
         };
     }
     async updateIssuerProfile(userId, updateDto) {
@@ -455,7 +466,8 @@ let UsersService = UsersService_1 = class UsersService {
                 throw new common_1.ConflictException('Username already taken');
             }
         }
-        if (updateDto.stellarPublicKey && updateDto.stellarPublicKey !== user.stellarPublicKey) {
+        if (updateDto.stellarPublicKey &&
+            updateDto.stellarPublicKey !== user.stellarPublicKey) {
             if (await this.userRepository.existsByStellarPublicKey(updateDto.stellarPublicKey)) {
                 throw new common_1.ConflictException('Stellar public key already registered');
             }
@@ -476,7 +488,7 @@ let UsersService = UsersService_1 = class UsersService {
         if (updateDto.organization !== undefined) {
             updateData.metadata = {
                 ...user.metadata,
-                organization: updateDto.organization
+                organization: updateDto.organization,
             };
         }
         const updatedUser = await this.userRepository.update(userId, updateData);

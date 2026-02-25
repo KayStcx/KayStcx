@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import * as StellarSdk from '@stellar/stellar-sdk';
 export declare class StellarService {
     private configService;
     private readonly logger;
@@ -8,6 +9,7 @@ export declare class StellarService {
     verifyTransaction(txHash: string): Promise<boolean>;
     verifyAccount(accountId: string): Promise<boolean>;
     static getPublicKeyFromSecret(secretKey: string): string;
+    getKeypairFromPublicKey(publicKey: string): StellarSdk.Keypair;
     static isValidPublicKey(publicKey: string): boolean;
     static isValidSecretKey(secretKey: string): boolean;
     checkNetworkHealth(): Promise<boolean>;
