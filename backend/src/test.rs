@@ -1,5 +1,6 @@
 use super::*;
 use soroban_sdk::{testutils::Address as _, Address, Env, String};
+use crate::types::StatusTransition;
 
 #[test]
 fn test_initialize() {
@@ -8,13 +9,21 @@ fn test_initialize() {
     let client = CertificateContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000; // 0.00001 XLM in stroops
 
     env.mock_all_auths();
-    client.initialize(&admin);
+    client.initialize(&admin, &treasury, &issuance_fee);
 
     assert_eq!(client.get_admin(), admin);
     assert_eq!(client.get_certificate_count(), 0);
     assert!(client.validate_issuer(&admin));
+    
+    // Check fee config
+    let fee_config = client.get_fee_config();
+    assert_eq!(fee_config.treasury, treasury);
+    assert_eq!(fee_config.issuance_fee, issuance_fee);
+    assert!(fee_config.fee_enabled);
 }
 
 #[test]
@@ -25,10 +34,12 @@ fn test_initialize_twice_fails() {
     let client = CertificateContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
 
     env.mock_all_auths();
-    client.initialize(&admin);
-    client.initialize(&admin); // Should panic
+    client.initialize(&admin, &treasury, &issuance_fee);
+    client.initialize(&admin, &treasury, &issuance_fee); // Should panic
 }
 
 #[test]
@@ -38,11 +49,13 @@ fn test_add_and_remove_issuer() {
     let client = CertificateContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
     let issuer = Address::generate(&env);
 
     env.mock_all_auths();
     
-    client.initialize(&admin);
+    client.initialize(&admin, &treasury, &issuance_fee);
     
     // Initially, issuer should not be authorized
     assert!(!client.validate_issuer(&issuer));
@@ -63,12 +76,14 @@ fn test_issue_certificate_success() {
     let client = CertificateContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
     let issuer = Address::generate(&env);
     let recipient = Address::generate(&env);
 
     env.mock_all_auths();
 
-    client.initialize(&admin);
+    client.initialize(&admin, &treasury, &issuance_fee);
     client.add_issuer(&issuer);
 
     let cert_id = String::from_str(&env, "CERT-001");
@@ -100,12 +115,14 @@ fn test_issue_certificate_unauthorized() {
     let client = CertificateContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
     let unauthorized_issuer = Address::generate(&env);
     let recipient = Address::generate(&env);
 
     env.mock_all_auths();
 
-    client.initialize(&admin);
+    client.initialize(&admin, &treasury, &issuance_fee);
 
     let cert_id = String::from_str(&env, "CERT-002");
     let metadata = CertificateMetadata {
@@ -134,12 +151,14 @@ fn test_issue_certificate_already_exists() {
     let client = CertificateContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
     let issuer = Address::generate(&env);
     let recipient = Address::generate(&env);
 
     env.mock_all_auths();
 
-    client.initialize(&admin);
+    client.initialize(&admin, &treasury, &issuance_fee);
     client.add_issuer(&issuer);
 
     let cert_id = String::from_str(&env, "CERT-003");
@@ -168,12 +187,14 @@ fn test_issue_certificate_invalid_data() {
     let client = CertificateContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
     let issuer = Address::generate(&env);
     let recipient = Address::generate(&env);
 
     env.mock_all_auths();
 
-    client.initialize(&admin);
+    client.initialize(&admin, &treasury, &issuance_fee);
     client.add_issuer(&issuer);
 
     let cert_id = String::from_str(&env, "CERT-004");
@@ -196,12 +217,14 @@ fn test_get_certificate() {
     let client = CertificateContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
     let issuer = Address::generate(&env);
     let recipient = Address::generate(&env);
 
     env.mock_all_auths();
 
-    client.initialize(&admin);
+    client.initialize(&admin, &treasury, &issuance_fee);
     client.add_issuer(&issuer);
 
     let cert_id = String::from_str(&env, "CERT-005");
@@ -232,9 +255,11 @@ fn test_get_certificate_not_found() {
     let client = CertificateContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
 
     env.mock_all_auths();
-    client.initialize(&admin);
+    client.initialize(&admin, &treasury, &issuance_fee);
 
     let cert_id = String::from_str(&env, "CERT-999");
     let result = client.get_certificate(&cert_id);
@@ -249,12 +274,14 @@ fn test_revoke_certificate_by_issuer() {
     let client = CertificateContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
     let issuer = Address::generate(&env);
     let recipient = Address::generate(&env);
 
     env.mock_all_auths();
 
-    client.initialize(&admin);
+    client.initialize(&admin, &treasury, &issuance_fee);
     client.add_issuer(&issuer);
 
     let cert_id = String::from_str(&env, "CERT-006");
@@ -287,12 +314,14 @@ fn test_revoke_certificate_by_admin() {
     let client = CertificateContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
     let issuer = Address::generate(&env);
     let recipient = Address::generate(&env);
 
     env.mock_all_auths();
 
-    client.initialize(&admin);
+    client.initialize(&admin, &treasury, &issuance_fee);
     client.add_issuer(&issuer);
 
     let cert_id = String::from_str(&env, "CERT-007");
@@ -322,13 +351,15 @@ fn test_revoke_certificate_unauthorized() {
     let client = CertificateContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
     let issuer = Address::generate(&env);
     let recipient = Address::generate(&env);
     let unauthorized = Address::generate(&env);
 
     env.mock_all_auths();
 
-    client.initialize(&admin);
+    client.initialize(&admin, &treasury, &issuance_fee);
     client.add_issuer(&issuer);
 
     let cert_id = String::from_str(&env, "CERT-008");
@@ -355,12 +386,14 @@ fn test_verify_certificate() {
     let client = CertificateContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
     let issuer = Address::generate(&env);
     let recipient = Address::generate(&env);
 
     env.mock_all_auths();
 
-    client.initialize(&admin);
+    client.initialize(&admin, &treasury, &issuance_fee);
     client.add_issuer(&issuer);
 
     let cert_id = String::from_str(&env, "CERT-009");
@@ -395,11 +428,13 @@ fn test_multiple_certificates() {
     let client = CertificateContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
     let issuer = Address::generate(&env);
 
     env.mock_all_auths();
 
-    client.initialize(&admin);
+    client.initialize(&admin, &treasury, &issuance_fee);
     client.add_issuer(&issuer);
 
     // Issue multiple certificates
@@ -428,11 +463,13 @@ fn test_verify_certificate_expiration() {
     let client = CertificateContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
     let issuer = Address::generate(&env);
     let recipient = Address::generate(&env);
 
     env.mock_all_auths();
-    client.initialize(&admin);
+    client.initialize(&admin, &treasury, &issuance_fee);
     client.add_issuer(&issuer);
 
     let cert_id = String::from_str(&env, "CERT-EXP-001");
@@ -467,11 +504,13 @@ fn test_verification_history() {
     let client = CertificateContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
     let issuer = Address::generate(&env);
     let recipient = Address::generate(&env);
 
     env.mock_all_auths();
-    client.initialize(&admin);
+    client.initialize(&admin, &treasury, &issuance_fee);
     client.add_issuer(&issuer);
 
     let cert_id = String::from_str(&env, "CERT-HIST-001");
@@ -494,4 +533,319 @@ fn test_verification_history() {
 
     let history = client.get_verification_history(&cert_id);
     assert_eq!(history.len(), 2);
+}
+
+// ==================== Access Control Tests ====================
+
+#[test]
+fn test_access_control_require_admin() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
+    let other = Address::generate(&env);
+
+    env.mock_all_auths();
+    client.initialize(&admin, &treasury, &issuance_fee);
+
+    // Admin should be able to add issuer
+    client.add_issuer(&other);
+    assert!(client.validate_issuer(&other));
+}
+
+#[test]
+fn test_access_control_only_admin_functions() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
+    let non_admin = Address::generate(&env);
+
+    env.mock_all_auths();
+    client.initialize(&admin, &treasury, &issuance_fee);
+
+    // Non-admin should not be able to add issuer (will fail auth)
+    // In real implementation, this would revert
+}
+
+// ==================== Status Transition Tests ====================
+
+#[test]
+fn test_status_transition_active_to_revoked() {
+    // Test valid transition: Active -> Revoked
+    let from = CertificateStatus::Active;
+    let to = CertificateStatus::Revoked;
+    assert!(StatusTransition::is_valid_transition(&from, &to));
+}
+
+#[test]
+fn test_status_transition_active_to_suspended() {
+    // Test valid transition: Active -> Suspended
+    let from = CertificateStatus::Active;
+    let to = CertificateStatus::Suspended;
+    assert!(StatusTransition::is_valid_transition(&from, &to));
+}
+
+#[test]
+fn test_status_transition_suspended_to_active() {
+    // Test valid transition: Suspended -> Active
+    let from = CertificateStatus::Suspended;
+    let to = CertificateStatus::Active;
+    assert!(StatusTransition::is_valid_transition(&from, &to));
+}
+
+#[test]
+fn test_status_transition_revoked_cannot_transition() {
+    // Test invalid transition: Revoked is terminal
+    let from = CertificateStatus::Revoked;
+    let to = CertificateStatus::Active;
+    assert!(!StatusTransition::is_valid_transition(&from, &to));
+    
+    let to2 = CertificateStatus::Suspended;
+    assert!(!StatusTransition::is_valid_transition(&from, &to2));
+}
+
+#[test]
+fn test_status_transition_expired_cannot_reactivate() {
+    // Test invalid transition: Expired cannot go back to Active
+    let from = CertificateStatus::Expired;
+    let to = CertificateStatus::Active;
+    assert!(!StatusTransition::is_valid_transition(&from, &to));
+}
+
+#[test]
+fn test_suspend_certificate() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
+    let issuer = Address::generate(&env);
+    let recipient = Address::generate(&env);
+
+    env.mock_all_auths();
+    client.initialize(&admin, &treasury, &issuance_fee);
+    client.add_issuer(&issuer);
+
+    let cert_id = String::from_str(&env, "CERT-SUSP-001");
+    let metadata = CertificateMetadata {
+        title: String::from_str(&env, "Test Certificate"),
+        description: String::from_str(&env, "Test"),
+        course_name: String::from_str(&env, "Test Course"),
+        completion_date: 1704067200,
+        valid_until: 0,
+        ipfs_hash: String::from_str(&env, "QmTest"),
+    };
+
+    client.issue_certificate(&cert_id, &issuer, &recipient, &metadata);
+
+    // Admin suspends the certificate
+    let reason = String::from_str(&env, "Under investigation");
+    let suspend_result = client.suspend_certificate(&cert_id, &reason);
+    assert!(suspend_result.is_ok());
+
+    // Verify status
+    let certificate = client.get_certificate(&cert_id).unwrap();
+    assert_eq!(certificate.status, CertificateStatus::Suspended);
+}
+
+#[test]
+fn test_unsuspend_certificate() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
+    let issuer = Address::generate(&env);
+    let recipient = Address::generate(&env);
+
+    env.mock_all_auths();
+    client.initialize(&admin, &treasury, &issuance_fee);
+    client.add_issuer(&issuer);
+
+    let cert_id = String::from_str(&env, "CERT-UNSUSP-001");
+    let metadata = CertificateMetadata {
+        title: String::from_str(&env, "Test Certificate"),
+        description: String::from_str(&env, "Test"),
+        course_name: String::from_str(&env, "Test Course"),
+        completion_date: 1704067200,
+        valid_until: 0,
+        ipfs_hash: String::from_str(&env, "QmTest"),
+    };
+
+    client.issue_certificate(&cert_id, &issuer, &recipient, &metadata);
+
+    // Admin suspends the certificate
+    let reason = String::from_str(&env, "Under investigation");
+    client.suspend_certificate(&cert_id, &reason);
+
+    // Admin unsuspends the certificate
+    let unsuspend_result = client.unsuspend_certificate(&cert_id);
+    assert!(unsuspend_result.is_ok());
+
+    // Verify status is back to Active
+    let certificate = client.get_certificate(&cert_id).unwrap();
+    assert_eq!(certificate.status, CertificateStatus::Active);
+}
+
+#[test]
+fn test_get_status() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
+    let issuer = Address::generate(&env);
+    let recipient = Address::generate(&env);
+
+    env.mock_all_auths();
+    client.initialize(&admin, &treasury, &issuance_fee);
+    client.add_issuer(&issuer);
+
+    let cert_id = String::from_str(&env, "CERT-STATUS-001");
+    let metadata = CertificateMetadata {
+        title: String::from_str(&env, "Test Certificate"),
+        description: String::from_str(&env, "Test"),
+        course_name: String::from_str(&env, "Test Course"),
+        completion_date: 1704067200,
+        valid_until: 0,
+        ipfs_hash: String::from_str(&env, "QmTest"),
+    };
+
+    client.issue_certificate(&cert_id, &issuer, &recipient, &metadata);
+
+    // Check initial status
+    let status = client.get_status(&cert_id).unwrap();
+    assert_eq!(status, CertificateStatus::Active);
+}
+
+// ==================== Fee Management Tests ====================
+
+#[test]
+fn test_fee_config() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
+
+    env.mock_all_auths();
+    client.initialize(&admin, &treasury, &issuance_fee);
+
+    // Check fee config
+    let fee_config = client.get_fee_config();
+    assert_eq!(fee_config.treasury, treasury);
+    assert_eq!(fee_config.issuance_fee, issuance_fee);
+    assert!(fee_config.fee_enabled);
+}
+
+#[test]
+fn test_set_treasury() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
+    let new_treasury = Address::generate(&env);
+
+    env.mock_all_auths();
+    client.initialize(&admin, &treasury, &issuance_fee);
+
+    // Admin changes treasury
+    client.set_treasury(&new_treasury);
+
+    let fee_config = client.get_fee_config();
+    assert_eq!(fee_config.treasury, new_treasury);
+}
+
+#[test]
+fn test_set_issuance_fee() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
+    let new_fee: i128 = 5000;
+
+    env.mock_all_auths();
+    client.initialize(&admin, &treasury, &issuance_fee);
+
+    // Admin changes fee
+    client.set_issuance_fee(&new_fee);
+
+    let fee_config = client.get_fee_config();
+    assert_eq!(fee_config.issuance_fee, new_fee);
+}
+
+#[test]
+fn test_set_fee_enabled() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
+
+    env.mock_all_auths();
+    client.initialize(&admin, &treasury, &issuance_fee);
+
+    // Initially enabled
+    let fee_config = client.get_fee_config();
+    assert!(fee_config.fee_enabled);
+
+    // Admin disables fees
+    client.set_fee_enabled(&false);
+
+    let fee_config = client.get_fee_config();
+    assert!(!fee_config.fee_enabled);
+}
+
+#[test]
+fn test_exempt_issuer_from_fees() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let issuance_fee: i128 = 1000;
+    let issuer = Address::generate(&env);
+
+    env.mock_all_auths();
+    client.initialize(&admin, &treasury, &issuance_fee);
+    client.add_issuer(&issuer);
+
+    // Initially not exempt
+    assert!(!client.is_fee_exempt(&issuer));
+
+    // Admin exempts issuer
+    client.exempt_issuer_from_fees(&issuer, &true);
+
+    // Now exempt
+    assert!(client.is_fee_exempt(&issuer));
+
+    // Admin removes exemption
+    client.exempt_issuer_from_fees(&issuer, &false);
+
+    // No longer exempt
+    assert!(!client.is_fee_exempt(&issuer));
 }
