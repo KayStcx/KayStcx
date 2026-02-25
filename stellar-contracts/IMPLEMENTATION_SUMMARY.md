@@ -181,9 +181,30 @@ Applications can monitor blockchain events for:
 3. **Alerting**: Notify on suspicious transfer activities
 4. **Compliance**: Generate audit reports from transfer history
 
+## Event System
+
+### Comprehensive Event Coverage
+The contract now includes a complete event system for all certificate lifecycle operations:
+
+**Core Events Implemented**:
+- ✅ `CertificateIssuedEvent` - Emitted when certificates are created
+- ✅ `CertificateRevokedEvent` - Emitted when certificates are revoked
+- ✅ `IssuerAddedEvent` - Emitted when new issuers are authorized
+- ✅ `IssuerRemovedEvent` - Emitted when issuers are removed
+- ✅ `AdminTransferredEvent` - Emitted when admin rights are transferred
+- ✅ `CertificateExpiredEvent` - Framework for expiration handling
+
+**Event Features**:
+- Consistent naming and field conventions
+- Proper topic structure for efficient indexing
+- All events include certificate ID, actor, and timestamp
+- Events emitted before function return
+- Comprehensive testing with event assertions
+- Complete documentation in EVENTS_README.md
+
 ## Summary
 
-This implementation provides a **production-ready**, **secure**, and **comprehensive** certificate transfer system that:
+This implementation provides a **production-ready**, **secure**, and **comprehensive** certificate system that:
 
 - ✅ Meets all specified requirements
 - ✅ Follows Stellar/Soroban best practices
@@ -192,6 +213,8 @@ This implementation provides a **production-ready**, **secure**, and **comprehen
 - ✅ Implements robust security measures
 - ✅ Supports optional advanced features (fees, revocation)
 - ✅ Maintains full audit trail
-- ✅ Emits comprehensive events for integration
+- ✅ Emits comprehensive events for all lifecycle operations
+- ✅ Includes complete event testing and documentation
+- ✅ Supports off-chain indexing and notification systems
 
 The system is ready for immediate deployment and integration into the Kaystcx platform.
