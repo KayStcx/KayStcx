@@ -210,22 +210,28 @@ export const verifyCertificate = async (serialNumber: string): Promise<Verificat
         const certificate = dummyData.certificates.find(cert => cert.serialNumber === serialNumber);
         const result: VerificationResult = certificate ? {
             isValid: certificate.status === "active",
+            status: certificate.status === "active" ? "valid" : "revoked",
             certificate,
             verificationDate: new Date().toISOString(),
+            verifiedAt: new Date().toISOString(),
             message: certificate.status === "active"
                 ? "Certificate is valid and active"
-                : "Certificate has been revoked."
+                : "Certificate has been revoked.",
+            verificationId: `ver_${Date.now()}`
         } : {
             isValid: false,
+            status: "not_found",
             verificationDate: new Date().toISOString(),
-            message: "Certificate not found"
+            verifiedAt: new Date().toISOString(),
+            message: "Certificate not found",
+            verificationId: `ver_${Date.now()}`
         };
         console.log("Dummy Verification:", result);
         return result;
     }
 
     try {
-        return await apiClient<VerificationResult>(`/certificates/verify/${serialNumber}`);
+        return await apiClient<VerificationResult>(`/certificates/${serialNumber}/verify`);
     } catch (error) {
         return handleError(error, "verifyCertificate");
     }

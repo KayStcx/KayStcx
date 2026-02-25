@@ -73,14 +73,17 @@ export interface CreateCertificateData {
  */
 export interface VerificationResult {
   isValid: boolean;
+  status?: 'valid' | 'revoked' | 'expired' | 'not_found';
   certificate?: Certificate;
-  verificationDate: string;
+  verificationDate?: string;
+  verifiedAt?: string;
   stellarProof?: {
     txHash: string;
     ledger: number;
     timestamp: string;
   };
   message?: string;
+  verificationId?: string;
 }
 
 /**
