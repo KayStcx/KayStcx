@@ -1345,7 +1345,7 @@ impl CertificateContract {
             .instance()
             .get(&id)
             .expect("Certificate not found");
-        cert.revoked
+        cert.status == CertificateStatus::Revoked
     }
 
     pub fn get_certificate(env: Env, id: String) -> Certificate {
@@ -1398,14 +1398,21 @@ impl CertificateContract {
                 .instance()
                 .get(&id)
                 .expect("Certificate should exist");
-            let revoked = cert.revoked;
+            
+            // Check certificate status
+            let (revoked, message) = match cert.status {
+                CertificateStatus::Active => (false, String::from_str(&env, "Certificate is valid")),
+                CertificateStatus::Revoked => (true, String::from_str(&env, "Certificate is revoked")),
+                CertificateStatus::Expired => (true, String::from_str(&env, "Certificate has expired")),
+                CertificateStatus::Suspended => (true, String::from_str(&env, "Certificate is suspended")),
+            };
 
             if revoked {
                 let result = SingleVerificationResult {
                     id,
                     exists: true,
                     revoked: true,
-                    message: String::from_str(&env, "Certificate is revoked"),
+                    message,
                 };
                 failed += 1;
                 results.push_back(result);
@@ -1414,7 +1421,7 @@ impl CertificateContract {
                     id,
                     exists: true,
                     revoked: false,
-                    message: String::from_str(&env, "Certificate is valid"),
+                    message,
                 };
                 successful += 1;
                 results.push_back(result);
