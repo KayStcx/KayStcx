@@ -59,6 +59,7 @@ fn create_test_certificate(
         owner: owner.clone(),
         metadata_uri: metadata_uri.clone(),
         issued_at: env.ledger().timestamp(),
+        status: CertificateStatus::Active,
         revoked: false,
         revocation_reason: None,
         revoked_at: None,
@@ -69,6 +70,9 @@ fn create_test_certificate(
         is_upgradable: true,
         upgrade_rules,
         compatibility_matrix,
+        frozen: false,
+        freeze_info: None,
+        expires_at: None,
     }
 }
 
@@ -88,6 +92,7 @@ fn test_issue_and_revoke() {
 
     let cert = client.get_certificate(&id);
     assert_eq!(cert.id, id);
+    assert_eq!(cert.status, CertificateStatus::Active);
     assert_eq!(cert.revoked, false);
 
     let reason = String::from_str(&env, "Violation of terms");
@@ -97,6 +102,7 @@ fn test_issue_and_revoke() {
     assert!(revoked);
 
     let cert_revoked = client.get_certificate(&id);
+    assert_eq!(cert_revoked.status, CertificateStatus::Revoked);
     assert_eq!(cert_revoked.revoked, true);
     assert_eq!(cert_revoked.revocation_reason, Some(reason));
 }
@@ -1032,4 +1038,393 @@ fn test_error_handling_with_events() {
     println!("✓ Error handling with events working correctly");
     println!("✓ Unauthorized operations properly rejected");
     println!("✓ Event emission only occurs on successful operations");
+}
+
+// ============================================================================
+// Certificate Status State Machine Tests
+// ============================================================================
+
+#[test]
+fn test_certificate_status_active_on_issue() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let issuer = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let id = String::from_str(&env, "cert-status-001");
+    let metadata_uri = String::from_str(&env, "ipfs://QmTest");
+
+    env.mock_all_auths();
+    client.issue_certificate(&id, &issuer, &owner, &metadata_uri);
+
+    // Verify initial status is Active
+    let status = client.get_status(&id);
+    assert_eq!(status, CertificateStatus::Active);
+    
+    // Verify is_active returns true
+    assert!(client.is_active(&id));
+    
+    // Verify is_valid returns true
+    assert!(client.is_valid(&id));
+    
+    // Verify is_revoked returns false
+    assert!(!client.is_revoked(&id));
+}
+
+#[test]
+fn test_status_transition_active_to_revoked() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let issuer = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let id = String::from_str(&env, "cert-status-002");
+    let metadata_uri = String::from_str(&env, "ipfs://QmTest");
+
+    env.mock_all_auths();
+    client.issue_certificate(&id, &issuer, &owner, &metadata_uri);
+
+    // Revoke the certificate
+    let reason = String::from_str(&env, "Violation of terms");
+    client.revoke_certificate(&id, &reason);
+
+    // Verify status is Revoked
+    let status = client.get_status(&id);
+    assert_eq!(status, CertificateStatus::Revoked);
+    
+    // Verify is_active returns false
+    assert!(!client.is_active(&id));
+    
+    // Verify is_valid returns false
+    assert!(!client.is_valid(&id));
+    
+    // Verify is_revoked returns true
+    assert!(client.is_revoked(&id));
+}
+
+#[test]
+fn test_status_transition_active_to_suspended() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let issuer = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let id = String::from_str(&env, "cert-status-003");
+    let metadata_uri = String::from_str(&env, "ipfs://QmTest");
+
+    env.mock_all_auths();
+    client.issue_certificate(&id, &issuer, &owner, &metadata_uri);
+
+    // Suspend the certificate
+    let reason = String::from_str(&env, "Under investigation");
+    client.suspend_certificate(&id, &reason);
+
+    // Verify status is Suspended
+    let status = client.get_status(&id);
+    assert_eq!(status, CertificateStatus::Suspended);
+    
+    // Verify is_active returns false
+    assert!(!client.is_active(&id));
+    
+    // Verify is_valid returns false
+    assert!(!client.is_valid(&id));
+}
+
+#[test]
+fn test_status_transition_suspended_to_active() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let issuer = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let id = String::from_str(&env, "cert-status-004");
+    let metadata_uri = String::from_str(&env, "ipfs://QmTest");
+
+    env.mock_all_auths();
+    client.issue_certificate(&id, &issuer, &owner, &metadata_uri);
+
+    // Suspend the certificate
+    let suspend_reason = String::from_str(&env, "Under investigation");
+    client.suspend_certificate(&id, &suspend_reason);
+    
+    // Verify status is Suspended
+    assert_eq!(client.get_status(&id), CertificateStatus::Suspended);
+
+    // Reactivate the certificate
+    let reactivate_reason = String::from_str(&env, "Investigation cleared");
+    client.reactivate_certificate(&id, &reactivate_reason);
+
+    // Verify status is Active again
+    let status = client.get_status(&id);
+    assert_eq!(status, CertificateStatus::Active);
+    
+    // Verify is_active returns true
+    assert!(client.is_active(&id));
+}
+
+#[test]
+fn test_status_transition_suspended_to_revoked() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let issuer = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let id = String::from_str(&env, "cert-status-005");
+    let metadata_uri = String::from_str(&env, "ipfs://QmTest");
+
+    env.mock_all_auths();
+    client.issue_certificate(&id, &issuer, &owner, &metadata_uri);
+
+    // Suspend the certificate
+    let suspend_reason = String::from_str(&env, "Under investigation");
+    client.suspend_certificate(&id, &suspend_reason);
+    
+    // Revoke while suspended
+    let revoke_reason = String::from_str(&env, "Fraud confirmed");
+    client.revoke_certificate(&id, &revoke_reason);
+
+    // Verify status is Revoked
+    let status = client.get_status(&id);
+    assert_eq!(status, CertificateStatus::Revoked);
+}
+
+#[test]
+fn test_status_transition_active_to_expired() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let issuer = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let id = String::from_str(&env, "cert-status-006");
+    let metadata_uri = String::from_str(&env, "ipfs://QmTest");
+
+    env.mock_all_auths();
+    client.issue_certificate(&id, &issuer, &owner, &metadata_uri);
+    
+    // Set expiration in the past (simulating expired certificate)
+    let current_time = env.ledger().timestamp();
+    let past_expiration = current_time - 1000; // Expired 1000 seconds ago
+    client.set_expiration(&id, &past_expiration);
+
+    // Expire the certificate
+    client.expire_certificate(&id);
+
+    // Verify status is Expired
+    let status = client.get_status(&id);
+    assert_eq!(status, CertificateStatus::Expired);
+    
+    // Verify is_active returns false
+    assert!(!client.is_active(&id));
+}
+
+#[test]
+fn test_status_transition_expired_to_revoked() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let issuer = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let id = String::from_str(&env, "cert-status-007");
+    let metadata_uri = String::from_str(&env, "ipfs://QmTest");
+
+    env.mock_all_auths();
+    client.issue_certificate(&id, &issuer, &owner, &metadata_uri);
+    
+    // Set expiration and expire
+    let current_time = env.ledger().timestamp();
+    let past_expiration = current_time - 1000;
+    client.set_expiration(&id, &past_expiration);
+    client.expire_certificate(&id);
+    
+    assert_eq!(client.get_status(&id), CertificateStatus::Expired);
+
+    // Revoke expired certificate
+    let reason = String::from_str(&env, "Post-expiration revocation");
+    client.revoke_certificate(&id, &reason);
+
+    // Verify status is Revoked
+    let status = client.get_status(&id);
+    assert_eq!(status, CertificateStatus::Revoked);
+}
+
+#[test]
+fn test_invalid_transition_revoked_to_any() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let issuer = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let id = String::from_str(&env, "cert-status-008");
+    let metadata_uri = String::from_str(&env, "ipfs://QmTest");
+
+    env.mock_all_auths();
+    client.issue_certificate(&id, &issuer, &owner, &metadata_uri);
+    
+    // Revoke the certificate
+    let reason = String::from_str(&env, "Violation");
+    client.revoke_certificate(&id, &reason);
+    
+    assert_eq!(client.get_status(&id), CertificateStatus::Revoked);
+
+    // Try to suspend revoked certificate - should panic
+    let result = std::panic::catch_unwind(|| {
+        client.suspend_certificate(&id, &String::from_str(&env, "test"));
+    });
+    assert!(result.is_err(), "Cannot suspend revoked certificate");
+}
+
+#[test]
+fn test_invalid_transition_expired_to_active() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let issuer = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let id = String::from_str(&env, "cert-status-009");
+    let metadata_uri = String::from_str(&env, "ipfs://QmTest");
+
+    env.mock_all_auths();
+    client.issue_certificate(&id, &issuer, &owner, &metadata_uri);
+    
+    // Expire the certificate
+    let current_time = env.ledger().timestamp();
+    let past_expiration = current_time - 1000;
+    client.set_expiration(&id, &past_expiration);
+    client.expire_certificate(&id);
+    
+    assert_eq!(client.get_status(&id), CertificateStatus::Expired);
+
+    // Try to reactivate expired certificate - should panic
+    let result = std::panic::catch_unwind(|| {
+        client.reactivate_certificate(&id, &String::from_str(&env, "test"));
+    });
+    assert!(result.is_err(), "Cannot reactivate expired certificate");
+}
+
+#[test]
+fn test_batch_verify_with_mixed_statuses() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let issuer = Address::generate(&env);
+    let owner = Address::generate(&env);
+    
+    let active_id = String::from_str(&env, "cert-active");
+    let revoked_id = String::from_str(&env, "cert-revoked");
+    let suspended_id = String::from_str(&env, "cert-suspended");
+    let expired_id = String::from_str(&env, "cert-expired");
+    let metadata_uri = String::from_str(&env, "ipfs://QmTest");
+
+    env.mock_all_auths();
+    
+    // Issue all certificates
+    client.issue_certificate(&active_id, &issuer, &owner, &metadata_uri);
+    client.issue_certificate(&revoked_id, &issuer, &owner, &metadata_uri);
+    client.issue_certificate(&suspended_id, &issuer, &owner, &metadata_uri);
+    client.issue_certificate(&expired_id, &issuer, &owner, &metadata_uri);
+    
+    // Set different statuses
+    client.revoke_certificate(&revoked_id, &String::from_str(&env, "revoked"));
+    client.suspend_certificate(&suspended_id, &String::from_str(&env, "suspended"));
+    
+    let current_time = env.ledger().timestamp();
+    client.set_expiration(&expired_id, &(current_time - 1000));
+    client.expire_certificate(&expired_id);
+
+    // Batch verify
+    let mut ids = Vec::<String>::new(&env);
+    ids.push_back(active_id.clone());
+    ids.push_back(revoked_id.clone());
+    ids.push_back(suspended_id.clone());
+    ids.push_back(expired_id.clone());
+
+    let result = client.batch_verify_certificates(&ids);
+    
+    assert_eq!(result.total, 4);
+    assert_eq!(result.successful, 1); // Only active passes
+    assert_eq!(result.failed, 3); // Revoked, suspended, expired fail
+    
+    // Check individual results
+    let r0 = result.results.get(0).unwrap();
+    assert!(!r0.revoked);
+    
+    let r1 = result.results.get(1).unwrap();
+    assert!(r1.revoked);
+    
+    let r2 = result.results.get(2).unwrap();
+    assert!(r2.revoked);
+    
+    let r3 = result.results.get(3).unwrap();
+    assert!(r3.revoked);
+}
+
+#[test]
+fn test_cannot_transfer_non_active_certificate() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let issuer = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let new_owner = Address::generate(&env);
+    let id = String::from_str(&env, "cert-status-010");
+    let transfer_id = String::from_str(&env, "transfer-status");
+    let metadata_uri = String::from_str(&env, "ipfs://QmTest");
+
+    env.mock_all_auths();
+    client.issue_certificate(&id, &issuer, &owner, &metadata_uri);
+    
+    // Suspend the certificate
+    client.suspend_certificate(&id, &String::from_str(&env, "suspended"));
+    
+    // Try to transfer suspended certificate - should fail
+    let result = std::panic::catch_unwind(|| {
+        client.initiate_transfer(
+            &transfer_id,
+            &id,
+            &owner,
+            &new_owner,
+            &false,
+            &0u64,
+            &None,
+        );
+    });
+    assert!(result.is_err(), "Cannot transfer suspended certificate");
+}
+
+#[test]
+fn test_backward_compatibility_revoked_field() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let issuer = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let id = String::from_str(&env, "cert-status-011");
+    let metadata_uri = String::from_str(&env, "ipfs://QmTest");
+
+    env.mock_all_auths();
+    client.issue_certificate(&id, &issuer, &owner, &metadata_uri);
+    
+    // Check initial revoked field
+    let cert = client.get_certificate(&id);
+    assert!(!cert.revoked);
+    assert_eq!(cert.status, CertificateStatus::Active);
+    
+    // Revoke and check both fields
+    client.revoke_certificate(&id, &String::from_str(&env, "test"));
+    
+    let cert_revoked = client.get_certificate(&id);
+    assert!(cert_revoked.revoked);
+    assert_eq!(cert_revoked.status, CertificateStatus::Revoked);
 }
