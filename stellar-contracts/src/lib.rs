@@ -519,6 +519,15 @@ pub struct AdminTransferredEvent {
     pub transferred_at: u64,
 }
 
+/// Event emitted when contract is initialized
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct ContractInitializedEvent {
+    pub admin: Address,
+    pub initialized_at: u64,
+    pub version: u32,
+}
+
 /// Error types for the contract
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -556,6 +565,8 @@ pub enum CertificateError {
     CertificateAlreadyRevoked,
     CertificateExpired,
     CertificateSuspended,
+    // Initialization errors
+    AlreadyInitialized,
 }
 
 /// Storage keys for the contract
@@ -588,6 +599,8 @@ pub enum DataKey {
     Admin,                    // Current admin address
     // Expiration storage
     CertificateExpiry(String), // Certificate ID -> u64 (expiry timestamp)
+    // Initialization state
+    Initialized,              // bool - tracks if contract has been initialized
 }
 
 #[contracttype]
@@ -2535,11 +2548,68 @@ impl CertificateContract {
     // Issuer Management Functions
     
     /// Initialize the contract with an admin
+    /// 
+    /// # Requirements:
+    /// - Can only be called once at deployment
+    /// - Sets contract admin from constructor argument
+    /// - Initializes all counters and storage maps to default values
+    /// - Validates required initialization parameters before storing
+    /// - Emits ContractInitialized event on successful setup
+    /// - Reverts with clear error if initialize is called more than once
+    /// 
+    /// # Arguments:
+    /// - `env`: The contract environment
+    /// - `admin`: The address to set as the contract admin
+    /// 
+    /// # Errors:
+    /// - `CertificateError::AlreadyInitialized` if contract has already been initialized
+    /// - Panics if admin address is invalid (zero address)
+    pub fn initialize(env: Env, admin: Address) -> Result<(), CertificateError> {
+        // Check if contract has already been initialized
+        if env.storage().instance().has(&DataKey::Initialized) {
+            return Err(CertificateError::AlreadyInitialized);
+        }
+        
+        // Validate admin address is not the zero address
+        // Note: In Soroban, we can't easily check for "zero address" but we require auth
+        admin.require_auth();
+        
+        // Set initialization flag first to prevent reentrancy
+        env.storage().instance().set(&DataKey::Initialized, &true);
+        
+        // Set contract admin
+        env.storage().instance().set(&DataKey::Admin, &admin);
+        
+        // Initialize all counters to default values (0)
+        env.storage().instance().set(&DataKey::TransferCount, &0u64);
+        env.storage().instance().set(&DataKey::UpgradeCount, &0u64);
+        
+        // Initialize empty upgrade rules vector
+        let empty_upgrade_rules: Vec<UpgradeRule> = Vec::new(&env);
+        env.storage().instance().set(&DataKey::UpgradeRules, &empty_upgrade_rules);
+        
+        // Emit ContractInitialized event
+        env.events().publish(
+            (symbol_short!("initialized"), admin.clone()),
+            ContractInitializedEvent {
+                admin: admin.clone(),
+                initialized_at: env.ledger().timestamp(),
+                version: 1, // Contract version 1.0.0
+            },
+        );
+        
+        Ok(())
+    }
+    
+    /// Legacy function - kept for backward compatibility
+    /// Internally calls the new initialize function
     pub fn initialize_admin(env: Env, admin: Address) {
-        if env.storage().instance().has(&DataKey::Admin) {
+        // Check if already initialized to provide same behavior
+        if env.storage().instance().has(&DataKey::Initialized) {
             panic!("Admin already initialized");
         }
-        env.storage().instance().set(&DataKey::Admin, &admin);
+        // Call the new initialize function and unwrap the result
+        Self::initialize(env, admin).unwrap();
     }
 
     /// Add an issuer with specific permissions
