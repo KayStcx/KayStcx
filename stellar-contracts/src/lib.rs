@@ -159,6 +159,9 @@ pub struct Certificate {
     // Freeze-related fields
     pub frozen: bool,                          // Whether the certificate is frozen
     pub freeze_info: Option<FrozenCertificateInfo>, // Freeze details
+    // Suspension-related fields
+    pub suspended: bool,                       // Whether the certificate is suspended
+    pub suspension_info: Option<SuspendedCertificateInfo>, // Suspension details
 }
 
 /// Transfer status enum
@@ -355,6 +358,55 @@ pub struct CertificateUnfrozenEvent {
     pub was_auto_unfreeze: bool,
 }
 
+/// Suspension information for a certificate
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct SuspendedCertificateInfo {
+    pub certificate_id: String,
+    pub suspended_at: u64,                    // Timestamp when the certificate was suspended
+    pub suspended_by: Address,                // Who suspended the certificate
+    pub reason: String,                       // Reason for suspension
+}
+
+/// Suspension event types
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum SuspensionEventType {
+    Suspended,        // Certificate was suspended
+    Reinstated,       // Certificate was reinstated
+}
+
+/// Suspension event for history tracking
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct SuspensionEvent {
+    pub certificate_id: String,
+    pub event_type: SuspensionEventType,
+    pub timestamp: u64,
+    pub performed_by: Address,
+    pub reason: String,
+}
+
+/// Certificate suspended event
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct CertificateSuspendedEvent {
+    pub certificate_id: String,
+    pub suspended_by: Address,
+    pub suspended_at: u64,
+    pub reason: String,
+}
+
+/// Certificate reinstated event
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct CertificateReinstatedEvent {
+    pub certificate_id: String,
+    pub reinstated_by: Address,
+    pub reinstated_at: u64,
+    pub reason: String,
+}
+
 /// Core Certificate Lifecycle Events
 
 /// Event emitted when a certificate is issued
@@ -474,6 +526,9 @@ pub enum DataKey {
     // Freeze-related storage
     FrozenCertificate(String), // Certificate ID -> FrozenCertificateInfo
     FreezeHistory(String),    // Certificate ID -> Vec<FreezeEvent>
+    // Suspension-related storage
+    SuspendedCertificate(String), // Certificate ID -> SuspendedCertificateInfo
+    SuspensionHistory(String), // Certificate ID -> Vec<SuspensionEvent>
     // Issuer management storage
     Issuer(Address),          // Address -> bool (is issuer)
     IssuerPermissions(Address), // Address -> Vec<String> (issuer permissions)
@@ -726,6 +781,9 @@ impl CertificateContract {
             // Initialize freeze fields
             frozen: false,
             freeze_info: None,
+            // Initialize suspension fields
+            suspended: false,
+            suspension_info: None,
         };
 
         env.storage().instance().set(&id, &cert);
@@ -755,6 +813,11 @@ impl CertificateContract {
 
         if cert.revoked {
             panic!("Certificate already revoked");
+        }
+
+        // Prevent revocation of suspended certificates without reinstatement first
+        if cert.suspended {
+            panic!("Cannot revoke a suspended certificate. Reinstate it first");
         }
 
         cert.revoked = true;
@@ -1004,6 +1067,153 @@ impl CertificateContract {
         );
 
         event
+    }
+
+    /// Suspend a certificate temporarily
+    /// 
+    /// # Arguments
+    /// * `env` - The environment
+    /// * `id` - Certificate ID to suspend
+    /// * `admin` - Admin address that has authority to suspend
+    /// * `reason` - Reason for suspending the certificate
+    /// 
+    /// # Returns
+    /// * `CertificateSuspendedEvent` - Event emitted when certificate is suspended
+    pub fn suspend_certificate(
+        env: Env,
+        id: String,
+        admin: Address,
+        reason: String,
+    ) -> CertificateSuspendedEvent {
+        admin.require_auth();
+
+        let mut cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&id)
+            .expect("Certificate not found");
+
+        // Check if already suspended
+        if cert.suspended {
+            panic!("Certificate is already suspended");
+        }
+
+        // Check if certificate is revoked
+        if cert.revoked {
+            panic!("Cannot suspend a revoked certificate");
+        }
+
+        let current_time = env.ledger().timestamp();
+
+        // Create suspension info
+        let suspension_info = SuspendedCertificateInfo {
+            certificate_id: id.clone(),
+            suspended_at: current_time,
+            suspended_by: admin.clone(),
+            reason: reason.clone(),
+        };
+
+        // Update certificate
+        cert.suspended = true;
+        cert.suspension_info = Some(suspension_info.clone());
+
+        env.storage().instance().set(&id, &cert);
+
+        // Store suspension info in separate key for history
+        let suspension_key = DataKey::SuspendedCertificate(id.clone());
+        env.storage().instance().set(&suspension_key, &suspension_info);
+
+        // Emit event
+        let event = CertificateSuspendedEvent {
+            certificate_id: id.clone(),
+            suspended_by: admin,
+            suspended_at: current_time,
+            reason: reason.clone(),
+        };
+
+        env.events().publish(
+            (symbol_short!("CertSusp"),),
+            event.clone(),
+        );
+
+        event
+    }
+
+    /// Reinstate a suspended certificate
+    /// 
+    /// # Arguments
+    /// * `env` - The environment
+    /// * `id` - Certificate ID to reinstate
+    /// * `admin` - Admin address that has authority to reinstate
+    /// * `reason` - Reason for reinstating the certificate
+    /// 
+    /// # Returns
+    /// * `CertificateReinstatedEvent` - Event emitted when certificate is reinstated
+    pub fn reinstate_certificate(
+        env: Env,
+        id: String,
+        admin: Address,
+        reason: String,
+    ) -> CertificateReinstatedEvent {
+        admin.require_auth();
+
+        let mut cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&id)
+            .expect("Certificate not found");
+
+        // Check if suspended
+        if !cert.suspended {
+            panic!("Certificate is not suspended");
+        }
+
+        let current_time = env.ledger().timestamp();
+
+        // Update certificate
+        cert.suspended = false;
+        cert.suspension_info = None;
+
+        env.storage().instance().set(&id, &cert);
+
+        // Remove suspension info from storage
+        let suspension_key = DataKey::SuspendedCertificate(id.clone());
+        env.storage().instance().remove(&suspension_key);
+
+        // Emit event
+        let event = CertificateReinstatedEvent {
+            certificate_id: id.clone(),
+            reinstated_by: admin,
+            reinstated_at: current_time,
+            reason: reason.clone(),
+        };
+
+        env.events().publish(
+            (symbol_short!("CertRein"),),
+            event.clone(),
+        );
+
+        event
+    }
+
+    /// Check if a certificate is currently suspended
+    pub fn is_suspended(env: Env, id: String) -> bool {
+        let cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&id)
+            .expect("Certificate not found");
+        cert.suspended
+    }
+
+    /// Get suspension information for a certificate
+    pub fn get_suspension_info(env: Env, id: String) -> Option<SuspendedCertificateInfo> {
+        let cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&id)
+            .expect("Certificate not found");
+        cert.suspension_info
     }
 
     pub fn is_revoked(env: Env, id: String) -> bool {
@@ -2192,7 +2402,7 @@ impl CertificateContract {
         0
     }
 
-    /// Check certificate validity (not revoked and not expired)
+    /// Check certificate validity (not revoked, not expired, and not suspended)
     pub fn is_valid(env: Env, certificate_id: String) -> bool {
         let cert: Certificate = env
             .storage()
@@ -2200,7 +2410,7 @@ impl CertificateContract {
             .get(&certificate_id)
             .expect("Certificate not found");
         
-        !cert.revoked && !Self::is_expired(env, certificate_id)
+        !cert.revoked && !cert.suspended && !Self::is_expired(env, certificate_id)
     }
 }
 
