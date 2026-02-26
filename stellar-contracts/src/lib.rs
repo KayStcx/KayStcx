@@ -74,6 +74,16 @@ pub enum UpgradeStatus {
     Cancelled,    // Upgrade cancelled
 }
 
+/// Certificate status enum for state machine
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum CertificateStatus {
+    Active,       // Certificate is valid and active
+    Revoked,      // Certificate has been revoked by issuer
+    Expired,      // Certificate has passed its expiration date
+    Suspended,    // Certificate is temporarily suspended
+}
+
 /// Version compatibility matrix
 #[contracttype]
 #[derive(Clone, Debug)]
@@ -145,7 +155,8 @@ pub struct Certificate {
     pub owner: Address,
     pub metadata_uri: String,
     pub issued_at: u64,
-    pub revoked: bool,
+    pub status: CertificateStatus,             // Current certificate status
+    pub revoked: bool,                         // Deprecated: use status instead
     pub revocation_reason: Option<String>,
     pub revoked_at: Option<u64>,
     pub revoked_by: Option<Address>,
@@ -159,6 +170,8 @@ pub struct Certificate {
     // Freeze-related fields
     pub frozen: bool,                          // Whether the certificate is frozen
     pub freeze_info: Option<FrozenCertificateInfo>, // Freeze details
+    // Expiration field
+    pub expires_at: Option<u64>,               // Optional expiration timestamp
 }
 
 /// Transfer status enum
@@ -451,6 +464,12 @@ pub enum CertificateError {
     FreezeDurationExceeded,
     FreezeDurationInvalid,
     FreezeNotExpired,
+    // Status state machine errors
+    InvalidStatusTransition,
+    CertificateNotActive,
+    CertificateAlreadyRevoked,
+    CertificateExpired,
+    CertificateSuspended,
 }
 
 /// Storage keys for the contract
