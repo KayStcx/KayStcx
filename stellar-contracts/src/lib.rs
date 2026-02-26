@@ -2539,7 +2539,7 @@ impl CertificateContract {
         0
     }
 
-    /// Check certificate validity (not revoked and not expired)
+    /// Check certificate validity (status is Active and not expired)
     pub fn is_valid(env: Env, certificate_id: String) -> bool {
         let cert: Certificate = env
             .storage()
@@ -2547,7 +2547,13 @@ impl CertificateContract {
             .get(&certificate_id)
             .expect("Certificate not found");
         
-        !cert.revoked && !Self::is_expired(env, certificate_id)
+        // Check status is Active
+        if cert.status != CertificateStatus::Active {
+            return false;
+        }
+        
+        // Check not expired
+        !Self::is_expired(env, certificate_id)
     }
 }
 
