@@ -92,6 +92,7 @@ fn test_issue_and_revoke() {
 
     let cert = client.get_certificate(&id);
     assert_eq!(cert.id, id);
+    assert_eq!(cert.status, CertificateStatus::Active);
     assert_eq!(cert.revoked, false);
 
     let reason = String::from_str(&env, "Violation of terms");
@@ -101,6 +102,7 @@ fn test_issue_and_revoke() {
     assert!(revoked);
 
     let cert_revoked = client.get_certificate(&id);
+    assert_eq!(cert_revoked.status, CertificateStatus::Revoked);
     assert_eq!(cert_revoked.revoked, true);
     assert_eq!(cert_revoked.revocation_reason, Some(reason));
 }
