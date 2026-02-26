@@ -1664,8 +1664,8 @@ impl CertificateContract {
             return Err(CertificateError::Unauthorized);
         }
         
-        // Check if certificate is revoked
-        if cert.revoked {
+        // Check if certificate is active (cannot transfer revoked, expired, or suspended certificates)
+        if cert.status != CertificateStatus::Active {
             return Err(CertificateError::AlreadyRevoked);
         }
         
@@ -2015,7 +2015,14 @@ impl CertificateContract {
         
         // Revoke certificate if required
         if transfer.require_revocation {
-            cert.revoked = true;
+            // Use state machine to transition to revoked
+            Self::update_certificate_status(
+                &env,
+                &mut cert,
+                CertificateStatus::Revoked,
+                transfer.from_address.clone(),
+                Some(String::from_str(&env, "Transferred to new owner")),
+            )?;
             cert.revocation_reason = Some(String::from_str(&env, "Transferred to new owner"));
             cert.revoked_at = Some(env.ledger().timestamp());
             cert.revoked_by = Some(transfer.from_address.clone());
