@@ -401,6 +401,40 @@ pub struct CertificateExpiredEvent {
     pub issuer: Address,
 }
 
+/// Status State Machine Events
+
+/// Event emitted when certificate status changes
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct CertificateStatusChangedEvent {
+    pub certificate_id: String,
+    pub from_status: CertificateStatus,
+    pub to_status: CertificateStatus,
+    pub changed_by: Address,
+    pub changed_at: u64,
+    pub reason: Option<String>,
+}
+
+/// Event emitted when a certificate is suspended
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct CertificateSuspendedEvent {
+    pub certificate_id: String,
+    pub suspended_by: Address,
+    pub suspended_at: u64,
+    pub reason: String,
+}
+
+/// Event emitted when a certificate is reactivated
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct CertificateReactivatedEvent {
+    pub certificate_id: String,
+    pub reactivated_by: Address,
+    pub reactivated_at: u64,
+    pub reason: String,
+}
+
 /// Issuer Management Events
 
 /// Event emitted when an issuer is added
@@ -716,6 +750,7 @@ impl CertificateContract {
             owner,
             metadata_uri,
             issued_at: env.ledger().timestamp(),
+            status: CertificateStatus::Active,  // Initialize as Active
             revoked: false,
             revocation_reason: None,
             revoked_at: None,
@@ -745,6 +780,8 @@ impl CertificateContract {
             // Initialize freeze fields
             frozen: false,
             freeze_info: None,
+            // Initialize expiration
+            expires_at: None,
         };
 
         env.storage().instance().set(&id, &cert);
