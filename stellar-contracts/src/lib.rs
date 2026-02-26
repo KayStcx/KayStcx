@@ -1,6 +1,9 @@
 // src/lib.rs
 #![no_std]
-use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, Map, String};
+
+use soroban_sdk::{
+    contract, contractimpl, contracttype, symbol_short, Address, Bytes, BytesN, Env, String, Vec,
+};
 
 mod admin;
 mod events;
@@ -10,20 +13,55 @@ mod storage_types;
 
 use storage_types::DataKey;
 
-#[derive(soroban_sdk::contracttype, Clone)]
+// ─────────────────────────────────────────────────────────────────────────────
+// Fee Configuration Struct (From Feature Branch)
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[contracttype]
+#[derive(Clone, Debug)]
 pub struct FeeConfig {
     pub enabled: bool,
-    pub fee_amount: i128,      // in stroops (1 XLM = 10_000_000 stroops)
+    pub fee_amount: i128,
     pub treasury: Option<Address>,
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Core Certificate Types (From Main Branch)
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum CertificateStatus {
+    Active,
+    Revoked,
+    Expired,
+    Suspended,
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct Certificate {
+    pub id: String,
+    pub issuer: Address,
+    pub owner: Address,
+    pub metadata_uri: String,
+    pub issued_at: u64,
+    pub status: CertificateStatus,
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Contract Definition
+// ─────────────────────────────────────────────────────────────────────────────
 
 #[contract]
 pub struct CertificateContract;
 
 #[contractimpl]
 impl CertificateContract {
+    // ─────────────────────────────────────────────────────────────
+    // Initialize (Merged Cleanly)
+    // ─────────────────────────────────────────────────────────────
 
-    /// Initialize contract with admin, treasury, and optional fee
     pub fn initialize(
         env: Env,
         admin: Address,
@@ -33,14 +71,18 @@ impl CertificateContract {
         fee_enabled: bool,
     ) {
         admin.require_auth();
+
         env.storage().instance().set(&DataKey::Admin, &admin);
+        env.storage().instance().set(&DataKey::NativeToken, &native_token);
+
         fee::set_treasury(&env, &treasury);
         fee::set_fee(&env, initial_fee);
         fee::set_fee_enabled(&env, fee_enabled);
-        env.storage().instance().set(&DataKey::NativeToken, &native_token);
     }
 
-    // ─── Admin: Fee Configuration ────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
+    // Admin Fee Controls
+    // ─────────────────────────────────────────────────────────────
 
     pub fn set_fee_config(
         env: Env,
@@ -63,7 +105,9 @@ impl CertificateContract {
         fee::set_fee_waiver(&env, &issuer, waived);
     }
 
-    // ─── View: Fee Config ─────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
+    // View: Fee Config
+    // ─────────────────────────────────────────────────────────────
 
     pub fn get_fee_config(env: Env) -> FeeConfig {
         FeeConfig {
@@ -77,28 +121,90 @@ impl CertificateContract {
         fee::is_fee_waived(&env, &issuer)
     }
 
-    // ─── Core: Issue Certificate ──────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
+    // Issue Certificate (Merged with Fee Collection)
+    // ─────────────────────────────────────────────────────────────
 
     pub fn issue_certificate(
         env: Env,
         issuer: Address,
         recipient: Address,
-        cert_id: BytesN<32>,
-        metadata: String,
+        id: String,
+        metadata_uri: String,
     ) {
         issuer.require_auth();
+
+        if env.storage().instance().has(&id) {
+            panic!("Certificate already exists");
+        }
 
         // 💰 Collect fee BEFORE issuing
         fee_collection::collect_issuance_fee(&env, &issuer);
 
-        // Store certificate
-        let cert_data = (recipient.clone(), metadata, env.ledger().timestamp());
-        env.storage()
-            .persistent()
-            .set(&DataKey::Certificate(cert_id.clone()), &cert_data);
+        let cert = Certificate {
+            id: id.clone(),
+            issuer: issuer.clone(),
+            owner: recipient.clone(),
+            metadata_uri: metadata_uri.clone(),
+            issued_at: env.ledger().timestamp(),
+            status: CertificateStatus::Active,
+        };
 
-        // Emit certificate issued event
-        let topics = (soroban_sdk::Symbol::new(&env, "CertIssued"), issuer.clone());
-        env.events().publish(topics, (recipient, cert_id));
+        env.storage().instance().set(&id, &cert);
+
+        // Emit issued event
+        env.events().publish(
+            (symbol_short!("cert_issued"), id.clone()),
+            (issuer, recipient),
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Get Certificate
+    // ─────────────────────────────────────────────────────────────
+
+    pub fn get_certificate(env: Env, id: String) -> Certificate {
+        env.storage()
+            .instance()
+            .get(&id)
+            .expect("Certificate not found")
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Status Helpers
+    // ─────────────────────────────────────────────────────────────
+
+    pub fn is_active(env: Env, id: String) -> bool {
+        if let Some(cert) = env.storage().instance().get::<_, Certificate>(&id) {
+            cert.status == CertificateStatus::Active
+        } else {
+            false
+        }
+    }
+
+    pub fn revoke_certificate(env: Env, id: String) {
+        let mut cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&id)
+            .expect("Certificate not found");
+
+        cert.issuer.require_auth();
+
+        cert.status = CertificateStatus::Revoked;
+
+        env.storage().instance().set(&id, &cert);
+
+        env.events().publish(
+            (symbol_short!("cert_revoked"), id),
+            cert.issuer,
+        );
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod test;
