@@ -800,21 +800,124 @@ impl CertificateContract {
         );
     }
 
-    pub fn revoke_certificate(env: Env, id: String, reason: String) {
+    /// Validates if a status transition is allowed according to the state machine rules
+    /// 
+    /// # State Machine Rules:
+    /// - Active → Revoked: Allowed (issuer revokes certificate)
+    /// - Active → Expired: Allowed (certificate passes expiration date)
+    /// - Active → Suspended: Allowed (issuer suspends certificate temporarily)
+    /// - Suspended → Active: Allowed (issuer reactivates certificate)
+    /// - Suspended → Revoked: Allowed (issuer revokes while suspended)
+    /// - Suspended → Expired: Allowed (certificate expires while suspended)
+    /// - Expired → Active: Not Allowed (expiration is final)
+    /// - Expired → Revoked: Allowed (issuer revokes expired certificate)
+    /// - Expired → Suspended: Not Allowed
+    /// - Revoked → Any: Not Allowed (revocation is final)
+    fn validate_status_transition(
+        from: &CertificateStatus,
+        to: &CertificateStatus,
+    ) -> Result<(), CertificateError> {
+        match (from, to) {
+            // Active can transition to any state
+            (CertificateStatus::Active, _) => Ok(()),
+            
+            // Suspended can transition to Active, Revoked, or Expired
+            (CertificateStatus::Suspended, CertificateStatus::Active) => Ok(()),
+            (CertificateStatus::Suspended, CertificateStatus::Revoked) => Ok(()),
+            (CertificateStatus::Suspended, CertificateStatus::Expired) => Ok(()),
+            (CertificateStatus::Suspended, CertificateStatus::Suspended) => {
+                Err(CertificateError::InvalidStatusTransition)
+            }
+            
+            // Expired can only transition to Revoked
+            (CertificateStatus::Expired, CertificateStatus::Revoked) => Ok(()),
+            (CertificateStatus::Expired, _) => Err(CertificateError::InvalidStatusTransition),
+            
+            // Revoked is terminal - no transitions allowed
+            (CertificateStatus::Revoked, _) => Err(CertificateError::CertificateAlreadyRevoked),
+        }
+    }
+
+    /// Atomically updates certificate status with validation and event emission
+    fn update_certificate_status(
+        env: &Env,
+        cert: &mut Certificate,
+        new_status: CertificateStatus,
+        changed_by: Address,
+        reason: Option<String>,
+    ) -> Result<(), CertificateError> {
+        let old_status = cert.status.clone();
+        
+        // Validate the transition
+        Self::validate_status_transition(&old_status, &new_status)?;
+        
+        // Update status
+        cert.status = new_status.clone();
+        
+        // Update deprecated revoked field for backward compatibility
+        cert.revoked = new_status == CertificateStatus::Revoked;
+        
+        // Emit status changed event
+        env.events().publish(
+            (symbol_short!("status_chg"), cert.id.clone()),
+            CertificateStatusChangedEvent {
+                certificate_id: cert.id.clone(),
+                from_status: old_status,
+                to_status: new_status,
+                changed_by,
+                changed_at: env.ledger().timestamp(),
+                reason: reason.clone(),
+            },
+        );
+        
+        Ok(())
+    }
+
+    /// Gets the current status of a certificate
+    pub fn get_status(env: Env, id: String) -> Result<CertificateStatus, CertificateError> {
+        let cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&id)
+            .ok_or(CertificateError::NotFound)?;
+        
+        Ok(cert.status)
+    }
+
+    /// Checks if a certificate is active (valid for use)
+    pub fn is_active(env: Env, id: String) -> bool {
+        if let Ok(cert) = env.storage().instance().get::<_, Certificate>(&id) {
+            cert.status == CertificateStatus::Active && !cert.frozen
+        } else {
+            false
+        }
+    }
+
+    /// Revokes a certificate (Active or Suspended → Revoked)
+    pub fn revoke_certificate(
+        env: Env, 
+        id: String, 
+        reason: String
+    ) -> Result<(), CertificateError> {
         let mut cert: Certificate = env
             .storage()
             .instance()
             .get(&id)
-            .expect("Certificate not found");
+            .ok_or(CertificateError::NotFound)?;
 
         cert.issuer.require_auth();
 
-        if cert.revoked {
-            panic!("Certificate already revoked");
-        }
+        // Update status using state machine
+        Self::update_certificate_status(
+            &env,
+            &mut cert,
+            CertificateStatus::Revoked,
+            cert.issuer.clone(),
+            Some(reason.clone()),
+        )?;
 
-        cert.revoked = true;
-        cert.revocation_reason = Some(reason);
+        // Update revocation metadata
+        cert.revocation_reason = Some(reason.clone());
         cert.revoked_at = Some(env.ledger().timestamp());
         cert.revoked_by = Some(cert.issuer.clone());
 
@@ -830,6 +933,177 @@ impl CertificateContract {
                 reason: reason.clone(),
             },
         );
+        
+        Ok(())
+    }
+
+    /// Suspends a certificate temporarily (Active → Suspended)
+    pub fn suspend_certificate(
+        env: Env,
+        id: String,
+        reason: String,
+    ) -> Result<(), CertificateError> {
+        let mut cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&id)
+            .ok_or(CertificateError::NotFound)?;
+
+        cert.issuer.require_auth();
+
+        // Only Active certificates can be suspended
+        if cert.status != CertificateStatus::Active {
+            return Err(CertificateError::CertificateNotActive);
+        }
+
+        // Update status using state machine
+        Self::update_certificate_status(
+            &env,
+            &mut cert,
+            CertificateStatus::Suspended,
+            cert.issuer.clone(),
+            Some(reason.clone()),
+        )?;
+
+        env.storage().instance().set(&id, &cert);
+
+        // Emit suspended event
+        env.events().publish(
+            (symbol_short!("cert_susp"), id.clone()),
+            CertificateSuspendedEvent {
+                certificate_id: id.clone(),
+                suspended_by: cert.issuer.clone(),
+                suspended_at: env.ledger().timestamp(),
+                reason: reason.clone(),
+            },
+        );
+
+        Ok(())
+    }
+
+    /// Reactivates a suspended certificate (Suspended → Active)
+    pub fn reactivate_certificate(
+        env: Env,
+        id: String,
+        reason: String,
+    ) -> Result<(), CertificateError> {
+        let mut cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&id)
+            .ok_or(CertificateError::NotFound)?;
+
+        cert.issuer.require_auth();
+
+        // Only Suspended certificates can be reactivated
+        if cert.status != CertificateStatus::Suspended {
+            return Err(CertificateError::InvalidStatusTransition);
+        }
+
+        // Update status using state machine
+        Self::update_certificate_status(
+            &env,
+            &mut cert,
+            CertificateStatus::Active,
+            cert.issuer.clone(),
+            Some(reason.clone()),
+        )?;
+
+        env.storage().instance().set(&id, &cert);
+
+        // Emit reactivated event
+        env.events().publish(
+            (symbol_short!("cert_react"), id.clone()),
+            CertificateReactivatedEvent {
+                certificate_id: id.clone(),
+                reactivated_by: cert.issuer.clone(),
+                reactivated_at: env.ledger().timestamp(),
+                reason: reason.clone(),
+            },
+        );
+
+        Ok(())
+    }
+
+    /// Expires a certificate (Active or Suspended → Expired)
+    pub fn expire_certificate(
+        env: Env,
+        id: String,
+    ) -> Result<(), CertificateError> {
+        let mut cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&id)
+            .ok_or(CertificateError::NotFound)?;
+
+        // Can be called by issuer or automated process
+        cert.issuer.require_auth();
+
+        // Check if certificate has expiration date
+        if let Some(expires_at) = cert.expires_at {
+            let current_time = env.ledger().timestamp();
+            if current_time < expires_at {
+                return Err(CertificateError::InvalidStatusTransition);
+            }
+        } else {
+            // If no expiration date set, issuer can still force expiration
+        }
+
+        // Update status using state machine
+        Self::update_certificate_status(
+            &env,
+            &mut cert,
+            CertificateStatus::Expired,
+            cert.issuer.clone(),
+            Some(String::from_str(&env, "Certificate expired")),
+        )?;
+
+        env.storage().instance().set(&id, &cert);
+
+        // Emit expired event
+        env.events().publish(
+            (symbol_short!("cert_exp"), id.clone()),
+            CertificateExpiredEvent {
+                certificate_id: id.clone(),
+                expired_at: env.ledger().timestamp(),
+                issuer: cert.issuer.clone(),
+            },
+        );
+
+        Ok(())
+    }
+
+    /// Sets expiration date for a certificate
+    pub fn set_expiration(
+        env: Env,
+        id: String,
+        expires_at: u64,
+    ) -> Result<(), CertificateError> {
+        let mut cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&id)
+            .ok_or(CertificateError::NotFound)?;
+
+        cert.issuer.require_auth();
+
+        // Cannot set expiration for already expired or revoked certificates
+        if cert.status == CertificateStatus::Expired {
+            return Err(CertificateError::CertificateExpired);
+        }
+        if cert.status == CertificateStatus::Revoked {
+            return Err(CertificateError::CertificateAlreadyRevoked);
+        }
+
+        let current_time = env.ledger().timestamp();
+        if expires_at <= current_time {
+            return Err(CertificateError::InvalidData);
+        }
+
+        cert.expires_at = Some(expires_at);
+        env.storage().instance().set(&id, &cert);
+
+        Ok(())
     }
 
     /// Freeze a certificate temporarily during a dispute
@@ -862,9 +1136,12 @@ impl CertificateContract {
             panic!("Certificate is already frozen");
         }
 
-        // Check if certificate is revoked
-        if cert.revoked {
+        // Check if certificate is revoked or expired
+        if cert.status == CertificateStatus::Revoked {
             panic!("Cannot freeze a revoked certificate");
+        }
+        if cert.status == CertificateStatus::Expired {
+            panic!("Cannot freeze an expired certificate");
         }
 
         // Validate duration
