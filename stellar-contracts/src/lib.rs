@@ -2418,6 +2418,9 @@ impl CertificateContract {
 mod test;
 
 #[cfg(test)]
+mod comprehensive_tests;
+
+#[cfg(test)]
 pub use crl_test::*;
 
 #[cfg(test)]
