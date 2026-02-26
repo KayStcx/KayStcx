@@ -1522,8 +1522,8 @@ impl CertificateContract {
             .get(&certificate_id)
             .ok_or(CertificateError::NotFound)?;
         
-        // Check if certificate is revoked
-        if certificate.revoked {
+        // Check if certificate is active (cannot upgrade revoked, expired, or suspended certificates)
+        if certificate.status != CertificateStatus::Active {
             return Err(CertificateError::AlreadyRevoked);
         }
         
