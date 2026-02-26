@@ -1,0 +1,162 @@
+name: Smart Contract Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'stellar-contracts/**'
+      - '.github/workflows/rust-contract-tests.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'stellar-contracts/**'
+      - '.github/workflows/rust-contract-tests.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Run Smart Contract Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./stellar-contracts
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-action@stable
+      with:
+        toolchain: stable
+        targets: wasm32-unknown-unknown
+
+    - name: Install Soroban CLI
+      run: |
+        cargo install soroban-cli --locked --features opt
+
+    - name: Cache Cargo dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          stellar-contracts/target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Check formatting
+      run: cargo fmt -- --check
+
+    - name: Run Clippy lints
+      run: cargo clippy --all-targets --all-features -- -D warnings
+
+    - name: Build contract
+      run: cargo build --target wasm32-unknown-unknown --release
+
+    - name: Run unit tests
+      run: cargo test --lib -- --nocapture
+
+    - name: Run comprehensive tests
+      run: cargo test comprehensive_tests -- --nocapture
+
+    - name: Generate test report
+      run: |
+        cargo test --lib -- -Z unstable-options --format json --report-time 2>&1 | tee test-results.json || true
+      continue-on-error: true
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: stellar-contracts/test-results.json
+
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./stellar-contracts
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-action@stable
+      with:
+        toolchain: stable
+        components: llvm-tools-preview
+
+    - name: Install cargo-llvm-cov
+      run: cargo install cargo-llvm-cov
+
+    - name: Generate coverage report
+      run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        files: stellar-contracts/lcov.info
+        fail_ci_if_error: true
+        verbose: true
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./stellar-contracts
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-action@stable
+      with:
+        toolchain: stable
+
+    - name: Install cargo-audit
+      run: cargo install cargo-audit
+
+    - name: Run security audit
+      run: cargo audit
+      continue-on-error: true
+
+  build-and-optimize:
+    name: Build and Optimize WASM
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./stellar-contracts
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-action@stable
+      with:
+        toolchain: stable
+        targets: wasm32-unknown-unknown
+
+    - name: Build optimized WASM
+      run: cargo build --target wasm32-unknown-unknown --release
+
+    - name: Check WASM size
+      run: |
+        ls -lh target/wasm32-unknown-unknown/release/*.wasm
+        echo "WASM build completed successfully"
+
+    - name: Upload WASM artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: wasm-contract
+        path: stellar-contracts/target/wasm32-unknown-unknown/release/*.wasm
