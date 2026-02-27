@@ -51,10 +51,10 @@ describe('MetadataSchemaService', () => {
   const savedSchema: MetadataSchema = {
     id: 'schema-uuid-1',
     name: baseSchemaDto.name,
-    description: baseSchemaDto.description,
+    description: (baseSchemaDto.description as string) || null,
     version: baseSchemaDto.version,
     fields: baseSchemaDto.fields,
-    requiredFields: baseSchemaDto.requiredFields,
+    requiredFields: (baseSchemaDto.requiredFields as string[]) || null,
     allowCustomFields: true,
     issuerId: null,
     isActive: true,

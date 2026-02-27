@@ -46,7 +46,7 @@ export class SentryService {
   /**
    * Capture exception
    */
-  captureException(error: Error, context?: Record<string, any>): void {
+  captureException(error: Error, context?: Record<string, unknown>): void {
     if (this.initialized) {
       Sentry.captureException(error, {
         contexts: { app: context },

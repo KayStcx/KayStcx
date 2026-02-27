@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Save, Key, Shield, Activity, Settings, User as UserIcon, Building, Calendar, Hash } from 'lucide-react';
-import { userApi, issuerProfileApi } from '../api';
-import type { User } from '../api/types';
+import { Save, Key, Shield, Activity, Settings, User as UserIcon, Building, Hash } from 'lucide-react';
+import { userApi } from '../api';
 
 const IssuerProfile = () => {
-  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  
+
   // Form state
   const [formData, setFormData] = useState({
     firstName: '',
@@ -32,7 +30,13 @@ const IssuerProfile = () => {
   });
 
   // Activity log state
-  const [activities, setActivities] = useState<any[]>([]);
+  const [activities, setActivities] = useState<{
+    id: string;
+    action: string;
+    description: string;
+    timestamp: string;
+    ip: string;
+  }[]>([]);
 
   useEffect(() => {
     loadProfile();
@@ -44,14 +48,13 @@ const IssuerProfile = () => {
     try {
       setLoading(true);
       const profile = await userApi.getProfile();
-      setUser(profile);
       setFormData({
         firstName: profile.firstName,
         lastName: profile.lastName,
         email: profile.email,
         username: profile.username || '',
         phone: profile.phone || '',
-        organization: profile.metadata?.organization || '',
+        organization: profile.metadata?.organization ? String(profile.metadata.organization) : '',
         stellarPublicKey: profile.stellarPublicKey || '',
         profilePicture: profile.profilePicture || ''
       });
@@ -117,7 +120,7 @@ const IssuerProfile = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (formData.stellarPublicKey && !validateStellarKey(formData.stellarPublicKey)) {
       setError('Invalid Stellar public key format');
       return;
@@ -127,7 +130,7 @@ const IssuerProfile = () => {
       setSaving(true);
       setError(null);
       setSuccess(null);
-      
+
       // In a real implementation, this would call the update API
       // const updatedUser = await userApi.updateProfile({
       //   ...formData,
@@ -135,21 +138,11 @@ const IssuerProfile = () => {
       //     organization: formData.organization
       //   }
       // });
-      
+
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       setSuccess('Profile updated successfully');
-      
-      // Update local state
-      setUser(prev => prev ? {
-        ...prev,
-        ...formData,
-        metadata: {
-          ...prev.metadata,
-          organization: formData.organization
-        }
-      } : null);
-      
+
     } catch (err) {
       setError('Failed to update profile');
       console.error(err);
@@ -195,7 +188,7 @@ const IssuerProfile = () => {
           <div className="bg-white shadow rounded-lg">
             <div className="px-6 py-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                <User className="h-5 w-5 mr-2 text-blue-600" />
+                <UserIcon className="h-5 w-5 mr-2 text-blue-600" />
                 Profile Information
               </h2>
             </div>
@@ -330,11 +323,10 @@ const IssuerProfile = () => {
                     name="stellarPublicKey"
                     value={formData.stellarPublicKey}
                     onChange={handleInputChange}
-                    className={`flex-1 px-3 py-2 border ${
-                      formData.stellarPublicKey && !validateStellarKey(formData.stellarPublicKey)
-                        ? 'border-red-300'
-                        : 'border-gray-300'
-                    } rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    className={`flex-1 px-3 py-2 border ${formData.stellarPublicKey && !validateStellarKey(formData.stellarPublicKey)
+                      ? 'border-red-300'
+                      : 'border-gray-300'
+                      } rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     placeholder="GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
                   />
                   <button
@@ -352,7 +344,7 @@ const IssuerProfile = () => {
                   <p className="mt-1 text-sm text-red-600">Invalid Stellar public key format</p>
                 )}
               </div>
-              
+
               <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
                 <div className="flex items-start">
                   <Shield className="h-5 w-5 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
@@ -437,7 +429,7 @@ const IssuerProfile = () => {
                     </div>
                     <div className="mt-1 flex items-center text-xs text-gray-500">
                       <Hash className="h-3 w-3 mr-1" />
-                      {activity.action} • 
+                      {activity.action} •
                       <Building className="h-3 w-3 ml-2 mr-1" />
                       IP: {activity.ip}
                     </div>

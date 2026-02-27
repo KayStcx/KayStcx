@@ -20,7 +20,7 @@ const IssueCertificate = () => {
 
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       // Fetch recipient and issuer details
@@ -31,12 +31,12 @@ const IssueCertificate = () => {
       if (!recipient) {
         setError("Failed to fetch recipient details. Please Recheck Email");
         return;
-      };
+      }
 
       if (!issuer) {
         setError("Failed to fetch Issuer details. Please Recheck Email");
         return;
-      };
+      }
 
       if (!template) {
         setError("Failed to fetch template.");
@@ -78,9 +78,9 @@ const IssueCertificate = () => {
         return;
       }
       navigate("/");
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error issuing certificate:', error);
-      setError('Failed to issue certificate');
+      setError(error instanceof Error ? error.message : 'Failed to issue certificate');
     }
   };
 

@@ -22,7 +22,7 @@ export default function QRScannerModal({
   onScanSuccess,
   verifyPathPrefix = "/verify/",
 }: QRScannerModalProps) {
-  const scannerRef = useRef<any>(null);
+  const scannerRef = useRef<unknown>(null);
   const containerId = "qr-scanner-container";
 
   const [status, setStatus] = useState<ScannerStatus>("initializing");
@@ -35,12 +35,17 @@ export default function QRScannerModal({
 
   const stopScanner = useCallback(async () => {
     if (scannerRef.current) {
+      const scanner = scannerRef.current as {
+        getState?: () => number;
+        stop: () => Promise<void>;
+        clear?: () => void;
+      };
       try {
-        const state = scannerRef.current.getState?.();
+        const state = scanner.getState?.();
         if (state === 2) {
-          await scannerRef.current.stop();
+          await scanner.stop();
         }
-        scannerRef.current.clear?.();
+        scanner.clear?.();
       } catch {
         // ignore
       }
@@ -48,7 +53,7 @@ export default function QRScannerModal({
     }
   }, []);
 
-  const extractCertificateId = (raw: string): string | null => {
+  const extractCertificateId = useCallback((raw: string): string | null => {
     try {
       const url = new URL(raw);
       const parts = url.pathname.split(verifyPathPrefix);
@@ -57,7 +62,7 @@ export default function QRScannerModal({
       // not a URL
     }
     return null;
-  };
+  }, [verifyPathPrefix]);
 
   const startScanner = useCallback(async () => {
     if (!isOpen) return;
@@ -66,7 +71,7 @@ export default function QRScannerModal({
     setScanResult(null);
 
     try {
-      const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
+      const { Html5Qrcode } = await import("html5-qrcode");
 
       // Check camera count
       const devices = await Html5Qrcode.getCameras();
@@ -99,8 +104,8 @@ export default function QRScannerModal({
       );
 
       setStatus("scanning");
-    } catch (err: any) {
-      const msg = err?.message || String(err);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
       let friendly = "Camera access failed.";
       if (msg.includes("Permission") || msg.includes("permission") || msg.includes("NotAllowed")) {
         friendly = "Camera permission denied. Please allow camera access in your browser settings and try again.";
@@ -114,7 +119,7 @@ export default function QRScannerModal({
       setErrorMsg(friendly);
       setStatus("error");
     }
-  }, [isOpen, facingMode, onScanSuccess, stopScanner]);
+  }, [isOpen, facingMode, onScanSuccess, stopScanner, extractCertificateId]);
 
   useEffect(() => {
     if (isOpen) {
@@ -128,15 +133,25 @@ export default function QRScannerModal({
     return () => {
       stopScanner();
     };
-  }, [isOpen, facingMode]);
+  }, [isOpen, facingMode, startScanner, stopScanner]);
 
   const handleToggleTorch = async () => {
+    if (!scannerRef.current) return;
     try {
-      const track = (scannerRef.current as any)?._localMediaStream
-        ?.getVideoTracks()[0];
+      const scanner = scannerRef.current as {
+        _localMediaStream?: {
+          getVideoTracks: () => MediaStreamTrack[];
+        };
+      };
+      const track = scanner._localMediaStream?.getVideoTracks()[0];
       if (!track) return;
+
+      const capabilities = track.getCapabilities() as { torch?: boolean };
+      if (!capabilities.torch) return;
+
       const newVal = !torchOn;
-      await track.applyConstraints({ advanced: [{ torch: newVal } as any] });
+      // Use a localized type to bypass missing 'torch' in standard MediaTrackConstraints
+      await (track as unknown as { applyConstraints: (c: unknown) => Promise<void> }).applyConstraints({ advanced: [{ torch: newVal }] });
       setTorchOn(newVal);
     } catch {
       // torch not supported
@@ -488,7 +503,8 @@ export default function QRScannerModal({
         </div>
       </div>
 
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
 
         @keyframes fadeIn {

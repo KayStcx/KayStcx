@@ -1,5 +1,5 @@
 import { Routes, Route } from 'react-router-dom';
-import { Shield, Award, Search, ShieldAlert, User } from 'lucide-react';
+import { Shield, Award, Search, ShieldAlert } from 'lucide-react';
 import Navbar from './components/Header';
 import Dashboard from './pages/Dashboard';
 import IssueCertificate from './pages/IssueCertificate';

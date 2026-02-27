@@ -35,7 +35,7 @@ export class AuditLog {
   resourceType: AuditResourceType;
 
   @Column({ nullable: true })
-  resourceId: string;
+  resourceId: string | null;
 
   @Column({
     type: 'jsonb',
@@ -50,28 +50,28 @@ export class AuditLog {
   changes: {
     before?: any;
     after?: any;
-  };
+  } | null;
 
   @Column({ nullable: true })
-  userId: string;
+  userId: string | null;
 
   @Column({ nullable: true })
-  userEmail: string;
+  userEmail: string | null;
 
   @Column({ nullable: true })
-  userRole: string;
+  userRole: string | null;
 
   @Column({ nullable: false })
   ipAddress: string;
 
   @Column({ nullable: true })
-  userAgent: string;
+  userAgent: string | null;
 
   @Column({ nullable: true })
-  correlationId: string;
+  correlationId: string | null;
 
   @Column({ nullable: true })
-  transactionHash: string; // For Stellar transactions
+  transactionHash: string | null; // For Stellar transactions
 
   @Column({
     type: 'jsonb',
@@ -86,7 +86,7 @@ export class AuditLog {
   status: 'success' | 'failure' | 'error';
 
   @Column({ nullable: true })
-  errorMessage: string;
+  errorMessage: string | null;
 
   @Column({
     type: 'bigint',

@@ -1,0 +1,77 @@
+
+C:\Users\f-ologunebi\Desktop\mydev\Onlydust\myproject\Kaystcx\frontend\src\api\endpoints.ts
+   20:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   26:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  175:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  446:45  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  476:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  599:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  607:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  615:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  703:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  715:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  718:72  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  764:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  767:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\f-ologunebi\Desktop\mydev\Onlydust\myproject\Kaystcx\frontend\src\api\types.ts
+   52:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   68:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  143:13  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\f-ologunebi\Desktop\mydev\Onlydust\myproject\Kaystcx\frontend\src\components\CertificateTable.tsx
+  1:44  error  'useMemo' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\f-ologunebi\Desktop\mydev\Onlydust\myproject\Kaystcx\frontend\src\components\NotificationDropdown.tsx
+  3:28  error  'Notification' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\f-ologunebi\Desktop\mydev\Onlydust\myproject\Kaystcx\frontend\src\components\QRCodeModal.tsx
+  386:6  error  Parsing error: Identifier expected
+
+C:\Users\f-ologunebi\Desktop\mydev\Onlydust\myproject\Kaystcx\frontend\src\components\QRScannerModal.tsx
+   25:29  error    Unexpected any. Specify a different type                                                                                             @typescript-eslint/no-explicit-any
+   69:28  error    'Html5QrcodeSupportedFormats' is assigned a value but never used                                                                     @typescript-eslint/no-unused-vars
+  102:19  error    Unexpected any. Specify a different type                                                                                             @typescript-eslint/no-explicit-any
+  117:6   warning  React Hook useCallback has a missing dependency: 'extractCertificateId'. Either include it or remove the dependency array            react-hooks/exhaustive-deps
+  131:6   warning  React Hook useEffect has missing dependencies: 'startScanner' and 'stopScanner'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  135:44  error    Unexpected any. Specify a different type                                                                                             @typescript-eslint/no-explicit-any
+  139:70  error    Unexpected any. Specify a different type                                                                                             @typescript-eslint/no-explicit-any
+
+C:\Users\f-ologunebi\Desktop\mydev\Onlydust\myproject\Kaystcx\frontend\src\context\NotificationContext.tsx
+  25:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  33:12  error    'socket' is assigned a value but never used                                                                                     @typescript-eslint/no-unused-vars
+
+C:\Users\f-ologunebi\Desktop\mydev\Onlydust\myproject\Kaystcx\frontend\src\context\ThemeContext.tsx
+  98:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\f-ologunebi\Desktop\mydev\Onlydust\myproject\Kaystcx\frontend\src\guard\protectedRoute.tsx
+  16:58  error  'allowedRoles' is defined but never used       @typescript-eslint/no-unused-vars
+  16:58  error  'allowedRoles' is missing in props validation  react/prop-types
+
+C:\Users\f-ologunebi\Desktop\mydev\Onlydust\myproject\Kaystcx\frontend\src\pages\IssueCertificate.tsx
+  23:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  34:8   error  Unnecessary semicolon                     no-extra-semi
+  39:8   error  Unnecessary semicolon                     no-extra-semi
+
+C:\Users\f-ologunebi\Desktop\mydev\Onlydust\myproject\Kaystcx\frontend\src\pages\IssuerProfile.tsx
+   2:57  error  'UserIcon' is defined but never used          @typescript-eslint/no-unused-vars
+   2:77  error  'Calendar' is defined but never used          @typescript-eslint/no-unused-vars
+   3:19  error  'issuerProfileApi' is defined but never used  @typescript-eslint/no-unused-vars
+   7:10  error  'user' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  35:48  error  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+
+C:\Users\f-ologunebi\Desktop\mydev\Onlydust\myproject\Kaystcx\frontend\src\pages\Login.tsx
+  34:23  error  'response' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  58:23  error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+
+C:\Users\f-ologunebi\Desktop\mydev\Onlydust\myproject\Kaystcx\frontend\src\pages\NotificationPreferences.tsx
+  2:10  error  'Shield' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\f-ologunebi\Desktop\mydev\Onlydust\myproject\Kaystcx\frontend\src\pages\RevokeCertificate.tsx
+   36:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   77:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  105:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+✖ 45 problems (41 errors, 4 warnings)
+  2 errors and 0 warnings potentially fixable with the `--fix` option.
+

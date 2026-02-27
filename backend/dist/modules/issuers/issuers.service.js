@@ -5,16 +5,48 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.IssuersService = void 0;
 const common_1 = require("@nestjs/common");
+const typeorm_1 = require("@nestjs/typeorm");
+const typeorm_2 = require("typeorm");
+const issuer_entity_1 = require("./entities/issuer.entity");
+const stellar_1 = require("./utils/stellar");
 let IssuersService = class IssuersService {
-    findAll() {
-        return [];
+    issuerRepo;
+    constructor(issuerRepo) {
+        this.issuerRepo = issuerRepo;
+    }
+    async createIssuer(dto) {
+        if (!(0, stellar_1.isValidStellarPublicKey)(dto.stellarPublicKey)) {
+            throw new common_1.BadRequestException('Invalid Stellar public key');
+        }
+        const issuer = this.issuerRepo.create(dto);
+        return this.issuerRepo.save(issuer);
+    }
+    async removeIssuer(id) {
+        const issuer = await this.issuerRepo.findOne({ where: { id } });
+        if (!issuer)
+            throw new common_1.NotFoundException('Issuer not found');
+        return this.issuerRepo.remove(issuer);
+    }
+    async listIssuers() {
+        return this.issuerRepo.find();
+    }
+    async incrementCertificateCount(issuerId) {
+        await this.issuerRepo.increment({ id: issuerId }, 'certificateCount', 1);
     }
 };
 exports.IssuersService = IssuersService;
 exports.IssuersService = IssuersService = __decorate([
-    (0, common_1.Injectable)()
+    (0, common_1.Injectable)(),
+    __param(0, (0, typeorm_1.InjectRepository)(issuer_entity_1.Issuer)),
+    __metadata("design:paramtypes", [typeorm_2.Repository])
 ], IssuersService);
 //# sourceMappingURL=issuers.service.js.map

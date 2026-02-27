@@ -1,0 +1,41 @@
+src/modules/audit/controllers/audit.controller.spec.ts(56,55): error TS2345: Argument of type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to parameter of type '{ data: AuditLog[]; total: number; } | Promise<{ data: AuditLog[]; total: number; }>'.
+  Type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to type '{ data: AuditLog[]; total: number; }'.
+    Types of property 'data' are incompatible.
+      Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]' is not assignable to type 'AuditLog[]'.
+        Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }' is not assignable to type 'AuditLog'.
+          Types of property 'status' are incompatible.
+            Type 'string' is not assignable to type '"success" | "failure" | "error"'.
+src/modules/audit/controllers/audit.controller.spec.ts(66,55): error TS2345: Argument of type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to parameter of type '{ data: AuditLog[]; total: number; } | Promise<{ data: AuditLog[]; total: number; }>'.
+  Type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to type '{ data: AuditLog[]; total: number; }'.
+    Types of property 'data' are incompatible.
+      Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]' is not assignable to type 'AuditLog[]'.
+        Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }' is not assignable to type 'AuditLog'.
+          Types of property 'status' are incompatible.
+            Type 'string' is not assignable to type '"success" | "failure" | "error"'.
+src/modules/audit/controllers/audit.controller.spec.ts(77,55): error TS2345: Argument of type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to parameter of type '{ data: AuditLog[]; total: number; } | Promise<{ data: AuditLog[]; total: number; }>'.
+  Type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to type '{ data: AuditLog[]; total: number; }'.
+    Types of property 'data' are incompatible.
+      Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]' is not assignable to type 'AuditLog[]'.
+        Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }' is not assignable to type 'AuditLog'.
+          Types of property 'status' are incompatible.
+            Type 'string' is not assignable to type '"success" | "failure" | "error"'.
+src/modules/audit/controllers/audit.controller.spec.ts(88,55): error TS2345: Argument of type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to parameter of type '{ data: AuditLog[]; total: number; } | Promise<{ data: AuditLog[]; total: number; }>'.
+  Type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to type '{ data: AuditLog[]; total: number; }'.
+    Types of property 'data' are incompatible.
+      Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]' is not assignable to type 'AuditLog[]'.
+        Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }' is not assignable to type 'AuditLog'.
+          Types of property 'status' are incompatible.
+            Type 'string' is not assignable to type '"success" | "failure" | "error"'.
+src/modules/audit/controllers/audit.controller.spec.ts(99,55): error TS2345: Argument of type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to parameter of type '{ data: AuditLog[]; total: number; } | Promise<{ data: AuditLog[]; total: number; }>'.
+  Type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to type '{ data: AuditLog[]; total: number; }'.
+    Types of property 'data' are incompatible.
+      Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]' is not assignable to type 'AuditLog[]'.
+        Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }' is not assignable to type 'AuditLog'.
+          Types of property 'status' are incompatible.
+            Type 'string' is not assignable to type '"success" | "failure" | "error"'.
+src/modules/audit/controllers/audit.controller.spec.ts(224,29): error TS2322: Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }' is not assignable to type 'AuditLog'.
+  Types of property 'status' are incompatible.
+    Type 'string' is not assignable to type '"success" | "failure" | "error"'.
+src/modules/audit/controllers/audit.controller.spec.ts(238,29): error TS2322: Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }' is not assignable to type 'AuditLog'.
+  Types of property 'status' are incompatible.
+    Type 'string' is not assignable to type '"success" | "failure" | "error"'.

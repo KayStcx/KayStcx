@@ -46,13 +46,16 @@ exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
 const users_service_1 = require("../users/users.service");
+const jwt_service_1 = require("./services/jwt.service");
 const bcrypt = __importStar(require("bcryptjs"));
 let AuthService = class AuthService {
     usersService;
     jwtService;
-    constructor(usersService, jwtService) {
+    jwtManagementService;
+    constructor(usersService, jwtService, jwtManagementService) {
         this.usersService = usersService;
         this.jwtService = jwtService;
+        this.jwtManagementService = jwtManagementService;
     }
     async validateUser(email, pass) {
         const user = await this.usersService.findOneByEmail(email);
@@ -116,11 +119,59 @@ let AuthService = class AuthService {
             },
         };
     }
+    async logout(user, logoutDto) {
+        if (logoutDto.accessToken) {
+            await this.jwtManagementService.blacklistToken(logoutDto.accessToken);
+        }
+        await this.usersService['userRepository'].update(user.id, {
+            refreshToken: undefined,
+        });
+        return {
+            message: 'Successfully logged out',
+            success: true,
+        };
+    }
+    async refreshTokens(refreshToken) {
+        try {
+            const payload = await this.jwtManagementService.verifyRefreshToken(refreshToken);
+            const user = await this.usersService.findOneById(payload.sub);
+            if (!user || !user.isActive) {
+                throw new common_1.UnauthorizedException('User not found or inactive');
+            }
+            if (user.refreshToken !== refreshToken) {
+                throw new common_1.UnauthorizedException('Invalid refresh token');
+            }
+            const newPayload = {
+                email: user.email,
+                sub: user.id,
+                role: user.role,
+            };
+            const tokens = await this.jwtManagementService.refreshAccessToken(refreshToken);
+            await this.usersService['userRepository'].update(user.id, {
+                refreshToken: tokens.refreshToken,
+            });
+            return {
+                accessToken: tokens.accessToken,
+                refreshToken: tokens.refreshToken,
+                expiresIn: 3600,
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                },
+            };
+        }
+        catch (error) {
+            throw new common_1.UnauthorizedException('Invalid or expired refresh token');
+        }
+    }
 };
 exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [users_service_1.UsersService,
-        jwt_1.JwtService])
+        jwt_1.JwtService,
+        jwt_service_1.JwtManagementService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

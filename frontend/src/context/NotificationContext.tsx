@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
 
 export type NotificationType = 'info' | 'success' | 'error';
 
@@ -22,6 +22,7 @@ interface NotificationContextProps {
 
 const NotificationContext = createContext<NotificationContextProps | undefined>(undefined);
 
+/* eslint-disable react-refresh/only-export-components */
 export const useNotifications = () => {
     const context = useContext(NotificationContext);
     if (!context) throw new Error('useNotifications must be used within NotificationProvider');
@@ -30,7 +31,6 @@ export const useNotifications = () => {
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [notifications, setNotifications] = useState<Notification[]>([]);
-    const [socket, setSocket] = useState<Socket | null>(null);
 
     const fetchNotifications = async () => {
         try {
@@ -63,8 +63,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         newSocket.on('newNotification', (notification: Notification) => {
             setNotifications((prev) => [notification, ...prev]);
         });
-
-        setSocket(newSocket);
 
         return () => {
             newSocket.disconnect();

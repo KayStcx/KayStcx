@@ -26,13 +26,13 @@ function getSystemPreference(): Theme {
  */
 function getInitialTheme(): Theme {
   if (typeof window === 'undefined') return 'dark';
-  
+
   // Check localStorage
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored === 'light' || stored === 'dark') {
     return stored;
   }
-  
+
   // Fall back to system preference
   return getSystemPreference();
 }
@@ -42,7 +42,7 @@ function getInitialTheme(): Theme {
  */
 function applyTheme(theme: Theme) {
   if (typeof document === 'undefined') return;
-  
+
   const root = document.documentElement;
   if (theme === 'dark') {
     root.classList.add('dark');
@@ -62,7 +62,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // Listen to system preference changes
   useEffect(() => {
     const mediaQuery = window.matchMedia(MEDIA_QUERY);
-    
+
     const handleChange = (e: MediaQueryListEvent) => {
       const storedTheme = localStorage.getItem(STORAGE_KEY);
       // Only apply system change if user hasn't explicitly set a preference
@@ -92,6 +92,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+/* eslint-disable react-refresh/only-export-components */
 /**
  * Hook to use theme context
  */

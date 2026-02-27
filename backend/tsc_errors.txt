@@ -1,0 +1,160 @@
+src/certificate/certificate.controller.spec.ts(2,10): error TS2724: '"./certificate.controller"' has no exported member named 'CertificateController'. Did you mean 'CertificateStatsController'?
+src/certificate/certificate.controller.ts(37,17): error TS2339: Property 'certificateService' does not exist on type 'CertificateStatsController'.
+src/certificate/certificate.module.ts(8,10): error TS2724: '"./certificate.controller"' has no exported member named 'CertificateController'. Did you mean 'CertificateStatsController'?
+src/certificate/jobs/jobs.service.spec.ts(2,29): error TS2307: Cannot find module './jobs.service' or its corresponding type declarations.
+src/certificate/jobs/services/jobs.processor.ts(7,26): error TS1272: A type referenced in a decorated signature must be imported with 'import type' or a namespace import when 'isolatedModules' and 'emitDecoratorMetadata' are enabled.
+src/certificate/jobs/services/jobs.processor.ts(13,24): error TS1272: A type referenced in a decorated signature must be imported with 'import type' or a namespace import when 'isolatedModules' and 'emitDecoratorMetadata' are enabled.
+src/certificate/jobs/services/jobs.processor.ts(19,31): error TS1272: A type referenced in a decorated signature must be imported with 'import type' or a namespace import when 'isolatedModules' and 'emitDecoratorMetadata' are enabled.
+src/certificate/jobs/services/jobs.processor.ts(31,42): error TS2307: Cannot find module '../../entities/certificate.entity' or its corresponding type declarations.
+src/certificate/jobs/services/jobs.processor.ts(75,24): error TS2307: Cannot find module '../../../modules/webhooks/webhooks.service' or its corresponding type declarations.
+src/certificate/jobs/services/jobs.processor.ts(77,24): error TS2307: Cannot find module '../../../modules/webhooks/entities/webhook-subscription.entity' or its corresponding type declarations.
+src/certificate/jobs/services/jobs.processor.ts(81,15): error TS18046: 'webhooksService' is of type 'unknown'.
+src/certificate/jobs/services/jobs.service.ts(7,66): error TS1272: A type referenced in a decorated signature must be imported with 'import type' or a namespace import when 'isolatedModules' and 'emitDecoratorMetadata' are enabled.
+src/certificate/quota/quota-service.spec.ts(2,30): error TS2307: Cannot find module './quota.service' or its corresponding type declarations.
+src/certificate/quota/services/quota.service.ts(6,40): error TS2307: Cannot find module '../../common/exceptions/quota-exceeded.exception' or its corresponding type declarations.
+src/certificate/quota/services/quota.service.ts(30,10): error TS18047: 'quota' is possibly 'null'.
+src/certificate/quota/services/quota.service.ts(31,32): error TS18047: 'quota' is possibly 'null'.
+src/certificate/quota/services/quota.service.ts(34,32): error TS18047: 'quota' is possibly 'null'.
+src/certificate/quota/services/quota.service.ts(42,33): error TS18047: 'quota' is possibly 'null'.
+src/certificate/quota/services/quota.service.ts(42,55): error TS18047: 'quota' is possibly 'null'.
+src/certificate/quota/services/quota.service.ts(44,72): error TS18047: 'quota' is possibly 'null'.
+src/modules/audit/controllers/audit.controller.spec.ts(56,55): error TS2345: Argument of type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to parameter of type '{ data: AuditLog[]; total: number; } | Promise<{ data: AuditLog[]; total: number; }>'.
+  Type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to type '{ data: AuditLog[]; total: number; }'.
+    Types of property 'data' are incompatible.
+      Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]' is not assignable to type 'AuditLog[]'.
+        Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }' is not assignable to type 'AuditLog'.
+          Types of property 'changes' are incompatible.
+            Type 'null' is not assignable to type '{ before?: any; after?: any; }'.
+src/modules/audit/controllers/audit.controller.spec.ts(66,55): error TS2345: Argument of type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to parameter of type '{ data: AuditLog[]; total: number; } | Promise<{ data: AuditLog[]; total: number; }>'.
+  Type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to type '{ data: AuditLog[]; total: number; }'.
+    Types of property 'data' are incompatible.
+      Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]' is not assignable to type 'AuditLog[]'.
+        Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }' is not assignable to type 'AuditLog'.
+          Types of property 'changes' are incompatible.
+            Type 'null' is not assignable to type '{ before?: any; after?: any; }'.
+src/modules/audit/controllers/audit.controller.spec.ts(77,55): error TS2345: Argument of type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to parameter of type '{ data: AuditLog[]; total: number; } | Promise<{ data: AuditLog[]; total: number; }>'.
+  Type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to type '{ data: AuditLog[]; total: number; }'.
+    Types of property 'data' are incompatible.
+      Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]' is not assignable to type 'AuditLog[]'.
+        Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }' is not assignable to type 'AuditLog'.
+          Types of property 'changes' are incompatible.
+            Type 'null' is not assignable to type '{ before?: any; after?: any; }'.
+src/modules/audit/controllers/audit.controller.spec.ts(88,55): error TS2345: Argument of type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to parameter of type '{ data: AuditLog[]; total: number; } | Promise<{ data: AuditLog[]; total: number; }>'.
+  Type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to type '{ data: AuditLog[]; total: number; }'.
+    Types of property 'data' are incompatible.
+      Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]' is not assignable to type 'AuditLog[]'.
+        Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }' is not assignable to type 'AuditLog'.
+          Types of property 'changes' are incompatible.
+            Type 'null' is not assignable to type '{ before?: any; after?: any; }'.
+src/modules/audit/controllers/audit.controller.spec.ts(99,55): error TS2345: Argument of type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to parameter of type '{ data: AuditLog[]; total: number; } | Promise<{ data: AuditLog[]; total: number; }>'.
+  Type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to type '{ data: AuditLog[]; total: number; }'.
+    Types of property 'data' are incompatible.
+      Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]' is not assignable to type 'AuditLog[]'.
+        Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }' is not assignable to type 'AuditLog'.
+          Types of property 'changes' are incompatible.
+            Type 'null' is not assignable to type '{ before?: any; after?: any; }'.
+src/modules/audit/controllers/audit.controller.spec.ts(224,29): error TS2322: Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }' is not assignable to type 'AuditLog'.
+  Types of property 'changes' are incompatible.
+    Type 'null' is not assignable to type '{ before?: any; after?: any; }'.
+src/modules/audit/controllers/audit.controller.spec.ts(238,29): error TS2322: Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }' is not assignable to type 'AuditLog'.
+  Types of property 'changes' are incompatible.
+    Type 'null' is not assignable to type '{ before?: any; after?: any; }'.
+src/modules/audit/middleware/audit-context.middleware.spec.ts(35,9): error TS2322: Type 'Mock<"Mozilla/5.0" | null, [header: string], any>' is not assignable to type '{ (name: "set-cookie"): string[] | undefined; (name: string): string | undefined; }'.
+  Type '"Mozilla/5.0" | null' is not assignable to type 'string[] | undefined'.
+    Type 'null' is not assignable to type 'string[] | undefined'.
+src/modules/audit/middleware/audit-context.middleware.spec.ts(48,9): error TS2322: Type 'Mock<void, [event: string, callback: Function], any>' is not assignable to type '{ (event: "close", listener: () => void): Response<any, Record<string, any>>; (event: "drain", listener: () => void): Response<any, Record<string, any>>; (event: "error", listener: (err: Error) => void): Response<...>; (event: "finish", listener: () => void): Response<...>; (event: "pipe", listener: (src: Readable) ...'.
+  Type 'void' is not assignable to type 'Response<any, Record<string, any>>'.
+src/modules/auth/auth.controller.ts(9,30): error TS2307: Cannot find module '../common/guards/jwt-auth.guard' or its corresponding type declarations.
+src/modules/auth/services/jwt.service.ts(1,30): error TS2305: Module '"@nestjs/common"' has no exported member 'CACHE_MANAGER'.
+src/modules/auth/services/jwt.service.ts(18,50): error TS1272: A type referenced in a decorated signature must be imported with 'import type' or a namespace import when 'isolatedModules' and 'emitDecoratorMetadata' are enabled.
+src/modules/auth/services/jwt.service.ts(26,32): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(payload: string, options?: Omit<JwtSignOptions, keyof SignOptions> | undefined): Promise<string>', gave the following error.
+    Argument of type 'JwtPayload' is not assignable to parameter of type 'string'.
+  Overload 2 of 3, '(payload: Buffer<ArrayBufferLike>, options?: JwtSignOptions | undefined): Promise<string>', gave the following error.
+    Argument of type 'JwtPayload' is not assignable to parameter of type 'Buffer<ArrayBufferLike>'.
+      Type 'JwtPayload' is missing the following properties from type 'Buffer<ArrayBufferLike>': slice, subarray, write, toJSON, and 102 more.
+  Overload 3 of 3, '(payload: JwtPayload, options?: JwtSignOptions | undefined): Promise<string>', gave the following error.
+    Type 'string' is not assignable to type 'number | StringValue | undefined'.
+src/modules/auth/services/jwt.service.ts(34,32): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(payload: string, options?: Omit<JwtSignOptions, keyof SignOptions> | undefined): Promise<string>', gave the following error.
+    Argument of type 'JwtPayload' is not assignable to parameter of type 'string'.
+  Overload 2 of 3, '(payload: Buffer<ArrayBufferLike>, options?: JwtSignOptions | undefined): Promise<string>', gave the following error.
+    Argument of type 'JwtPayload' is not assignable to parameter of type 'Buffer<ArrayBufferLike>'.
+      Type 'JwtPayload' is missing the following properties from type 'Buffer<ArrayBufferLike>': slice, subarray, write, toJSON, and 102 more.
+  Overload 3 of 3, '(payload: JwtPayload, options?: JwtSignOptions | undefined): Promise<string>', gave the following error.
+    Type 'string' is not assignable to type 'number | StringValue | undefined'.
+src/modules/certificates/certificates-revocation.service.ts(38,44): error TS2339: Property 'issuerId' does not exist on type 'Certificate'.
+src/modules/certificates/certificates-revocation.service.ts(47,23): error TS2339: Property 'status' does not exist on type 'Certificate'.
+src/modules/certificates/certificates-revocation.service.ts(60,19): error TS2339: Property 'status' does not exist on type 'Certificate'.
+src/modules/certificates/certificates-revocation.service.ts(61,19): error TS2339: Property 'metadata' does not exist on type 'Certificate'.
+src/modules/certificates/certificates-revocation.service.ts(62,24): error TS2339: Property 'metadata' does not exist on type 'Certificate'.
+src/modules/certificates/certificates-revocation.service.ts(74,93): error TS2339: Property 'issuerId' does not exist on type 'Certificate'.
+src/modules/certificates/certificates-revocation.service.ts(77,36): error TS2339: Property 'recipientName' does not exist on type 'Certificate'.
+src/modules/certificates/certificates-revocation.service.ts(79,31): error TS2339: Property 'issuerId' does not exist on type 'Certificate'.
+src/modules/certificates/certificates-revocation.service.ts(155,23): error TS2339: Property 'status' does not exist on type 'Certificate'.
+src/modules/certificates/certificates-verification.service.ts(42,22): error TS2353: Object literal may only specify known properties, and 'verificationCode' does not exist in type 'FindOptionsWhere<Certificate> | FindOptionsWhere<Certificate>[]'.
+src/modules/certificates/certificates-verification.service.ts(56,32): error TS2339: Property 'status' does not exist on type 'Certificate'.
+src/modules/certificates/certificates-verification.service.ts(92,38): error TS2339: Property 'recipientName' does not exist on type 'Certificate'.
+src/modules/certificates/certificates-verification.service.ts(94,33): error TS2339: Property 'issuerId' does not exist on type 'Certificate'.
+src/modules/certificates/certificates-verification.service.ts(97,31): error TS2339: Property 'status' does not exist on type 'Certificate'.
+src/modules/export/export.controller.ts(53,38): error TS1272: A type referenced in a decorated signature must be imported with 'import type' or a namespace import when 'isolatedModules' and 'emitDecoratorMetadata' are enabled.
+src/modules/export/export.service.ts(17,35): error TS1272: A type referenced in a decorated signature must be imported with 'import type' or a namespace import when 'isolatedModules' and 'emitDecoratorMetadata' are enabled.
+src/modules/export/processors/export.processor.ts(34,29): error TS1272: A type referenced in a decorated signature must be imported with 'import type' or a namespace import when 'isolatedModules' and 'emitDecoratorMetadata' are enabled.
+src/modules/export/services/pdf.service.ts(8,23): error TS2351: This expression is not constructable.
+  Type '{ default: PDFDocument; version: number; compress: boolean; info: DocumentInfo; options: PDFDocumentOptions; page: PDFPage; x: number; ... 131 more ...; endOutline(): void; }' has no construct signatures.
+src/modules/issuers/issuers.controller.ts(1,10): error TS2300: Duplicate identifier 'Controller'.
+src/modules/issuers/issuers.controller.ts(15,14): error TS2300: Duplicate identifier 'IssuersController'.
+src/modules/issuers/issuers.controller.ts(33,10): error TS2300: Duplicate identifier 'Controller'.
+src/modules/issuers/issuers.controller.ts(36,14): error TS2300: Duplicate identifier 'IssuersController'.
+src/modules/issuers/issuers.module.ts(1,10): error TS2300: Duplicate identifier 'Module'.
+src/modules/issuers/issuers.module.ts(2,10): error TS2300: Duplicate identifier 'TypeOrmModule'.
+src/modules/issuers/issuers.module.ts(3,10): error TS2300: Duplicate identifier 'Issuer'.
+src/modules/issuers/issuers.module.ts(4,10): error TS2300: Duplicate identifier 'IssuersService'.
+src/modules/issuers/issuers.module.ts(5,10): error TS2300: Duplicate identifier 'IssuersController'.
+src/modules/issuers/issuers.module.ts(12,14): error TS2300: Duplicate identifier 'IssuersModule'.
+src/modules/issuers/issuers.module.ts(13,10): error TS2300: Duplicate identifier 'Module'.
+src/modules/issuers/issuers.module.ts(14,10): error TS2300: Duplicate identifier 'TypeOrmModule'.
+src/modules/issuers/issuers.module.ts(15,10): error TS2300: Duplicate identifier 'IssuersService'.
+src/modules/issuers/issuers.module.ts(16,10): error TS2300: Duplicate identifier 'IssuersController'.
+src/modules/issuers/issuers.module.ts(17,10): error TS2300: Duplicate identifier 'Issuer'.
+src/modules/issuers/issuers.module.ts(24,14): error TS2300: Duplicate identifier 'IssuersModule'.
+src/modules/issuers/issuers.service.ts(1,10): error TS2300: Duplicate identifier 'Injectable'.
+src/modules/issuers/issuers.service.ts(9,14): error TS2300: Duplicate identifier 'IssuersService'.
+src/modules/issuers/issuers.service.ts(37,10): error TS2300: Duplicate identifier 'Injectable'.
+src/modules/issuers/issuers.service.ts(40,14): error TS2300: Duplicate identifier 'IssuersService'.
+src/modules/metadata-schema/services/metadata-schema.service.spec.ts(54,5): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/modules/metadata-schema/services/metadata-schema.service.spec.ts(57,5): error TS2322: Type 'string[] | undefined' is not assignable to type 'string[]'.
+  Type 'undefined' is not assignable to type 'string[]'.
+src/modules/metadata-schema/services/metadata-schema.service.spec.ts(59,5): error TS2322: Type 'null' is not assignable to type 'string'.
+src/modules/metadata-schema/services/metadata-schema.service.spec.ts(61,5): error TS2322: Type 'null' is not assignable to type 'string'.
+src/modules/multisig/multisig.service.ts(4,3): error TS2724: '"@stellar/stellar-sdk"' has no exported member named 'SorobanRpc'. Did you mean 'Soroban'?
+src/modules/multisig/multisig.service.ts(192,23): error TS2339: Property 'scvSome' does not exist on type 'typeof ScVal'.
+src/modules/multisig/multisig.service.ts(197,23): error TS2339: Property 'scvSome' does not exist on type 'typeof ScVal'.
+src/modules/multisig/multisig.service.ts(206,23): error TS2339: Property 'scvSome' does not exist on type 'typeof ScVal'.
+src/modules/multisig/multisig.service.ts(392,21): error TS2339: Property 'scvSome' does not exist on type 'typeof ScVal'.
+src/modules/search/providers/elasticsearch.provider.ts(1,24): error TS2307: Cannot find module '@elastic/elasticsearch' or its corresponding type declarations.
+src/modules/search/reindex.service.ts(44,27): error TS2339: Property 'recipientName' does not exist on type 'Certificate'.
+src/modules/search/reindex.service.ts(44,49): error TS2339: Property 'recipient' does not exist on type 'Certificate'.
+src/modules/search/reindex.service.ts(45,51): error TS2339: Property 'recipient' does not exist on type 'Certificate'.
+src/modules/search/reindex.service.ts(46,24): error TS2339: Property 'issuer' does not exist on type 'Certificate'.
+src/modules/search/reindex.service.ts(47,22): error TS2339: Property 'issuerId' does not exist on type 'Certificate'.
+src/modules/search/reindex.service.ts(47,39): error TS2339: Property 'issuer' does not exist on type 'Certificate'.
+src/modules/search/reindex.service.ts(50,20): error TS2339: Property 'status' does not exist on type 'Certificate'.
+src/modules/search/search.service.ts(2,24): error TS2307: Cannot find module '@elastic/elasticsearch' or its corresponding type declarations.
+src/modules/webhooks/webhooks.processor.ts(23,31): error TS1272: A type referenced in a decorated signature must be imported with 'import type' or a namespace import when 'isolatedModules' and 'emitDecoratorMetadata' are enabled.
+src/modules/webhooks/webhooks.processor.ts(71,27): error TS18048: 'job.opts.attempts' is possibly 'undefined'.
+test/versioning.e2e-spec.ts(31,14): error TS2349: This expression is not callable.
+  Type '{ default: SuperTestStatic; Test: typeof Test; agent: typeof TestAgent & ((app?: App | undefined, options?: AgentOptions | undefined) => TestAgent<...>); }' has no call signatures.
+test/versioning.e2e-spec.ts(44,14): error TS2349: This expression is not callable.
+  Type '{ default: SuperTestStatic; Test: typeof Test; agent: typeof TestAgent & ((app?: App | undefined, options?: AgentOptions | undefined) => TestAgent<...>); }' has no call signatures.
+test/versioning.e2e-spec.ts(62,14): error TS2349: This expression is not callable.
+  Type '{ default: SuperTestStatic; Test: typeof Test; agent: typeof TestAgent & ((app?: App | undefined, options?: AgentOptions | undefined) => TestAgent<...>); }' has no call signatures.
+test/versioning.e2e-spec.ts(78,14): error TS2349: This expression is not callable.
+  Type '{ default: SuperTestStatic; Test: typeof Test; agent: typeof TestAgent & ((app?: App | undefined, options?: AgentOptions | undefined) => TestAgent<...>); }' has no call signatures.
+test/versioning.e2e-spec.ts(89,14): error TS2349: This expression is not callable.
+  Type '{ default: SuperTestStatic; Test: typeof Test; agent: typeof TestAgent & ((app?: App | undefined, options?: AgentOptions | undefined) => TestAgent<...>); }' has no call signatures.
+test/versioning.e2e-spec.ts(98,31): error TS2349: This expression is not callable.
+  Type '{ default: SuperTestStatic; Test: typeof Test; agent: typeof TestAgent & ((app?: App | undefined, options?: AgentOptions | undefined) => TestAgent<...>); }' has no call signatures.
+test/versioning.e2e-spec.ts(99,31): error TS2349: This expression is not callable.
+  Type '{ default: SuperTestStatic; Test: typeof Test; agent: typeof TestAgent & ((app?: App | undefined, options?: AgentOptions | undefined) => TestAgent<...>); }' has no call signatures.

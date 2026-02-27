@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bell, CheckCircle, AlertTriangle, Info, Check } from 'lucide-react';
-import { useNotifications, Notification } from '../context/NotificationContext';
+import { useNotifications } from '../context/NotificationContext';
 
 export default function NotificationDropdown() {
     const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();

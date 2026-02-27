@@ -2,7 +2,6 @@ import {
   ExceptionFilter,
   Catch,
   ArgumentsHost,
-  Logger,
   HttpException,
   BadRequestException,
 } from '@nestjs/common';
@@ -11,23 +10,38 @@ import { SentryService } from '../monitoring/sentry.service';
 import { LoggingService } from '../logging/logging.service';
 import { AppException } from './exceptions';
 
+interface ErrorResponse {
+  errorCode: string;
+  message: string;
+  timestamp: string;
+  path: string;
+  method: string;
+  correlationId?: string;
+  details?: unknown;
+  stack?: string;
+}
+
+interface RequestWithContext extends Request {
+  context?: {
+    correlationId?: string;
+  };
+}
+
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
-  private readonly logger = new Logger(GlobalExceptionFilter.name);
-
   constructor(
     private sentryService: SentryService,
     private loggingService: LoggingService,
   ) {}
 
-  catch(exception: any, host: ArgumentsHost) {
+  catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
-    const context = (request as any).context;
+    const request = ctx.getRequest<RequestWithContext>();
+    const context = request.context;
 
     let statusCode = 500;
-    let errorResponse: any = {
+    let errorResponse: ErrorResponse = {
       errorCode: 'INTERNAL_SERVER_ERROR',
       message: 'Internal server error',
       timestamp: new Date().toISOString(),
@@ -41,10 +55,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     // Handle custom AppException
     if (exception instanceof AppException) {
-      const appException = exception.getResponse() as any;
+      const appException = exception.getResponse() as Record<string, unknown>;
       statusCode = exception.getStatus();
       errorResponse = {
-        ...appException,
+        ...errorResponse,
+        ...(appException as unknown as Partial<ErrorResponse>),
         path: request.url,
         method: request.method,
       };
@@ -55,10 +70,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     // Handle BadRequestException with validation errors
     else if (exception instanceof BadRequestException) {
       statusCode = 400;
-      const exceptionResponse = exception.getResponse() as any;
+      const exceptionResponse = exception.getResponse() as Record<
+        string,
+        unknown
+      >;
       errorResponse = {
         errorCode: 'VALIDATION_ERROR',
-        message: exceptionResponse.message || 'Validation failed',
+        message: (exceptionResponse.message as string) || 'Validation failed',
         details: exceptionResponse.message,
         timestamp: new Date().toISOString(),
         path: request.url,
@@ -101,9 +119,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     // Log error
     const logMessage = `${request.method} ${request.url} - ${statusCode}`;
+    const error =
+      exception instanceof Error ? exception : new Error(String(exception));
+
     if (statusCode >= 500) {
-      this.loggingService.error(logMessage, exception, context);
-      this.sentryService.captureException(exception, {
+      this.loggingService.error(logMessage, error, context);
+      this.sentryService.captureException(error, {
         url: request.url,
         method: request.method,
         statusCode,

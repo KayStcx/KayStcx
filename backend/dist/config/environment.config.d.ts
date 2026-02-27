@@ -1,3 +1,5 @@
+export declare const CERTIFICATE_EXPIRY_WINDOW_DAYS: string;
+export declare const STELLAR_SEQUENCE_THRESHOLD: string;
 declare enum Environment {
     Development = "development",
     Production = "production",

@@ -39,7 +39,8 @@ export class CorrelationIdMiddleware implements NestMiddleware {
     // Hook into response to log completion
     const originalSend = res.send;
     res.send = function (data: any) {
-      this.loggingService.log(
+      const loggingService = this.loggingService;
+      loggingService.log(
         `${req.method} ${req.path} - Response sent with status ${res.statusCode}`,
         context,
       );

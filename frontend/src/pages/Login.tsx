@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { LogIn, UserPlus, Shield } from "lucide-react";
-import { authApi } from "../api";
+import { authApi, UserRole } from "../api";
 
 const Login = () => {
     const navigate = useNavigate();
@@ -14,13 +14,13 @@ const Login = () => {
         password: string;
         firstName: string;
         lastName: string;
-        role: "issuer" | "verifier" | "user";
+        role: UserRole;
     }>({
         email: "",
         password: "",
         firstName: "",
         lastName: "",
-        role: "user",
+        role: UserRole.RECIPIENT,
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -31,7 +31,7 @@ const Login = () => {
         try {
             if (!isLogin) {
                 // Register first if in sign-up mode
-                const response = await authApi.register({
+                await authApi.register({
                     firstName: formData.firstName,
                     lastName: formData.lastName,
                     role: formData.role,
@@ -55,8 +55,8 @@ const Login = () => {
                 // Redirect to dashboard or home page
                 navigate("/");
             }
-        } catch (err: any) {
-            setError(err.message || "Authentication failed.");
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "Authentication failed.");
         } finally {
             setLoading(false);
         }
@@ -149,15 +149,15 @@ const Login = () => {
                                 onChange={(e) =>
                                     setFormData({
                                         ...formData,
-                                        role: e.target.value as "issuer" | "verifier" | "user",
+                                        role: e.target.value as UserRole,
                                     })
                                 }
                                 className="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
                                 required
                             >
-                                <option value="user">Certificate Holder</option>
-                                <option value="issuer">Certificate Issuer</option>
-                                <option value="verifier">Certificate Verifier</option>
+                                <option value={UserRole.RECIPIENT}>Certificate Holder</option>
+                                <option value={UserRole.ISSUER}>Certificate Issuer</option>
+                                <option value={UserRole.VERIFIER}>Certificate Verifier</option>
                             </select>
                         </div>
                     )}

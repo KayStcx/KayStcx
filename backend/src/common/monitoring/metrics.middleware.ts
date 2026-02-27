@@ -17,18 +17,14 @@ export class MetricsMiddleware implements NestMiddleware {
     res.send = function (data: any) {
       const duration = (Date.now() - startTime) / 1000; // Convert to seconds
       const status = res.statusCode;
-      const route = this.metricsService.normalizeRoute(path);
+      const metricsService = this.metricsService;
+      const route = metricsService.normalizeRoute(path);
 
       // Record metrics
-      this.metricsService.recordHttpRequestDuration(
-        method,
-        route,
-        status,
-        duration,
-      );
+      metricsService.recordHttpRequestDuration(method, route, status, duration);
 
       if (status >= 400) {
-        this.metricsService.recordHttpError(method, route, status);
+        metricsService.recordHttpError(method, route, status);
       }
 
       return originalSend.call(this, data);

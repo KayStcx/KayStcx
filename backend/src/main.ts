@@ -8,13 +8,10 @@ import { LoggingService } from './common/logging/logging.service';
 import { MonitoringInterceptor } from './common/monitoring/monitoring.interceptor';
 import { MetricsService } from './common/monitoring/metrics.service';
 import { VersioningType } from '@nestjs/common';
-import * as Sentry from '@sentry/node';
-import * as cors from 'cors';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Initialize Sentry before anything else
   const sentryService = app.get(SentryService);
   const loggingService = app.get(LoggingService);
   const metricsService = app.get(MetricsService);
@@ -42,12 +39,6 @@ async function bootstrap() {
     new GlobalExceptionFilter(sentryService, loggingService),
   );
 
-  // Initialize Sentry request handler
-  if (sentryService.isInitialized()) {
-    // app.use(Sentry.Handlers.requestHandler());
-    // app.use(Sentry.Handlers.tracingHandler());
-  }
-
   // Add global monitoring interceptor
   app.useGlobalInterceptors(
     new MonitoringInterceptor(metricsService, sentryService, loggingService),
@@ -63,15 +54,9 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  // Initialize Sentry error handler
-  if (sentryService.isInitialized()) {
-    // app.use(Sentry.Handlers.errorHandler());
-  }
-
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
 
   loggingService.log(`Application started on port ${port}`);
 }
-bootstrap();
 bootstrap();

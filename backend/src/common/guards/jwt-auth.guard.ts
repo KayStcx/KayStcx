@@ -4,6 +4,12 @@ import { PUBLIC_KEY } from '../decorators/public.decorator';
 import { Reflector } from '@nestjs/core';
 import { AuthException } from '../exceptions';
 import { ErrorCode } from '../constants/error-codes';
+import { Request } from 'express';
+import { User } from '../../modules/users/entities/user.entity';
+
+interface RequestWithUser extends Request {
+  user: User;
+}
 
 /**
  * JWT Authentication Guard
@@ -27,7 +33,7 @@ export class JwtAuthGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<RequestWithUser>();
     const token = this.extractTokenFromHeader(request);
 
     if (!token) {
@@ -41,9 +47,9 @@ export class JwtAuthGuard implements CanActivate {
       const payload = this.jwtService.verify(token, {
         secret: process.env.JWT_SECRET || 'your-secret-key',
       });
-      request.user = payload;
-    } catch (error) {
-      if (error.name === 'TokenExpiredError') {
+      request.user = payload as User;
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'TokenExpiredError') {
         throw new AuthException(ErrorCode.TOKEN_EXPIRED, 'Token has expired');
       }
       throw new AuthException(ErrorCode.TOKEN_INVALID, 'Invalid token');
@@ -52,7 +58,7 @@ export class JwtAuthGuard implements CanActivate {
     return true;
   }
 
-  private extractTokenFromHeader(request: any): string | undefined {
+  private extractTokenFromHeader(request: Request): string | undefined {
     const authHeader = request.headers.authorization;
     if (!authHeader) {
       return undefined;

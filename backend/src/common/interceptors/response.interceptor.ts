@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { Request } from 'express';
+import { Request, Response as ExpressResponse } from 'express';
 
 export interface ApiResponse<T> {
   statusCode: number;
@@ -15,6 +15,12 @@ export interface ApiResponse<T> {
   timestamp: string;
   path: string;
   correlationId?: string;
+}
+
+interface RequestWithContext extends Request {
+  context?: {
+    correlationId?: string;
+  };
 }
 
 /**
@@ -30,16 +36,15 @@ export class ResponseInterceptor<T> implements NestInterceptor<
     context: ExecutionContext,
     next: CallHandler<T>,
   ): Observable<ApiResponse<T>> {
-    const request = context.switchToHttp().getRequest<Request>();
-    const { method, url } = request;
-    const context_obj = (request as any).context;
+    const request = context.switchToHttp().getRequest<RequestWithContext>();
+    const response = context.switchToHttp().getResponse<ExpressResponse>();
+    const { url } = request;
+    const context_obj = request.context;
 
     return next.handle().pipe(
       map((data) => ({
-        statusCode: context.switchToHttp().getResponse().statusCode || 200,
-        message: this.getStatusMessage(
-          context.switchToHttp().getResponse().statusCode || 200,
-        ),
+        statusCode: response.statusCode || 200,
+        message: this.getStatusMessage(response.statusCode || 200),
         data,
         timestamp: new Date().toISOString(),
         path: url,

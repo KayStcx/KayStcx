@@ -4,6 +4,11 @@ import { ROLES_KEY } from '../decorators/roles.decorator';
 import { AuthException } from '../exceptions';
 import { ErrorCode } from '../constants/error-codes';
 import { ROLE_HIERARCHY, UserRole } from '../constants/roles';
+import { User } from '../../modules/users/entities/user.entity';
+
+interface RequestWithUser extends Request {
+  user: User;
+}
 
 /**
  * Role-based Access Control Guard
@@ -23,7 +28,7 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<RequestWithUser>();
     const user = request.user;
 
     if (!user) {
@@ -33,7 +38,7 @@ export class RolesGuard implements CanActivate {
       );
     }
 
-    const userRole = user.role as UserRole;
+    const userRole = user.role;
 
     if (!userRole) {
       throw new AuthException(ErrorCode.UNAUTHORIZED, 'User role not found');

@@ -4,7 +4,6 @@ import {
   ArgumentsHost,
   HttpException,
   Logger,
-  Inject,
   Optional,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
@@ -37,7 +36,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
       path: request.url,
       method: request.method,
       message: exception.message,
-      ...(context && { correlationId: context.correlationId }),
+      ...(context &&
+        typeof context === 'object' &&
+        'correlationId' in context && {
+          correlationId: context.correlationId,
+        }),
     };
 
     // Log error

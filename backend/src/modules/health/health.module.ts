@@ -7,11 +7,18 @@ import { DatabaseHealthIndicator } from './indicators/database.health';
 import { StellarHealthIndicator } from './indicators/stellar.health';
 import { MetricsService } from '../../common/monitoring/metrics.service';
 import { CommonModule } from '../../common/common.module';
+import { ConfigModule } from '@nestjs/config';
+import { StellarService } from '../../common/services/stellar.service';
 
 @Module({
-  imports: [TerminusModule, CommonModule],
+  imports: [TerminusModule, CommonModule, ConfigModule],
   controllers: [HealthController, MetricsController, RateLimitController],
-  providers: [DatabaseHealthIndicator, StellarHealthIndicator, MetricsService],
+  providers: [
+    DatabaseHealthIndicator,
+    StellarHealthIndicator,
+    MetricsService,
+    StellarService,
+  ],
   exports: [MetricsService],
 })
 export class HealthModule {}

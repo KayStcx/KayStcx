@@ -2,15 +2,12 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
 /**
  * Decorator to inject the current authenticated user from the request
- *
- * @example
- * getProfile(@CurrentUser() user: any) {
- *   console.log(user.id);
- * }
  */
 export const CurrentUser = createParamDecorator(
   (data: string | undefined, ctx: ExecutionContext) => {
-    const request = ctx.switchToHttp().getRequest();
+    const request = ctx
+      .switchToHttp()
+      .getRequest<{ user?: Record<string, unknown> }>();
     const user = request.user;
 
     if (!user) {

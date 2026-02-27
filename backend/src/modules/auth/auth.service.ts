@@ -112,7 +112,9 @@ export class AuthService {
     }
 
     // Optionally invalidate the refresh token stored in the database
-    await this.usersService['userRepository'].update(user.id, { refreshToken: undefined });
+    await this.usersService['userRepository'].update(user.id, {
+      refreshToken: undefined,
+    });
 
     return {
       message: 'Successfully logged out',
@@ -123,7 +125,8 @@ export class AuthService {
   async refreshTokens(refreshToken: string): Promise<AuthResponseDto> {
     try {
       // Verify the refresh token
-      const payload = await this.jwtManagementService.verifyRefreshToken(refreshToken);
+      const payload =
+        await this.jwtManagementService.verifyRefreshToken(refreshToken);
 
       // Check if user still exists and is active
       const user = await this.usersService.findOneById(payload.sub);
@@ -137,16 +140,19 @@ export class AuthService {
       }
 
       // Generate new tokens
-      const newPayload = { 
-        email: user.email, 
-        sub: user.id, 
-        role: user.role 
+      const newPayload = {
+        email: user.email,
+        sub: user.id,
+        role: user.role,
       };
-      
-      const tokens = await this.jwtManagementService.refreshAccessToken(refreshToken);
-      
+
+      const tokens =
+        await this.jwtManagementService.refreshAccessToken(refreshToken);
+
       // Update the refresh token in the database
-      await this.usersService['userRepository'].update(user.id, { refreshToken: tokens.refreshToken });
+      await this.usersService['userRepository'].update(user.id, {
+        refreshToken: tokens.refreshToken,
+      });
 
       return {
         accessToken: tokens.accessToken,

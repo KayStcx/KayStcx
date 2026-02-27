@@ -1,7 +1,3 @@
-export const CERTIFICATE_EXPIRY_WINDOW_DAYS =
-  process.env.CERTIFICATE_EXPIRY_WINDOW_DAYS || '0';
-export const STELLAR_SEQUENCE_THRESHOLD =
-  process.env.STELLAR_SEQUENCE_THRESHOLD || '';
 import { plainToClass } from 'class-transformer';
 import {
   IsEnum,
@@ -11,6 +7,11 @@ import {
   IsOptional,
   IsBoolean,
 } from 'class-validator';
+
+export const CERTIFICATE_EXPIRY_WINDOW_DAYS =
+  process.env.CERTIFICATE_EXPIRY_WINDOW_DAYS || '0';
+export const STELLAR_SEQUENCE_THRESHOLD =
+  process.env.STELLAR_SEQUENCE_THRESHOLD || '';
 
 enum Environment {
   Development = 'development',
@@ -132,25 +133,25 @@ export function validateEnv(): EnvironmentVariables {
   const validatedEnv = plainToClass(
     EnvironmentVariables,
     {
-      NODE_ENV: process.env.NODE_ENV,
-      PORT: process.env.PORT,
-      DB_HOST: process.env.DB_HOST,
-      DB_PORT: process.env.DB_PORT,
-      DB_USERNAME: process.env.DB_USERNAME,
-      DB_PASSWORD: process.env.DB_PASSWORD,
-      DB_NAME: process.env.DB_NAME,
-      JWT_SECRET: process.env.JWT_SECRET,
-      JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN,
-      STELLAR_NETWORK: process.env.STELLAR_NETWORK,
-      STELLAR_HORIZON_URL: process.env.STELLAR_HORIZON_URL,
-      STELLAR_ISSUER_SECRET_KEY: process.env.STELLAR_ISSUER_SECRET_KEY,
-      STELLAR_ISSUER_PUBLIC_KEY: process.env.STELLAR_ISSUER_PUBLIC_KEY,
-      ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS,
+      NODE_ENV: process.env.NODE_ENV || 'development',
+      PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 3000,
+      DB_HOST: process.env.DB_HOST || 'localhost',
+      DB_PORT: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 5432,
+      DB_USERNAME: process.env.DB_USERNAME || 'postgres',
+      DB_PASSWORD: process.env.DB_PASSWORD || 'password',
+      DB_NAME: process.env.DB_NAME || 'kaystcx',
+      JWT_SECRET: process.env.JWT_SECRET || 'your-secret-key',
+      JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '24h',
+      STELLAR_NETWORK: process.env.STELLAR_NETWORK || 'testnet',
+      STELLAR_HORIZON_URL: process.env.STELLAR_HORIZON_URL || 'https://horizon-testnet.stellar.org',
+      STELLAR_ISSUER_SECRET_KEY: process.env.STELLAR_ISSUER_SECRET_KEY || '',
+      STELLAR_ISSUER_PUBLIC_KEY: process.env.STELLAR_ISSUER_PUBLIC_KEY || '',
+      ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || 'http://localhost:5173',
       SENTRY_DSN: process.env.SENTRY_DSN,
       ENABLE_SENTRY: process.env.ENABLE_SENTRY === 'true',
       EMAIL_SERVICE: process.env.EMAIL_SERVICE,
       EMAIL_HOST: process.env.EMAIL_HOST,
-      EMAIL_PORT: process.env.EMAIL_PORT,
+      EMAIL_PORT: process.env.EMAIL_PORT ? parseInt(process.env.EMAIL_PORT, 10) : undefined,
       EMAIL_USERNAME: process.env.EMAIL_USERNAME,
       EMAIL_PASSWORD: process.env.EMAIL_PASSWORD,
       EMAIL_FROM: process.env.EMAIL_FROM,
@@ -161,7 +162,7 @@ export function validateEnv(): EnvironmentVariables {
       STORAGE_ACCESS_KEY: process.env.STORAGE_ACCESS_KEY,
       STORAGE_SECRET_KEY: process.env.STORAGE_SECRET_KEY,
       STORAGE_BUCKET: process.env.STORAGE_BUCKET,
-      AUDIT_RETENTION_DAYS: process.env.AUDIT_RETENTION_DAYS,
+      AUDIT_RETENTION_DAYS: process.env.AUDIT_RETENTION_DAYS ? parseInt(process.env.AUDIT_RETENTION_DAYS, 10) : undefined,
     },
     { enableImplicitConversion: true },
   );

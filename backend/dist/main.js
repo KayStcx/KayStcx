@@ -28,8 +28,6 @@ async function bootstrap() {
     });
     app.useGlobalPipes(new validation_pipe_1.ValidationPipe());
     app.useGlobalFilters(new global_exception_filter_1.GlobalExceptionFilter(sentryService, loggingService));
-    if (sentryService.isInitialized()) {
-    }
     app.useGlobalInterceptors(new monitoring_interceptor_1.MonitoringInterceptor(metricsService, sentryService, loggingService));
     const config = new swagger_1.DocumentBuilder()
         .setTitle('Kaystcx API')
@@ -39,12 +37,9 @@ async function bootstrap() {
         .build();
     const document = swagger_1.SwaggerModule.createDocument(app, config);
     swagger_1.SwaggerModule.setup('api/docs', app, document);
-    if (sentryService.isInitialized()) {
-    }
     const port = process.env.PORT ?? 3000;
     await app.listen(port);
     loggingService.log(`Application started on port ${port}`);
 }
-bootstrap();
 bootstrap();
 //# sourceMappingURL=main.js.map

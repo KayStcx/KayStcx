@@ -37,7 +37,11 @@ let HttpExceptionFilter = HttpExceptionFilter_1 = class HttpExceptionFilter {
             path: request.url,
             method: request.method,
             message: exception.message,
-            ...(context && { correlationId: context.correlationId }),
+            ...(context &&
+                typeof context === 'object' &&
+                'correlationId' in context && {
+                correlationId: context.correlationId,
+            }),
         };
         if (this.loggingService) {
             this.loggingService.error(`${request.method} ${request.url}`, new Error(exception.message), context);

@@ -1,8 +1,6 @@
 import QRCodeModal from "@/components/QRCodeModal";
 import QRScannerModal from "@/components/QRScannerModal";
 import { useState } from "react";
-// import QRCodeModal from "@/components/QRCodeModal";
-// import QRScannerModal from "@/components/QRScannerModal";
 
 // Example usage / demo page
 export default function CertificateDemoPage() {
@@ -89,7 +87,7 @@ export default function CertificateDemoPage() {
         onClose={() => setQrOpen(false)}
         certificateId={certificate.id}
         certificateName={certificate.name}
-        // baseUrl is optional — defaults to window.location.origin + /verify/{id}
+      // baseUrl is optional — defaults to window.location.origin + /verify/{id}
       />
 
       {/* QR Scanner Modal */}

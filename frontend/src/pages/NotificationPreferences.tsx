@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Shield, Bell, CheckCircle, AlertTriangle, Info, Save } from 'lucide-react';
+import { Bell, CheckCircle, AlertTriangle, Info, Save } from 'lucide-react';
 
 interface Preferences {
     inAppEnabled: boolean;

@@ -45,7 +45,7 @@ export class MetadataSchema {
   name: string;
 
   @Column({ type: 'text', nullable: true })
-  description: string;
+  description: string | null;
 
   @Column()
   @Index()
@@ -55,20 +55,20 @@ export class MetadataSchema {
   fields: SchemaField[];
 
   @Column({ type: 'jsonb', nullable: true })
-  requiredFields: string[];
+  requiredFields: string[] | null;
 
   @Column({ default: true })
   allowCustomFields: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   @Index()
-  issuerId: string;
+  issuerId: string | null;
 
   @Column({ default: true })
   isActive: boolean;
 
-  @Column({ nullable: true })
-  previousVersionId: string;
+  @Column({ type: 'varchar', nullable: true })
+  previousVersionId: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

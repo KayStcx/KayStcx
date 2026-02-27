@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { certificateApi } from '../api';
+import { findCertBySerialNumber, revokeCertificate } from '../api';
 import { AlertTriangle, Search, ShieldAlert, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 
 interface Certificate {
@@ -33,9 +33,13 @@ function validateReason(reason: string): string | null {
   return null;
 }
 
-function formatApiError(err: any): string {
-  const status = err?.response?.status;
-  const serverMsg = err?.response?.data?.message || err?.message;
+function formatApiError(err: unknown): string {
+  const status = (err && typeof err === 'object' && 'response' in err)
+    ? (err as { response: { status: number } }).response?.status
+    : undefined;
+  const serverMsg = (err && typeof err === 'object' && 'response' in err)
+    ? (err as { response: { data?: { message?: string } } }).response?.data?.message
+    : (err instanceof Error ? err.message : undefined);
 
   if (status === 404) return 'Certificate not found. Please check the serial number and try again.';
   if (status === 409) return 'This certificate has already been revoked.';
@@ -68,13 +72,23 @@ const RevokeCertificate = () => {
     setCertificate(null);
 
     try {
-      const result = await certificateApi.findCertBySerialNumber(serialNumber.trim());
-      if (result.status === 'revoked') {
+      const result = await findCertBySerialNumber(serialNumber.trim());
+      if (result && result.status === 'revoked') {
         setMessage({ type: 'warning', text: 'This certificate has already been revoked.' });
+      } else if (result) {
+        setCertificate({
+          id: result.id,
+          serialNumber: result.serialNumber,
+          recipientName: result.recipientName,
+          courseName: result.courseName,
+          issuerName: result.issuerName,
+          issuedAt: result.issueDate,
+          status: result.status
+        });
       } else {
-        setCertificate(result);
+        setMessage({ type: 'error', text: 'Certificate not found.' });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setMessage({ type: 'error', text: formatApiError(err) });
     } finally {
       setLookupLoading(false);
@@ -99,10 +113,10 @@ const RevokeCertificate = () => {
     setMessage({ type: '', text: '' });
 
     try {
-      await certificateApi.revokeCertificate(certificate!.id, reason.trim());
+      await revokeCertificate(certificate!.id, reason.trim());
       setRevoked(true);
       setMessage({ type: 'success', text: `Certificate for "${certificate?.recipientName}" has been successfully revoked and recorded on the blockchain.` });
-    } catch (err: any) {
+    } catch (err: unknown) {
       setMessage({ type: 'error', text: formatApiError(err) });
     } finally {
       setRevokeLoading(false);
@@ -274,15 +288,15 @@ const RevokeCertificate = () => {
 const MessageBanner = ({ type, text }: { type: Message['type']; text: string }) => {
   const styles = {
     success: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-800 dark:text-green-300',
-    error:   'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300',
+    error: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300',
     warning: 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-300',
-    '':      '',
+    '': '',
   };
   const icons = {
     success: <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />,
-    error:   <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />,
+    error: <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />,
     warning: <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />,
-    '':      null,
+    '': null,
   };
   return (
     <div className={`flex gap-2 border rounded-md px-4 py-3 text-sm ${styles[type ?? '']}`} role="alert">

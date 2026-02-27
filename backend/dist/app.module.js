@@ -15,19 +15,20 @@ const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
 const auth_module_1 = require("./modules/auth/auth.module");
 const users_module_1 = require("./modules/users/users.module");
-const certificates_module_1 = require("./modules/certificates/certificates.module");
 const issuers_module_1 = require("./modules/issuers/issuers.module");
 const health_module_1 = require("./modules/health/health.module");
 const common_module_1 = require("./common/common.module");
 const email_module_1 = require("./modules/email/email.module");
 const typeorm_config_1 = require("./config/typeorm.config");
 const environment_config_1 = require("./config/environment.config");
-const certificate_module_1 = require("./certificate/certificate.module");
+const certificate_module_1 = require("./modules/certificate/certificate.module");
 const stellar_module_1 = require("./modules/stellar/stellar.module");
 const files_module_1 = require("./modules/files/files.module");
 const versioning_module_1 = require("./common/versioning/versioning.module");
 const audit_module_1 = require("./modules/audit/audit.module");
 const webhooks_module_1 = require("./modules/webhooks/webhooks.module");
+const metadata_schema_module_1 = require("./modules/metadata-schema/metadata-schema.module");
+const notifications_module_1 = require("./modules/notifications/notifications.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -60,7 +61,6 @@ exports.AppModule = AppModule = __decorate([
             health_module_1.HealthModule,
             auth_module_1.AuthModule,
             users_module_1.UsersModule,
-            certificates_module_1.CertificatesModule,
             issuers_module_1.IssuersModule,
             certificate_module_1.CertificateModule,
             stellar_module_1.StellarModule,
@@ -68,6 +68,8 @@ exports.AppModule = AppModule = __decorate([
             files_module_1.FilesModule,
             audit_module_1.AuditModule,
             webhooks_module_1.WebhooksModule,
+            metadata_schema_module_1.MetadataSchemaModule,
+            notifications_module_1.NotificationsModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

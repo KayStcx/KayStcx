@@ -36,7 +36,7 @@ describe('AuditContextMiddleware', () => {
           if (header === 'user-agent') return 'Mozilla/5.0';
           if (header === 'x-correlation-id') return null;
           return null;
-        }),
+        }) as any,
         socket: {
           remoteAddress: '127.0.0.1',
         } as any,
@@ -50,7 +50,8 @@ describe('AuditContextMiddleware', () => {
             listeners[event] = [];
           }
           listeners[event].push(callback);
-        }),
+          return null;
+        }) as any,
       };
 
       mockNext = jest.fn();

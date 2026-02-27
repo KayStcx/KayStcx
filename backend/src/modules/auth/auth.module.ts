@@ -6,9 +6,11 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtManagementService } from './services/jwt.service';
 import { UsersModule } from '../users/users.module';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
+    CacheModule.register(),
     PassportModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'default_secret_key_for_dev',

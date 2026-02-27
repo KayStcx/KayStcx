@@ -22,7 +22,7 @@ describe('AuditController', () => {
     resourceData: null,
     changes: null,
     metadata: {},
-    status: 'success',
+    status: 'success' as const,
     errorMessage: null,
     timestamp: Date.now(),
     createdAt: new Date(),

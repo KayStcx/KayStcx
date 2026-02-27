@@ -1,6 +1,7 @@
-import { Injectable, Inject, CACHE_MANAGER } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { JwtService as NestJwtService } from '@nestjs/jwt';
-import { Cache } from 'cache-manager';
+import type { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
 
 export interface JwtPayload {
@@ -22,16 +23,20 @@ export class JwtManagementService {
    * Generate access token
    */
   async generateAccessToken(payload: JwtPayload): Promise<string> {
-    const expiresIn = this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') || '15m';
-    return this.nestJwtService.signAsync(payload, { expiresIn });
+    const expiresIn = (this.configService.get<string>(
+      'JWT_ACCESS_EXPIRES_IN',
+    ) || '15m') as any;
+    return this.nestJwtService.signAsync(payload as any, { expiresIn });
   }
 
   /**
    * Generate refresh token
    */
   async generateRefreshToken(payload: JwtPayload): Promise<string> {
-    const expiresIn = this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d';
-    return this.nestJwtService.signAsync(payload, { expiresIn });
+    const expiresIn = (this.configService.get<string>(
+      'JWT_REFRESH_EXPIRES_IN',
+    ) || '7d') as any;
+    return this.nestJwtService.signAsync(payload as any, { expiresIn });
   }
 
   /**
@@ -65,8 +70,9 @@ export class JwtManagementService {
       }
 
       return await this.nestJwtService.verifyAsync(token, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 
-                this.configService.get<string>('JWT_SECRET'),
+        secret:
+          this.configService.get<string>('JWT_REFRESH_SECRET') ||
+          this.configService.get<string>('JWT_SECRET'),
       });
     } catch (error) {
       throw new Error(`Invalid refresh token: ${error.message}`);
@@ -80,7 +86,7 @@ export class JwtManagementService {
     // Get token expiration time to set appropriate cache expiration
     let tokenExp: number;
     try {
-      const decoded = this.nestJwtService.decode(token) as { exp?: number };
+      const decoded = this.nestJwtService.decode(token);
       tokenExp = decoded.exp || 3600; // Default to 1 hour if no exp found
     } catch (error) {
       // If we can't decode the token, use a default expiration
@@ -95,21 +101,29 @@ export class JwtManagementService {
     const cacheExpiry = expiresIn || remainingTime;
 
     // Store the token in cache to mark it as blacklisted
-    await this.cacheManager.set(`blacklisted_token:${token}`, true, cacheExpiry * 1000);
+    await this.cacheManager.set(
+      `blacklisted_token:${token}`,
+      true,
+      cacheExpiry * 1000,
+    );
   }
 
   /**
    * Check if a token is blacklisted
    */
   async isTokenBlacklisted(token: string): Promise<boolean> {
-    const blacklisted = await this.cacheManager.get(`blacklisted_token:${token}`);
+    const blacklisted = await this.cacheManager.get(
+      `blacklisted_token:${token}`,
+    );
     return !!blacklisted;
   }
 
   /**
    * Refresh access token using refresh token
    */
-  async refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+  async refreshAccessToken(
+    refreshToken: string,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     // Verify the refresh token
     const payload = await this.verifyRefreshToken(refreshToken);
 
@@ -133,7 +147,7 @@ export class JwtManagementService {
    */
   extractPayload(token: string): JwtPayload | null {
     try {
-      return this.nestJwtService.decode(token) as JwtPayload;
+      return this.nestJwtService.decode(token);
     } catch (error) {
       return null;
     }

@@ -1,0 +1,5 @@
+src/modules/multisig/multisig.service.ts(4,3): error TS2724: '"@stellar/stellar-sdk"' has no exported member named 'SorobanRpc'. Did you mean 'Soroban'?
+src/modules/multisig/multisig.service.ts(192,23): error TS2339: Property 'scvSome' does not exist on type 'typeof ScVal'.
+src/modules/multisig/multisig.service.ts(197,23): error TS2339: Property 'scvSome' does not exist on type 'typeof ScVal'.
+src/modules/multisig/multisig.service.ts(206,23): error TS2339: Property 'scvSome' does not exist on type 'typeof ScVal'.
+src/modules/multisig/multisig.service.ts(392,21): error TS2339: Property 'scvSome' does not exist on type 'typeof ScVal'.

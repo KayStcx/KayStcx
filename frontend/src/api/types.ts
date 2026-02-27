@@ -19,6 +19,10 @@ export interface User {
   role: UserRole;
   stellarPublicKey?: string;
   organization?: string;
+  username?: string;
+  phone?: string;
+  metadata?: Record<string, unknown>;
+  profilePicture?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -49,7 +53,7 @@ export interface Certificate {
   pdfUrl?: string; // Link to certificate file
   txHash?: string; // Stellar transaction hash
   cid?: string; // IPFS CID for certificate file/metadata
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   frozenAt?: string;
   freezeReason?: string;
   unfreezeAt?: string;
@@ -65,7 +69,7 @@ export interface CreateCertificateData {
   issuerId: string;
   expiryDate?: string;
   templateId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -124,7 +128,7 @@ export interface DashboardStats {
   totalCertificates: number;
   activeCertificates: number;
   revokedCertificates: number;
-   expiredCertificates?: number;
+  expiredCertificates?: number;
   totalVerifications: number;
   verifications24h: number;
   totalUsers: number;
@@ -140,7 +144,7 @@ export interface ApiError {
   message: string;
   statusCode: number;
   error?: string;
-  details?: any;
+  details?: unknown;
 }
 
 /**
@@ -152,4 +156,70 @@ export interface PaginatedResponse<T> {
   page: number;
   limit: number;
   totalPages: number;
+}
+
+export interface LoginCredentials {
+  email: string;
+  password?: string;
+  [key: string]: unknown;
+}
+
+export interface RegisterData {
+  email: string;
+  password?: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+  [key: string]: unknown;
+}
+
+export interface ProfileUpdateData {
+  firstName?: string;
+  lastName?: string;
+  username?: string;
+  phone?: string;
+  organization?: string;
+  profilePicture?: string;
+  stellarPublicKey?: string;
+  [key: string]: unknown;
+}
+
+export interface DailyVerificationStats {
+  count: number;
+}
+
+export interface TotalCertificatesStats {
+  total: number;
+}
+
+export interface TotalActiveUsersStats {
+  total: number;
+}
+
+export interface IssuerStats {
+  totalCertificates: number;
+  activeCertificates: number;
+  revokedCertificates: number;
+  expiredCertificates: number;
+  totalVerifications: number;
+  lastLogin: string;
+}
+
+export interface ActivityLogItem {
+  id: string;
+  action: string;
+  description: string;
+  ipAddress?: string;
+  userAgent?: string;
+  timestamp: string;
+}
+
+export interface PaginatedActivityLog {
+  activities: ActivityLogItem[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
 }

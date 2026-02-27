@@ -1,14 +1,15 @@
-import { IssuerTier } from '../../../common/rate-limiting/rate-limit.service';
+import { IssuerTier } from '../../../common/rate-limiting/rate-limit.types';
 export declare class Issuer {
     id: string;
     name: string;
-    publicKey: string;
+    stellarPublicKey: string;
     description?: string;
     isActive: boolean;
     website?: string;
     contactEmail?: string;
     tier: IssuerTier;
     apiKeyHash?: string;
+    certificateCount: number;
     createdAt: Date;
     updatedAt: Date;
 }

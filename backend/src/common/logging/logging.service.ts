@@ -6,7 +6,7 @@ export interface LogContext {
   correlationId?: string;
   userId?: string;
   requestId?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 @Injectable()
@@ -73,7 +73,7 @@ export class LoggingService {
   /**
    * Log error with context
    */
-  error(message: string, error?: Error | any, context?: LogContext): void {
+  error(message: string, error?: unknown, context?: LogContext): void {
     const logEntry = this.formatLog('ERROR', message, context, error);
     console.error(logEntry);
   }
@@ -103,12 +103,19 @@ export class LoggingService {
     level: string,
     message: string,
     context?: LogContext,
-    error?: Error | any,
+    error?: unknown,
   ): string {
     const timestamp = new Date().toISOString();
     const correlationId = context?.correlationId || 'N/A';
     const requestId = context?.requestId || 'N/A';
     const userId = context?.userId || 'N/A';
+
+    let errorDetails: Record<string, unknown> | undefined;
+    if (error instanceof Error) {
+      errorDetails = { message: error.message, stack: error.stack };
+    } else if (error) {
+      errorDetails = { message: String(error) };
+    }
 
     const logObject = {
       timestamp,
@@ -118,12 +125,7 @@ export class LoggingService {
       requestId,
       userId,
       ...(context && { context }),
-      ...(error && {
-        error: {
-          message: error.message,
-          stack: error.stack,
-        },
-      }),
+      ...(errorDetails && { error: errorDetails }),
     };
 
     return JSON.stringify(logObject);

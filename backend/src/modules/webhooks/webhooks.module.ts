@@ -8,14 +8,14 @@ import { WebhookSubscription } from './entities/webhook-subscription.entity';
 import { WebhookLog } from './entities/webhook-log.entity';
 
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([WebhookSubscription, WebhookLog]),
-        BullModule.registerQueue({
-            name: 'webhooks',
-        }),
-    ],
-    controllers: [WebhooksController],
-    providers: [WebhooksService, WebhooksProcessor],
-    exports: [WebhooksService],
+  imports: [
+    TypeOrmModule.forFeature([WebhookSubscription, WebhookLog]),
+    BullModule.registerQueue({
+      name: 'webhooks',
+    }),
+  ],
+  controllers: [WebhooksController],
+  providers: [WebhooksService, WebhooksProcessor],
+  exports: [WebhooksService],
 })
-export class WebhooksModule { }
+export class WebhooksModule {}

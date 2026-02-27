@@ -6,14 +6,13 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
-import { CertificatesModule } from './modules/certificates/certificates.module';
 import { IssuersModule } from './modules/issuers/issuers.module';
 import { HealthModule } from './modules/health/health.module';
 import { CommonModule } from './common/common.module';
 import { EmailModule } from './modules/email/email.module';
 import { typeOrmConfig } from './config/typeorm.config';
 import { validateEnv } from './config/environment.config';
-import { CertificateModule } from './certificate/certificate.module';
+import { CertificateModule } from './modules/certificate/certificate.module';
 import { StellarModule } from './modules/stellar/stellar.module';
 import { FilesModule } from './modules/files/files.module';
 import { VersioningModule } from './common/versioning/versioning.module';
@@ -50,7 +49,6 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     HealthModule,
     AuthModule,
     UsersModule,
-    CertificatesModule,
     IssuersModule,
     CertificateModule,
     StellarModule,
@@ -64,4 +62,4 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}

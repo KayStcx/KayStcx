@@ -1,4 +1,12 @@
-import { Controller, Post, Delete, Get, Param, Body, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Delete,
+  Get,
+  Param,
+  Body,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { IssuersService } from './issuers.service';
 import { CreateIssuerDto } from './dto/create-issuer.dto';
@@ -13,24 +21,20 @@ import { UserRole } from '../../common/constants/roles';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
 export class IssuersController {
-	constructor(private readonly issuersService: IssuersService) {}
+  constructor(private readonly issuersService: IssuersService) {}
 
-	@Post()
-	async create(@Body() dto: CreateIssuerDto) {
-		return this.issuersService.createIssuer(dto);
-	}
+  @Post()
+  async create(@Body() dto: CreateIssuerDto) {
+    return this.issuersService.createIssuer(dto);
+  }
 
-	@Delete(':id')
-	async remove(@Param('id') id: string) {
-		return this.issuersService.removeIssuer(id);
-	}
+  @Delete(':id')
+  async remove(@Param('id') id: string) {
+    return this.issuersService.removeIssuer(id);
+  }
 
-	@Get()
-	async list() {
-		return this.issuersService.listIssuers();
-	}
+  @Get()
+  async list() {
+    return this.issuersService.listIssuers();
+  }
 }
-import { Controller } from '@nestjs/common';
-
-@Controller('issuers')
-export class IssuersController {}

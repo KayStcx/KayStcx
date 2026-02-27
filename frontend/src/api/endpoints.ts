@@ -11,24 +11,36 @@ import {
     StatusDistribution,
     User,
     UserRole,
-    VerificationResult
+    VerificationResult,
+    LoginCredentials,
+    RegisterData,
+    ProfileUpdateData,
+    DailyVerificationStats,
+    TotalCertificatesStats,
+    TotalActiveUsersStats,
+    IssuerStats,
+    PaginatedActivityLog
 } from './types';
 import { tokenStorage } from './tokens';
 
 // Configuration flag - set to true to use dummy data
 let USE_DUMMY_DATA = true;
-const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:3000/api/v1';
+const API_URL = (import.meta as unknown as { env: Record<string, string> }).env?.VITE_API_URL || 'http://localhost:3000/api/v1';
 
 // Helper function to simulate API delay
 const simulateDelay = () => new Promise(resolve => setTimeout(resolve, 300));
 
 // Common error handler
-const handleError = (error: any, endpointName: string) => {
+const handleError = (error: unknown, endpointName: string): never => {
     console.error(`Error in ${endpointName}:`, error);
     const apiError: ApiError = {
         message: error instanceof Error ? error.message : 'An unexpected error occurred',
-        statusCode: error.statusCode || 500,
-        error: error.name || 'API Error',
+        statusCode: (error && typeof error === 'object' && 'statusCode' in error)
+            ? (error as { statusCode: number }).statusCode
+            : 500,
+        error: (error && typeof error === 'object' && 'name' in error)
+            ? (error as { name: string }).name
+            : 'API Error',
     };
     throw apiError;
 };
@@ -172,9 +184,14 @@ export const userApi = {
         return apiClient<User>('/users/profile');
     },
     getByEmail: fetchUserByEmail,
-    listAll: async (params?: any): Promise<PaginatedResponse<User>> => {
-        const searchParams = new URLSearchParams(params).toString();
-        return apiClient<PaginatedResponse<User>>(`/users?${searchParams}`);
+    listAll: async (params?: Record<string, string | number | boolean>): Promise<PaginatedResponse<User>> => {
+        const searchParams = new URLSearchParams();
+        if (params) {
+            Object.entries(params).forEach(([key, value]) => {
+                searchParams.append(key, String(value));
+            });
+        }
+        return apiClient<PaginatedResponse<User>>(`/users?${searchParams.toString()}`);
     },
 };
 
@@ -443,7 +460,8 @@ export const certificateApi = {
 
 // ==================== AUTHENTICATION ====================
 
-export const loginApi = async (credentials: any): Promise<AuthResponse> => {
+
+export const loginApi = async (credentials: LoginCredentials): Promise<AuthResponse> => {
     if (USE_DUMMY_DATA) {
         await simulateDelay();
         const user = dummyData.users.find(u => u.email === credentials.email);
@@ -473,7 +491,7 @@ export const loginApi = async (credentials: any): Promise<AuthResponse> => {
     }
 };
 
-export const registerApi = async (data: any): Promise<AuthResponse> => {
+export const registerApi = async (data: RegisterData): Promise<AuthResponse> => {
     if (USE_DUMMY_DATA) {
         await simulateDelay();
         const newUser: User = {
@@ -591,28 +609,28 @@ const buildRecentActivityFromCertificates = (certificates: Certificate[]): Activ
     return items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 };
 
-export const dailyCertificateVerification = async () => {
+export const dailyCertificateVerification = async (): Promise<DailyVerificationStats> => {
     if (USE_DUMMY_DATA) {
         await simulateDelay();
         return { count: Math.floor(Math.random() * 50) + 20 };
     }
-    return apiClient<any>('/certificates/stats/daily-verification');
+    return apiClient<DailyVerificationStats>('/certificates/stats/daily-verification');
 };
 
-export const totalCertificates = async () => {
+export const totalCertificates = async (): Promise<TotalCertificatesStats> => {
     if (USE_DUMMY_DATA) {
         await simulateDelay();
         return { total: dummyData.certificates.length };
     }
-    return apiClient<any>('/certificates/stats/total');
+    return apiClient<TotalCertificatesStats>('/certificates/stats/total');
 };
 
-export const totalActiveUsers = async () => {
+export const totalActiveUsers = async (): Promise<TotalActiveUsersStats> => {
     if (USE_DUMMY_DATA) {
         await simulateDelay();
         return { total: dummyData.users.length };
     }
-    return apiClient<any>('/users/stats/active');
+    return apiClient<TotalActiveUsersStats>('/users/stats/active');
 };
 
 export const analyticsApi = {
@@ -700,7 +718,7 @@ export const toggleDummyData = (useDummy: boolean) => {
 // ==================== ISSUER PROFILE MANAGEMENT ====================
 
 export const issuerProfileApi = {
-    getStats: async (): Promise<any> => {
+    getStats: async (): Promise<IssuerStats> => {
         if (USE_DUMMY_DATA) {
             await simulateDelay();
             return {
@@ -712,10 +730,10 @@ export const issuerProfileApi = {
                 lastLogin: new Date().toISOString()
             };
         }
-        return apiClient<any>('/users/profile/stats');
+        return apiClient<IssuerStats>('/users/profile/stats');
     },
-    
-    getActivity: async (page: number = 1, limit: number = 10): Promise<any> => {
+
+    getActivity: async (page: number = 1, limit: number = 10): Promise<PaginatedActivityLog> => {
         if (USE_DUMMY_DATA) {
             await simulateDelay();
             const mockActivities = [
@@ -744,13 +762,13 @@ export const issuerProfileApi = {
                     timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
                 }
             ];
-            
+
             const total = mockActivities.length;
             const totalPages = Math.ceil(total / limit);
             const startIndex = (page - 1) * limit;
             const endIndex = startIndex + limit;
             const activities = mockActivities.slice(startIndex, endIndex);
-            
+
             return {
                 activities,
                 meta: {
@@ -761,10 +779,10 @@ export const issuerProfileApi = {
                 }
             };
         }
-        return apiClient<any>(`/users/profile/activity?page=${page}&limit=${limit}`);
+        return apiClient<PaginatedActivityLog>(`/users/profile/activity?page=${page}&limit=${limit}`);
     },
-    
-    updateProfile: async (data: any): Promise<User> => {
+
+    updateProfile: async (data: ProfileUpdateData): Promise<User> => {
         if (USE_DUMMY_DATA) {
             await simulateDelay();
             // In a real implementation, this would update the user data

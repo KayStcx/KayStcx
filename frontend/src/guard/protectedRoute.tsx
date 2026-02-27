@@ -1,12 +1,5 @@
+import React from "react";
 import { Navigate, Outlet } from "react-router-dom";
-
-// Define allowed routes based on user roles
-const roleRoutes: Record<string, string[]> = {
-  user: ["/wallet"],
-  verifier: ["/wallet", "/verify"],
-  issuer: ["/issue", "/wallet", "/revoke", "/verify"],
-  admin: ["/issue", "/wallet", "/revoke", "/verify"],
-};
 
 // Define props type for ProtectedRoute
 interface ProtectedRouteProps {
@@ -26,12 +19,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
   // If no user is logged in, redirect to login page
   if (!user) return <Navigate to="/login" replace />;
 
-  // Get user role and allowed routes
+  // Get user role
   const userRole: string = user.role;
-  const allowedRoutes: string[] = roleRoutes[userRole] || [];
 
-  // Check if the user is allowed to access the route
-  if (!allowedRoutes.includes(currentPath)) {
+  // Check if the user's role is allowed
+  if (!allowedRoles.includes(userRole)) {
     return <Navigate to="/" replace />;
   }
 

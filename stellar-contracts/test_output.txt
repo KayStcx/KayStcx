@@ -1,0 +1,10 @@
+   Compiling stellar-strkey v0.0.8
+   Compiling stellar-xdr v21.2.0
+   Compiling serde_with v3.16.1
+   Compiling soroban-env-common v21.2.1
+   Compiling backtrace v0.3.76
+   Compiling soroban-sdk-macros v21.7.7
+error: error calling dlltool 'dlltool.exe': program not found
+
+error: could not compile `backtrace` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...

@@ -83,10 +83,9 @@ export class StellarService implements OnModuleInit {
         await axios.get(`https://friendbot.stellar.org?addr=${publicKey}`);
         funded = true;
         this.logger.log(`Account ${publicKey} funded successfully.`);
-      } catch (error) {
-        this.logger.error(
-          `Failed to fund account via Friendbot: ${error.message}`,
-        );
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(`Failed to fund account via Friendbot: ${message}`);
       }
     }
 
@@ -99,10 +98,9 @@ export class StellarService implements OnModuleInit {
   async getAccountInfo(publicKey: string) {
     try {
       return await this.server.loadAccount(publicKey);
-    } catch (error) {
-      this.logger.error(
-        `Failed to load account ${publicKey}: ${error.message}`,
-      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to load account ${publicKey}: ${message}`);
       throw error;
     }
   }
@@ -153,15 +151,13 @@ export class StellarService implements OnModuleInit {
         successful: true,
         ledger: result.ledger,
       };
-    } catch (error) {
-      this.logger.error(
-        `Transaction failed: ${error.message}`,
-        error.response?.data,
-      );
+    } catch (error: any) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Transaction failed: ${message}`, error.response?.data);
       return {
         hash: '',
         successful: false,
-        error: error.message || 'Transaction failed',
+        error: message,
       };
     }
   }
@@ -174,17 +170,16 @@ export class StellarService implements OnModuleInit {
       const tx = await this.server.transactions().transaction(hash).call();
       return {
         hash: tx.hash,
-        successful: true, // If it exists in Horizon, it was successful (unless failed flag is present, but usually failed txs aren't in simple query without handle)
+        successful: true, // If it exists in Horizon, it was successful
         ledger: tx.ledger_attr,
       };
-    } catch (error) {
-      this.logger.error(
-        `Failed to verify transaction ${hash}: ${error.message}`,
-      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to verify transaction ${hash}: ${message}`);
       return {
         hash,
         successful: false,
-        error: error.message,
+        error: message,
       };
     }
   }

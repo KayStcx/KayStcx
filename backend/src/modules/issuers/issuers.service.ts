@@ -1,7 +1,11 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Issuer } from './issuer.entity';
+import { Issuer } from './entities/issuer.entity';
 import { CreateIssuerDto } from './dto/create-issuer.dto';
 import { isValidStellarPublicKey } from './utils/stellar';
 
@@ -32,14 +36,5 @@ export class IssuersService {
 
   async incrementCertificateCount(issuerId: string) {
     await this.issuerRepo.increment({ id: issuerId }, 'certificateCount', 1);
-  }
-}
-import { Injectable } from '@nestjs/common';
-
-@Injectable()
-export class IssuersService {
-  findAll(): any[] {
-    // Placeholder for issuers logic
-    return [];
   }
 }

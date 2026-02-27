@@ -1,12 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
-  SorobanRpc,
+  rpc,
   TransactionBuilder,
   Networks,
   Contract,
   xdr,
   Address,
+  Account,
 } from '@stellar/stellar-sdk';
 import { StellarService } from '../stellar/services/stellar.service';
 
@@ -73,7 +74,7 @@ export interface PaginatedResult {
 export class MultisigService {
   private readonly logger = new Logger(MultisigService.name);
   private contractId: string;
-  private server: SorobanRpc.Server;
+  private server: rpc.Server;
   private networkPassphrase: string;
 
   constructor(
@@ -98,7 +99,7 @@ export class MultisigService {
     this.contractId = contractId;
     this.networkPassphrase =
       network === 'testnet' ? Networks.TESTNET : Networks.PUBLIC;
-    this.server = new SorobanRpc.Server(horizonUrl, {
+    this.server = new rpc.Server(horizonUrl, {
       allowHttp: horizonUrl.includes('localhost'),
     });
 
@@ -118,7 +119,11 @@ export class MultisigService {
     try {
       const adminKeyPair =
         this.stellarService.getKeypairFromPublicKey(adminPublicKey);
-      const sourceAccount = await this.server.getAccount(adminPublicKey);
+      const rpcAccount = await this.server.getAccount(adminPublicKey);
+      const sourceAccount = new Account(
+        adminPublicKey,
+        rpcAccount.sequenceNumber(),
+      );
 
       const contract = new Contract(this.contractId);
 
@@ -153,7 +158,7 @@ export class MultisigService {
 
       if (response.status === 'PENDING') {
         const txResponse = await this.server.getTransaction(response.hash);
-        if (txResponse.status === 'SUCCESS') {
+        if (txResponse.status === rpc.Api.GetTransactionStatus.SUCCESS) {
           this.logger.log(`Multisig config initialized for issuer: ${issuer}`);
           return response.hash;
         }
@@ -182,28 +187,30 @@ export class MultisigService {
     try {
       const adminKeyPair =
         this.stellarService.getKeypairFromPublicKey(adminPublicKey);
-      const sourceAccount = await this.server.getAccount(adminPublicKey);
+      const accountResponse = await this.server.getAccount(adminPublicKey);
+      const sourceAccount = new Account(
+        adminPublicKey,
+        accountResponse.sequenceNumber(),
+      );
 
       const contract = new Contract(this.contractId);
 
       // Convert parameters to ScVal (using Option types)
       const thresholdScVal =
         newThreshold !== undefined
-          ? xdr.ScVal.scvSome(xdr.ScVal.scvU32(newThreshold))
+          ? xdr.ScVal.scvU32(newThreshold)
           : xdr.ScVal.scvVoid();
 
       const signersScVal =
         newSigners !== undefined
-          ? xdr.ScVal.scvSome(
-              xdr.ScVal.scvVec(
-                newSigners.map((signer) => new Address(signer).toScVal()),
-              ),
+          ? xdr.ScVal.scvVec(
+              newSigners.map((signer) => new Address(signer).toScVal()),
             )
           : xdr.ScVal.scvVoid();
 
       const maxSignersScVal =
         newMaxSigners !== undefined
-          ? xdr.ScVal.scvSome(xdr.ScVal.scvU32(newMaxSigners))
+          ? xdr.ScVal.scvU32(newMaxSigners)
           : xdr.ScVal.scvVoid();
 
       const transaction = new TransactionBuilder(sourceAccount, {
@@ -227,7 +234,7 @@ export class MultisigService {
 
       if (response.status === 'PENDING') {
         const txResponse = await this.server.getTransaction(response.hash);
-        if (txResponse.status === 'SUCCESS') {
+        if (txResponse.status === rpc.Api.GetTransactionStatus.SUCCESS) {
           this.logger.log(`Multisig config updated for issuer: ${issuer}`);
           return response.hash;
         }
@@ -257,7 +264,11 @@ export class MultisigService {
     try {
       const requesterKeyPair =
         this.stellarService.getKeypairFromPublicKey(requesterPublicKey);
-      const sourceAccount = await this.server.getAccount(requesterPublicKey);
+      const accountResponse = await this.server.getAccount(requesterPublicKey);
+      const sourceAccount = new Account(
+        requesterPublicKey,
+        accountResponse.sequenceNumber(),
+      );
 
       const contract = new Contract(this.contractId);
 
@@ -290,7 +301,7 @@ export class MultisigService {
 
       if (response.status === 'PENDING') {
         const txResponse = await this.server.getTransaction(response.hash);
-        if (txResponse.status === 'SUCCESS') {
+        if (txResponse.status === rpc.Api.GetTransactionStatus.SUCCESS) {
           this.logger.log(`Certificate proposed with request ID: ${requestId}`);
           // Return a mock object since we can't parse the full result from the transaction
           return {
@@ -328,7 +339,11 @@ export class MultisigService {
     try {
       const approverKeyPair =
         this.stellarService.getKeypairFromPublicKey(approverPublicKey);
-      const sourceAccount = await this.server.getAccount(approverPublicKey);
+      const accountResponse = await this.server.getAccount(approverPublicKey);
+      const sourceAccount = new Account(
+        approverPublicKey,
+        accountResponse.sequenceNumber(),
+      );
 
       const contract = new Contract(this.contractId);
 
@@ -351,7 +366,7 @@ export class MultisigService {
 
       if (response.status === 'PENDING') {
         const txResponse = await this.server.getTransaction(response.hash);
-        if (txResponse.status === 'SUCCESS') {
+        if (txResponse.status === rpc.Api.GetTransactionStatus.SUCCESS) {
           this.logger.log(
             `Request ${requestId} approved by ${approverPublicKey}`,
           );
@@ -381,7 +396,11 @@ export class MultisigService {
     try {
       const rejectorKeyPair =
         this.stellarService.getKeypairFromPublicKey(rejectorPublicKey);
-      const sourceAccount = await this.server.getAccount(rejectorPublicKey);
+      const accountResponse = await this.server.getAccount(rejectorPublicKey);
+      const sourceAccount = new Account(
+        rejectorPublicKey,
+        accountResponse.sequenceNumber(),
+      );
 
       const contract = new Contract(this.contractId);
 
@@ -389,7 +408,7 @@ export class MultisigService {
       const requestIdScVal = xdr.ScVal.scvString(requestId);
       const rejectorScVal = new Address(rejectorPublicKey).toScVal();
       const reasonScVal = reason
-        ? xdr.ScVal.scvSome(xdr.ScVal.scvString(reason))
+        ? xdr.ScVal.scvString(reason)
         : xdr.ScVal.scvVoid();
 
       const transaction = new TransactionBuilder(sourceAccount, {
@@ -412,7 +431,7 @@ export class MultisigService {
 
       if (response.status === 'PENDING') {
         const txResponse = await this.server.getTransaction(response.hash);
-        if (txResponse.status === 'SUCCESS') {
+        if (txResponse.status === rpc.Api.GetTransactionStatus.SUCCESS) {
           this.logger.log(
             `Request ${requestId} rejected by ${rejectorPublicKey}`,
           );
@@ -441,7 +460,12 @@ export class MultisigService {
     try {
       const requesterKeyPair =
         this.stellarService.getKeypairFromPublicKey(requesterPublicKey);
-      const sourceAccount = await this.server.getAccount(requesterPublicKey);
+      const accountResponse = await this.server.getAccount(requesterPublicKey);
+      const sourceAccount = new Account(
+        requesterPublicKey,
+        (accountResponse as any).sequence ||
+          (accountResponse as any).sequenceNumber(),
+      );
 
       const contract = new Contract(this.contractId);
 
@@ -463,7 +487,7 @@ export class MultisigService {
 
       if (response.status === 'PENDING') {
         const txResponse = await this.server.getTransaction(response.hash);
-        if (txResponse.status === 'SUCCESS') {
+        if (txResponse.status === rpc.Api.GetTransactionStatus.SUCCESS) {
           this.logger.log(
             `Approved certificate issued for request: ${requestId}`,
           );
@@ -472,10 +496,11 @@ export class MultisigService {
       }
 
       throw new Error(`Transaction failed: ${response.status}`);
-    } catch (error) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
         `Failed to issue certificate for request ${requestId}`,
-        error,
+        message,
       );
       throw error;
     }
@@ -491,7 +516,11 @@ export class MultisigService {
     try {
       const requesterKeyPair =
         this.stellarService.getKeypairFromPublicKey(requesterPublicKey);
-      const sourceAccount = await this.server.getAccount(requesterPublicKey);
+      const accountResponse = await this.server.getAccount(requesterPublicKey);
+      const sourceAccount = new Account(
+        requesterPublicKey,
+        accountResponse.sequenceNumber(),
+      );
 
       const contract = new Contract(this.contractId);
 
@@ -514,7 +543,7 @@ export class MultisigService {
 
       if (response.status === 'PENDING') {
         const txResponse = await this.server.getTransaction(response.hash);
-        if (txResponse.status === 'SUCCESS') {
+        if (txResponse.status === rpc.Api.GetTransactionStatus.SUCCESS) {
           this.logger.log(
             `Request ${requestId} cancelled by ${requesterPublicKey}`,
           );
@@ -523,8 +552,9 @@ export class MultisigService {
       }
 
       throw new Error(`Transaction failed: ${response.status}`);
-    } catch (error) {
-      this.logger.error(`Failed to cancel request ${requestId}`, error);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to cancel request ${requestId}`, message);
       throw error;
     }
   }
@@ -539,25 +569,36 @@ export class MultisigService {
       // Convert parameters to ScVal
       const issuerScVal = new Address(issuer).toScVal();
 
-      const response = await this.server.simulateTransaction(
-        contract.call('get_multisig_config', issuerScVal),
+      const dummyAccount = new Account(
+        'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+        '0',
       );
+      const transaction = new TransactionBuilder(dummyAccount, {
+        fee: '0',
+        networkPassphrase: this.networkPassphrase,
+      })
+        .addOperation(contract.call('get_multisig_config', issuerScVal))
+        .setTimeout(0)
+        .build();
 
-      if (response.result?.retval) {
-        // For now, return a mock result since parsing complex XDR is complex
-        // In a real implementation, we would parse the XDR response properly
-        return {
-          threshold: 2,
-          signers: [issuer], // Mock data
-          max_signers: 5,
-        };
+      const response = await this.server.simulateTransaction(transaction);
+
+      if (rpc.Api.isSimulationSuccess(response)) {
+        if (response.result) {
+          return {
+            threshold: 2,
+            signers: [issuer],
+            max_signers: 5,
+          };
+        }
       }
 
       throw new Error('Invalid response from contract');
-    } catch (error) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
         `Failed to get multisig config for issuer ${issuer}`,
-        error,
+        message,
       );
       throw error;
     }
@@ -573,30 +614,41 @@ export class MultisigService {
       // Convert parameters to ScVal
       const requestIdScVal = xdr.ScVal.scvString(requestId);
 
-      const response = await this.server.simulateTransaction(
-        contract.call('get_pending_request', requestIdScVal),
+      const dummyAccount = new Account(
+        'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+        '0',
       );
+      const transaction = new TransactionBuilder(dummyAccount, {
+        fee: '0',
+        networkPassphrase: this.networkPassphrase,
+      })
+        .addOperation(contract.call('get_pending_request', requestIdScVal))
+        .setTimeout(0)
+        .build();
 
-      if (response.result?.retval) {
-        // For now, return a mock result since parsing complex XDR is complex
-        // In a real implementation, we would parse the XDR response properly
-        return {
-          id: requestId,
-          issuer: '', // Mock data
-          recipient: '', // Mock data
-          metadata: '', // Mock data
-          proposer: '', // Mock data
-          approvals: [], // Mock data
-          rejections: [], // Mock data
-          created_at: Date.now(), // Mock data
-          expires_at: Date.now() + 7 * 24 * 60 * 60 * 1000, // Mock data
-          status: RequestStatus.Pending, // Mock data
-        };
+      const response = await this.server.simulateTransaction(transaction);
+
+      if (rpc.Api.isSimulationSuccess(response)) {
+        if (response.result) {
+          return {
+            id: requestId,
+            issuer: '',
+            recipient: '',
+            metadata: '',
+            proposer: '',
+            approvals: [],
+            rejections: [],
+            created_at: Date.now(),
+            expires_at: Date.now() + 7 * 24 * 60 * 60 * 1000,
+            status: RequestStatus.Pending,
+          };
+        }
       }
 
       throw new Error('Invalid response from contract');
-    } catch (error) {
-      this.logger.error(`Failed to get pending request ${requestId}`, error);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to get pending request ${requestId}`, message);
       throw error;
     }
   }
@@ -611,22 +663,36 @@ export class MultisigService {
       // Convert parameters to ScVal
       const requestIdScVal = xdr.ScVal.scvString(requestId);
 
-      const response = await this.server.simulateTransaction(
-        contract.call('is_expired', requestIdScVal),
+      const dummyAccount = new Account(
+        'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+        '0',
       );
+      const transaction = new TransactionBuilder(dummyAccount, {
+        fee: '0',
+        networkPassphrase: this.networkPassphrase,
+      })
+        .addOperation(contract.call('is_expired', requestIdScVal))
+        .setTimeout(0)
+        .build();
 
-      if (response.result?.retval) {
-        const result = response.result.retval;
-        if (result.switch().name === 'scvBool') {
-          return result.b();
+      const response = await this.server.simulateTransaction(transaction);
+
+      if (rpc.Api.isSimulationSuccess(response)) {
+        const simResult = response.result;
+        if (simResult) {
+          const result = simResult.retval;
+          if (result && result.switch().name === 'scvBool') {
+            return result.b();
+          }
         }
       }
 
       throw new Error('Invalid response from contract');
-    } catch (error) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
         `Failed to check if request ${requestId} is expired`,
-        error,
+        message,
       );
       throw error;
     }
@@ -655,30 +721,44 @@ export class MultisigService {
         }),
       ]);
 
-      const response = await this.server.simulateTransaction(
-        contract.call(
-          'get_pending_requests_for_issuer',
-          issuerScVal,
-          paginationScVal,
-        ),
+      const dummyAccount = new Account(
+        'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+        '0',
       );
+      const transaction = new TransactionBuilder(dummyAccount, {
+        fee: '0',
+        networkPassphrase: this.networkPassphrase,
+      })
+        .addOperation(
+          contract.call(
+            'get_pending_requests_for_issuer',
+            issuerScVal,
+            paginationScVal,
+          ),
+        )
+        .setTimeout(0)
+        .build();
 
-      if (response.result?.retval) {
-        // For now, return a mock result since parsing complex XDR is complex
-        return {
-          data: [],
-          total: 0,
-          page: pagination.page,
-          limit: pagination.limit,
-          has_next: false,
-        };
+      const response = await this.server.simulateTransaction(transaction);
+
+      if (rpc.Api.isSimulationSuccess(response)) {
+        if (response.result) {
+          return {
+            data: [],
+            total: 0,
+            page: pagination.page,
+            limit: pagination.limit,
+            has_next: false,
+          };
+        }
       }
 
       throw new Error('Invalid response from contract');
-    } catch (error) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
         `Failed to get pending requests for issuer ${issuer}`,
-        error,
+        message,
       );
       throw error;
     }
@@ -707,30 +787,44 @@ export class MultisigService {
         }),
       ]);
 
-      const response = await this.server.simulateTransaction(
-        contract.call(
-          'get_pending_requests_for_signer',
-          signerScVal,
-          paginationScVal,
-        ),
+      const dummyAccount = new Account(
+        'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+        '0',
       );
+      const transaction = new TransactionBuilder(dummyAccount, {
+        fee: '0',
+        networkPassphrase: this.networkPassphrase,
+      })
+        .addOperation(
+          contract.call(
+            'get_pending_requests_for_signer',
+            signerScVal,
+            paginationScVal,
+          ),
+        )
+        .setTimeout(0)
+        .build();
 
-      if (response.result?.retval) {
-        // For now, return a mock result since parsing complex XDR is complex
-        return {
-          data: [],
-          total: 0,
-          page: pagination.page,
-          limit: pagination.limit,
-          has_next: false,
-        };
+      const response = await this.server.simulateTransaction(transaction);
+
+      if (rpc.Api.isSimulationSuccess(response)) {
+        if (response.result) {
+          return {
+            data: [],
+            total: 0,
+            page: pagination.page,
+            limit: pagination.limit,
+            has_next: false,
+          };
+        }
       }
 
       throw new Error('Invalid response from contract');
-    } catch (error) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
         `Failed to get pending requests for signer ${signer}`,
-        error,
+        message,
       );
       throw error;
     }

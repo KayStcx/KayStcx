@@ -1,49 +1,32 @@
-# Development Stage
-FROM node:20-alpine
+# Build stage
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-#Install necessary build dependencies
+# Install build dependencies for native modules
 RUN apk add --no-cache python3 g++ make
 
 COPY package*.json ./
-
 RUN npm install --legacy-peer-deps
 
 COPY . .
-
 RUN npm run build
 
-EXPOSE 3000
-
-CMD ["npm", "run", "start:dev"]
-
-
-
-# Production Build Stage
-FROM node:18-alpine AS build
+# Production stage
+FROM node:20-alpine AS production
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci
-
-COPY . .
-RUN npm run build
-
-# Production Stage
-FROM node:18-alpine AS production
-
-WORKDIR /app
+RUN apk add --no-cache python3 g++ make
 
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm install --legacy-peer-deps --omit=dev
 
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+COPY src/modules/email/templates ./dist/modules/email/templates
 
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
+RUN addgroup -g 1001 -S nodejs \
+  && adduser -S nodejs -u 1001 -G nodejs
 USER nodejs
 
 EXPOSE 3000

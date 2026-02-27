@@ -5,18 +5,18 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { IssuerTier } from '../../../common/rate-limiting/rate-limit.service';
+import { IssuerTier } from '../../../common/rate-limiting/rate-limit.types';
 
 @Entity('issuers')
 export class Issuer {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ unique: true })
   name: string;
 
   @Column({ unique: true })
-  publicKey: string;
+  stellarPublicKey: string;
 
   @Column({ type: 'text', nullable: true })
   description?: string;
@@ -39,6 +39,9 @@ export class Issuer {
 
   @Column({ nullable: true, unique: true })
   apiKeyHash?: string;
+
+  @Column({ default: 0 })
+  certificateCount: number;
 
   @CreateDateColumn()
   createdAt: Date;

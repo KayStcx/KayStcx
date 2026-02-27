@@ -1,0 +1,66 @@
+src/modules/audit/controllers/audit.controller.spec.ts(56,55): error TS2345: Argument of type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to parameter of type '{ data: AuditLog[]; total: number; } | Promise<{ data: AuditLog[]; total: number; }>'.
+  Type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to type '{ data: AuditLog[]; total: number; }'.
+    Types of property 'data' are incompatible.
+      Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]' is not assignable to type 'AuditLog[]'.
+        Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }' is not assignable to type 'AuditLog'.
+          Types of property 'transactionHash' are incompatible.
+            Type 'null' is not assignable to type 'string'.
+src/modules/audit/controllers/audit.controller.spec.ts(66,55): error TS2345: Argument of type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to parameter of type '{ data: AuditLog[]; total: number; } | Promise<{ data: AuditLog[]; total: number; }>'.
+  Type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to type '{ data: AuditLog[]; total: number; }'.
+    Types of property 'data' are incompatible.
+      Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]' is not assignable to type 'AuditLog[]'.
+        Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }' is not assignable to type 'AuditLog'.
+          Types of property 'transactionHash' are incompatible.
+            Type 'null' is not assignable to type 'string'.
+src/modules/audit/controllers/audit.controller.spec.ts(77,55): error TS2345: Argument of type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to parameter of type '{ data: AuditLog[]; total: number; } | Promise<{ data: AuditLog[]; total: number; }>'.
+  Type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to type '{ data: AuditLog[]; total: number; }'.
+    Types of property 'data' are incompatible.
+      Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]' is not assignable to type 'AuditLog[]'.
+        Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }' is not assignable to type 'AuditLog'.
+          Types of property 'transactionHash' are incompatible.
+            Type 'null' is not assignable to type 'string'.
+src/modules/audit/controllers/audit.controller.spec.ts(88,55): error TS2345: Argument of type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to parameter of type '{ data: AuditLog[]; total: number; } | Promise<{ data: AuditLog[]; total: number; }>'.
+  Type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to type '{ data: AuditLog[]; total: number; }'.
+    Types of property 'data' are incompatible.
+      Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]' is not assignable to type 'AuditLog[]'.
+        Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }' is not assignable to type 'AuditLog'.
+          Types of property 'transactionHash' are incompatible.
+            Type 'null' is not assignable to type 'string'.
+src/modules/audit/controllers/audit.controller.spec.ts(99,55): error TS2345: Argument of type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to parameter of type '{ data: AuditLog[]; total: number; } | Promise<{ data: AuditLog[]; total: number; }>'.
+  Type '{ data: { id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]; total: number; }' is not assignable to type '{ data: AuditLog[]; total: number; }'.
+    Types of property 'data' are incompatible.
+      Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }[]' is not assignable to type 'AuditLog[]'.
+        Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }' is not assignable to type 'AuditLog'.
+          Types of property 'transactionHash' are incompatible.
+            Type 'null' is not assignable to type 'string'.
+src/modules/audit/controllers/audit.controller.spec.ts(224,29): error TS2322: Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }' is not assignable to type 'AuditLog'.
+  Types of property 'transactionHash' are incompatible.
+    Type 'null' is not assignable to type 'string'.
+src/modules/audit/controllers/audit.controller.spec.ts(238,29): error TS2322: Type '{ id: string; action: AuditAction; resourceType: AuditResourceType; resourceId: string; userId: string; userEmail: string; ipAddress: string; userAgent: string; ... 9 more ...; userRole: string; }' is not assignable to type 'AuditLog'.
+  Types of property 'transactionHash' are incompatible.
+    Type 'null' is not assignable to type 'string'.
+src/modules/audit/middleware/audit-context.middleware.spec.ts(35,9): error TS2322: Type 'Mock<"Mozilla/5.0" | null, [header: string], any>' is not assignable to type '{ (name: "set-cookie"): string[] | undefined; (name: string): string | undefined; }'.
+  Type '"Mozilla/5.0" | null' is not assignable to type 'string[] | undefined'.
+    Type 'null' is not assignable to type 'string[] | undefined'.
+src/modules/audit/middleware/audit-context.middleware.spec.ts(48,9): error TS2322: Type 'Mock<void, [event: string, callback: Function], any>' is not assignable to type '{ (event: "close", listener: () => void): Response<any, Record<string, any>>; (event: "drain", listener: () => void): Response<any, Record<string, any>>; (event: "error", listener: (err: Error) => void): Response<...>; (event: "finish", listener: () => void): Response<...>; (event: "pipe", listener: (src: Readable) ...'.
+  Type 'void' is not assignable to type 'Response<any, Record<string, any>>'.
+src/modules/metadata-schema/services/metadata-schema.service.spec.ts(54,5): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/modules/metadata-schema/services/metadata-schema.service.spec.ts(57,5): error TS2322: Type 'string[] | undefined' is not assignable to type 'string[]'.
+  Type 'undefined' is not assignable to type 'string[]'.
+src/modules/metadata-schema/services/metadata-schema.service.spec.ts(59,5): error TS2322: Type 'null' is not assignable to type 'string'.
+src/modules/metadata-schema/services/metadata-schema.service.spec.ts(61,5): error TS2322: Type 'null' is not assignable to type 'string'.
+test/versioning.e2e-spec.ts(31,14): error TS2349: This expression is not callable.
+  Type '{ default: SuperTestStatic; Test: typeof Test; agent: typeof TestAgent & ((app?: App | undefined, options?: AgentOptions | undefined) => TestAgent<...>); }' has no call signatures.
+test/versioning.e2e-spec.ts(44,14): error TS2349: This expression is not callable.
+  Type '{ default: SuperTestStatic; Test: typeof Test; agent: typeof TestAgent & ((app?: App | undefined, options?: AgentOptions | undefined) => TestAgent<...>); }' has no call signatures.
+test/versioning.e2e-spec.ts(62,14): error TS2349: This expression is not callable.
+  Type '{ default: SuperTestStatic; Test: typeof Test; agent: typeof TestAgent & ((app?: App | undefined, options?: AgentOptions | undefined) => TestAgent<...>); }' has no call signatures.
+test/versioning.e2e-spec.ts(78,14): error TS2349: This expression is not callable.
+  Type '{ default: SuperTestStatic; Test: typeof Test; agent: typeof TestAgent & ((app?: App | undefined, options?: AgentOptions | undefined) => TestAgent<...>); }' has no call signatures.
+test/versioning.e2e-spec.ts(89,14): error TS2349: This expression is not callable.
+  Type '{ default: SuperTestStatic; Test: typeof Test; agent: typeof TestAgent & ((app?: App | undefined, options?: AgentOptions | undefined) => TestAgent<...>); }' has no call signatures.
+test/versioning.e2e-spec.ts(98,31): error TS2349: This expression is not callable.
+  Type '{ default: SuperTestStatic; Test: typeof Test; agent: typeof TestAgent & ((app?: App | undefined, options?: AgentOptions | undefined) => TestAgent<...>); }' has no call signatures.
+test/versioning.e2e-spec.ts(99,31): error TS2349: This expression is not callable.
+  Type '{ default: SuperTestStatic; Test: typeof Test; agent: typeof TestAgent & ((app?: App | undefined, options?: AgentOptions | undefined) => TestAgent<...>); }' has no call signatures.

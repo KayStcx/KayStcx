@@ -1,0 +1,106 @@
+use soroban_sdk::{contracttype, Address, String, Vec};
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum CertificateStatus {
+    Active,
+    Revoked,
+    Expired,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Certificate {
+    pub id: String,
+    pub issuer: Address,
+    pub owner: Address,
+    pub status: CertificateStatus,
+    pub metadata_uri: String,
+    pub issued_at: u64,
+    pub expires_at: Option<u64>,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum DataKey {
+    Admin,
+    Issuer(Address),
+    Certificate(String),
+    MultisigConfig(Address),
+    IssuerAdmin(Address),
+    PendingRequest(String),
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CertificateIssuedEvent {
+    pub id: String,
+    pub issuer: Address,
+    pub owner: Address,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CertificateRevokedEvent {
+    pub id: String,
+    pub reason: String,
+}
+
+// Multisig Types
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MultisigConfig {
+    pub threshold: u32,
+    pub signers: Vec<Address>,
+    pub max_signers: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RequestStatus {
+    Pending,
+    Approved,
+    Rejected,
+    Expired,
+    Issued,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PendingRequest {
+    pub id: String,
+    pub issuer: Address,
+    pub recipient: Address,
+    pub metadata: String,
+    pub proposer: Address,
+    pub approvals: Vec<Address>,
+    pub rejections: Vec<Address>,
+    pub created_at: u64,
+    pub expires_at: u64,
+    pub status: RequestStatus,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SignatureResult {
+    pub success: bool,
+    pub message: String,
+    pub final_status: Option<RequestStatus>,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Pagination {
+    pub page: u32,
+    pub limit: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PaginatedResult {
+    pub data: Vec<PendingRequest>,
+    pub total: u32,
+    pub page: u32,
+    pub limit: u32,
+    pub has_next: bool,
+}

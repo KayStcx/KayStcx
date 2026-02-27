@@ -3,12 +3,15 @@ import {
   NestInterceptor,
   ExecutionContext,
   CallHandler,
-  Logger,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { Request, Response } from 'express';
-import { LoggingService } from '../logging/logging.service';
+import { LoggingService, LogContext } from '../logging/logging.service';
+
+interface RequestWithContext extends Request {
+  context?: LogContext;
+}
 
 /**
  * Logging Interceptor
@@ -16,20 +19,18 @@ import { LoggingService } from '../logging/logging.service';
  */
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
-  private readonly logger = new Logger(LoggingInterceptor.name);
-
   constructor(private loggingService: LoggingService) {}
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    const request = context.switchToHttp().getRequest<Request>();
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    const request = context.switchToHttp().getRequest<RequestWithContext>();
     const response = context.switchToHttp().getResponse<Response>();
     const { method, url, body, query, params } = request;
-    const context_obj = (request as any).context;
+    const context_obj = request.context;
     const startTime = Date.now();
 
     return next.handle().pipe(
       tap(
-        (data) => {
+        () => {
           const duration = Date.now() - startTime;
           const statusCode = response.statusCode;
 
@@ -40,14 +41,14 @@ export class LoggingInterceptor implements NestInterceptor {
               url,
               statusCode,
               duration,
-              body: this.sanitizeBody(body),
-              query,
-              params,
+              body: this.sanitizeBody(body as Record<string, unknown>),
+              query: query as Record<string, unknown>,
+              params: params as Record<string, unknown>,
               ...context_obj,
             },
           );
         },
-        (error) => {
+        (error: unknown) => {
           const duration = Date.now() - startTime;
           this.loggingService.error(
             `${method} ${url} failed (${duration}ms)`,
@@ -56,7 +57,7 @@ export class LoggingInterceptor implements NestInterceptor {
               method,
               url,
               duration,
-              body: this.sanitizeBody(body),
+              body: this.sanitizeBody(body as Record<string, unknown>),
               ...context_obj,
             },
           );
@@ -68,7 +69,9 @@ export class LoggingInterceptor implements NestInterceptor {
   /**
    * Sanitize sensitive data from request body for logging
    */
-  private sanitizeBody(body: any): any {
+  private sanitizeBody(
+    body: Record<string, unknown> | undefined,
+  ): Record<string, unknown> | undefined {
     if (!body) {
       return undefined;
     }

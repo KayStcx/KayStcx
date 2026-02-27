@@ -7,104 +7,112 @@ import { NotificationsGateway } from './notifications.gateway';
 
 @Injectable()
 export class NotificationsService {
-    private readonly logger = new Logger(NotificationsService.name);
+  private readonly logger = new Logger(NotificationsService.name);
 
-    constructor(
-        @InjectRepository(Notification)
-        private readonly notificationRepository: Repository<Notification>,
-        @InjectRepository(NotificationPreference)
-        private readonly preferenceRepository: Repository<NotificationPreference>,
-        private readonly notificationsGateway: NotificationsGateway,
-    ) { }
+  constructor(
+    @InjectRepository(Notification)
+    private readonly notificationRepository: Repository<Notification>,
+    @InjectRepository(NotificationPreference)
+    private readonly preferenceRepository: Repository<NotificationPreference>,
+    private readonly notificationsGateway: NotificationsGateway,
+  ) {}
 
-    async createNotification(
-        userId: string,
-        type: NotificationType,
-        title: string,
-        message: string,
-    ): Promise<Notification> {
-        const preferences = await this.getPreferences(userId);
+  async createNotification(
+    userId: string,
+    type: NotificationType,
+    title: string,
+    message: string,
+  ): Promise<Notification> {
+    const preferences = await this.getPreferences(userId);
 
-        const notification = this.notificationRepository.create({
-            userId,
-            type,
-            title,
-            message,
-        });
+    const notification = this.notificationRepository.create({
+      userId,
+      type,
+      title,
+      message,
+    });
 
-        const savedNotification = await this.notificationRepository.save(notification);
+    const savedNotification =
+      await this.notificationRepository.save(notification);
 
-        // Check if the user wants in-app notifications and for this specific type
-        if (preferences.inAppEnabled) {
-            let shouldSend = false;
-            switch (type) {
-                case NotificationType.INFO:
-                    shouldSend = preferences.infoEnabled;
-                    break;
-                case NotificationType.SUCCESS:
-                    shouldSend = preferences.successEnabled;
-                    break;
-                case NotificationType.ERROR:
-                    shouldSend = preferences.errorEnabled;
-                    break;
-            }
+    // Check if the user wants in-app notifications and for this specific type
+    if (preferences.inAppEnabled) {
+      let shouldSend = false;
+      switch (type) {
+        case NotificationType.INFO:
+          shouldSend = preferences.infoEnabled;
+          break;
+        case NotificationType.SUCCESS:
+          shouldSend = preferences.successEnabled;
+          break;
+        case NotificationType.ERROR:
+          shouldSend = preferences.errorEnabled;
+          break;
+      }
 
-            if (shouldSend) {
-                this.notificationsGateway.sendNotification(userId, savedNotification);
-            }
-        }
-
-        return savedNotification;
+      if (shouldSend) {
+        this.notificationsGateway.sendNotification(userId, savedNotification);
+      }
     }
 
-    async getUserNotifications(userId: string): Promise<Notification[]> {
-        return this.notificationRepository.find({
-            where: { userId },
-            order: { createdAt: 'DESC' },
-            take: 50,
-        });
+    return savedNotification;
+  }
+
+  async getUserNotifications(userId: string): Promise<Notification[]> {
+    return this.notificationRepository.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: 50,
+    });
+  }
+
+  async markAsRead(
+    userId: string,
+    notificationId: string,
+  ): Promise<Notification | null> {
+    const notification = await this.notificationRepository.findOne({
+      where: { id: notificationId, userId },
+    });
+
+    if (notification && !notification.isRead) {
+      notification.isRead = true;
+      return this.notificationRepository.save(notification);
     }
 
-    async markAsRead(userId: string, notificationId: string): Promise<Notification | null> {
-        const notification = await this.notificationRepository.findOne({
-            where: { id: notificationId, userId },
-        });
+    return notification;
+  }
 
-        if (notification && !notification.isRead) {
-            notification.isRead = true;
-            return this.notificationRepository.save(notification);
-        }
+  async markAllAsRead(userId: string): Promise<void> {
+    await this.notificationRepository.update(
+      { userId, isRead: false },
+      { isRead: true },
+    );
+  }
 
-        return notification;
+  async getPreferences(userId: string): Promise<NotificationPreference> {
+    let pref = await this.preferenceRepository.findOne({ where: { userId } });
+    if (!pref) {
+      pref = this.preferenceRepository.create({ userId });
+      pref = await this.preferenceRepository.save(pref);
     }
+    return pref;
+  }
 
-    async markAllAsRead(userId: string): Promise<void> {
-        await this.notificationRepository.update(
-            { userId, isRead: false },
-            { isRead: true },
-        );
-    }
+  async updatePreferences(
+    userId: string,
+    updateData: Partial<NotificationPreference>,
+  ): Promise<NotificationPreference> {
+    const pref = await this.getPreferences(userId);
 
-    async getPreferences(userId: string): Promise<NotificationPreference> {
-        let pref = await this.preferenceRepository.findOne({ where: { userId } });
-        if (!pref) {
-            pref = this.preferenceRepository.create({ userId });
-            pref = await this.preferenceRepository.save(pref);
-        }
-        return pref;
-    }
+    if (updateData.inAppEnabled !== undefined)
+      pref.inAppEnabled = updateData.inAppEnabled;
+    if (updateData.infoEnabled !== undefined)
+      pref.infoEnabled = updateData.infoEnabled;
+    if (updateData.successEnabled !== undefined)
+      pref.successEnabled = updateData.successEnabled;
+    if (updateData.errorEnabled !== undefined)
+      pref.errorEnabled = updateData.errorEnabled;
 
-    async updatePreferences(
-        userId: string,
-        updateData: Partial<NotificationPreference>,
-    ): Promise<NotificationPreference> {
-        const pref = await this.getPreferences(userId);
-
-        if (updateData.inAppEnabled !== undefined) pref.inAppEnabled = updateData.inAppEnabled;
-        if (updateData.infoEnabled !== undefined) pref.infoEnabled = updateData.infoEnabled;
-        if (updateData.successEnabled !== undefined) pref.successEnabled = updateData.successEnabled;
-        if (updateData.errorEnabled !== undefined) pref.errorEnabled = updateData.errorEnabled;
-
-        return this.preferenceRepository.save(pref);
-    }
+    return this.preferenceRepository.save(pref);
+  }
 }

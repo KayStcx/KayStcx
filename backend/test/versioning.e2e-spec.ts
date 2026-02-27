@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, VersioningType } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { VersioningModule } from '../src/common/versioning/versioning.module';
 
 describe('API Versioning (e2e)', () => {
@@ -48,11 +48,13 @@ describe('API Versioning (e2e)', () => {
           const versions = res.body.versions;
           expect(versions.length).toBeGreaterThan(0);
 
-          versions.forEach((version: any) => {
-            expect(version).toHaveProperty('version');
-            expect(version).toHaveProperty('deprecated');
-            expect(typeof version.deprecated).toBe('boolean');
-          });
+          versions.forEach(
+            (version: { version: string; deprecated: boolean }) => {
+              expect(version).toHaveProperty('version');
+              expect(version).toHaveProperty('deprecated');
+              expect(typeof version.deprecated).toBe('boolean');
+            },
+          );
         });
     });
   });

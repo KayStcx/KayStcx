@@ -9,22 +9,7 @@ import { Issuer } from '../../modules/issuers/entities/issuer.entity';
 import { MetricsService } from '../monitoring/metrics.service';
 import { LoggingService } from '../logging/logging.service';
 
-export enum IssuerTier {
-  FREE = 'free',
-  PAID = 'paid',
-}
-
-export interface IssuerContext {
-  id: string;
-  tier: IssuerTier;
-}
-
-export interface RateLimitResult {
-  allowed: boolean;
-  limit: number;
-  remaining: number;
-  resetAt: number;
-}
+import { IssuerTier, IssuerContext, RateLimitResult } from './rate-limit.types';
 
 interface UsageBucket {
   windowStart: number;
