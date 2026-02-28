@@ -2,28 +2,32 @@ module.exports = {
   root: true,
   env: {
     browser: true,
-    es2021: true
+    es2021: true,
   },
   extends: [
-    'eslint:recommended',
-    'plugin:react/recommended',
-    'plugin:react-hooks/recommended',
-    'plugin:@typescript-eslint/recommended'
+    "eslint:recommended",
+    "plugin:react/recommended",
+    "plugin:react-hooks/recommended",
+    "plugin:@typescript-eslint/recommended",
   ],
-  parser: '@typescript-eslint/parser',
+  parser: "@typescript-eslint/parser",
   parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module'
+    ecmaVersion: "latest",
+    sourceType: "module",
   },
-  plugins: ['react-refresh'],
+  plugins: ["react-refresh"],
   settings: {
     react: {
-      version: 'detect'
-    }
+      version: "detect",
+    },
   },
   rules: {
-    'react/react-in-jsx-scope': 'off',
-    'react-refresh/only-export-components': ['warn', { allowConstantExport: true }]
+    "react/react-in-jsx-scope": "off",
+    "react/prop-types": "off",
+    "react-refresh/only-export-components": [
+      "warn",
+      { allowConstantExport: true },
+    ],
   },
-  ignorePatterns: ['dist', 'node_modules']
+  ignorePatterns: ["dist", "node_modules"],
 };
