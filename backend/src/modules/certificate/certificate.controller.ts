@@ -18,7 +18,7 @@ import {
 } from '@nestjs/swagger';
 import { CertificateStatsDto } from './dto/stats.dto';
 import { CertificateStatsService } from './services/stats.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from 'src/common';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/constants/roles';

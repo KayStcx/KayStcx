@@ -37,7 +37,7 @@ describe('MultisigService', () => {
   });
 
   describe('initMultisigConfig', () => {
-    it('should initialize multisig configuration', async () => {
+    it('should initialize multisig configuration', () => {
       // Mock the config service to return test values
       jest
         .spyOn(configService, 'get')
@@ -57,67 +57,67 @@ describe('MultisigService', () => {
   });
 
   describe('updateMultisigConfig', () => {
-    it('should update multisig configuration', async () => {
+    it('should update multisig configuration', () => {
       expect(typeof service.updateMultisigConfig).toBe('function');
     });
   });
 
   describe('proposeCertificate', () => {
-    it('should propose a new certificate for multi-sig issuance', async () => {
+    it('should propose a new certificate for multi-sig issuance', () => {
       expect(typeof service.proposeCertificate).toBe('function');
     });
   });
 
   describe('approveRequest', () => {
-    it('should approve a pending certificate request', async () => {
+    it('should approve a pending certificate request', () => {
       expect(typeof service.approveRequest).toBe('function');
     });
   });
 
   describe('rejectRequest', () => {
-    it('should reject a pending certificate request', async () => {
+    it('should reject a pending certificate request', () => {
       expect(typeof service.rejectRequest).toBe('function');
     });
   });
 
   describe('issueApprovedCertificate', () => {
-    it('should issue an approved certificate', async () => {
+    it('should issue an approved certificate', () => {
       expect(typeof service.issueApprovedCertificate).toBe('function');
     });
   });
 
   describe('cancelRequest', () => {
-    it('should cancel a pending request', async () => {
+    it('should cancel a pending request', () => {
       expect(typeof service.cancelRequest).toBe('function');
     });
   });
 
   describe('getMultisigConfig', () => {
-    it('should get multisig configuration for an issuer', async () => {
+    it('should get multisig configuration for an issuer', () => {
       expect(typeof service.getMultisigConfig).toBe('function');
     });
   });
 
   describe('getPendingRequest', () => {
-    it('should get pending request by ID', async () => {
+    it('should get pending request by ID', () => {
       expect(typeof service.getPendingRequest).toBe('function');
     });
   });
 
   describe('isRequestExpired', () => {
-    it('should check if a request is expired', async () => {
+    it('should check if a request is expired', () => {
       expect(typeof service.isRequestExpired).toBe('function');
     });
   });
 
   describe('getPendingRequestsForIssuer', () => {
-    it('should get pending requests for an issuer', async () => {
+    it('should get pending requests for an issuer', () => {
       expect(typeof service.getPendingRequestsForIssuer).toBe('function');
     });
   });
 
   describe('getPendingRequestsForSigner', () => {
-    it('should get pending requests for a signer', async () => {
+    it('should get pending requests for a signer', () => {
       expect(typeof service.getPendingRequestsForSigner).toBe('function');
     });
   });

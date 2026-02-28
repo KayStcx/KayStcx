@@ -77,9 +77,7 @@ export class AuditController {
     description: 'User audit actions retrieved successfully',
     type: Array,
   })
-  async getUserActions(
-    @Query('limit') limit: number = 50,
-  ): Promise<AuditLog[]> {
+  getUserActions(@Query('limit') limit: number = 50): AuditLog[] {
     // Note: userId should come from the authenticated user
     // This is a placeholder - implementation depends on auth strategy
     return [];

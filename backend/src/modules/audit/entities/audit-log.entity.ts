@@ -11,7 +11,7 @@ import { AuditAction, AuditResourceType } from '../constants';
 @Index(['userId'])
 @Index(['action'])
 @Index(['resourceType'])
-@Index(['resourceId'])
+// @Index(['resourceId']) // Keep commented for now
 @Index(['createdAt'])
 @Index(['correlationId'])
 @Index(['ipAddress'])
@@ -34,7 +34,11 @@ export class AuditLog {
   })
   resourceType: AuditResourceType;
 
-  @Column({ nullable: true })
+  // FIX: Add explicit type for resourceId
+  @Column({ 
+    nullable: true,
+    type: 'varchar'  // This tells TypeORM to use PostgreSQL VARCHAR
+  })
   resourceId: string | null;
 
   @Column({
@@ -52,26 +56,48 @@ export class AuditLog {
     after?: any;
   } | null;
 
-  @Column({ nullable: true })
+  // Also fix userId for consistency
+  @Column({ 
+    nullable: true,
+    type: 'varchar'
+  })
   userId: string | null;
 
-  @Column({ nullable: true })
+  @Column({ 
+    nullable: true,
+    type: 'varchar'
+  })
   userEmail: string | null;
 
-  @Column({ nullable: true })
+  @Column({ 
+    nullable: true,
+    type: 'varchar'
+  })
   userRole: string | null;
 
-  @Column({ nullable: false })
+  @Column({ 
+    nullable: false,
+    type: 'varchar'
+  })
   ipAddress: string;
 
-  @Column({ nullable: true })
+  @Column({ 
+    nullable: true,
+    type: 'varchar'
+  })
   userAgent: string | null;
 
-  @Column({ nullable: true })
+  @Column({ 
+    nullable: true,
+    type: 'varchar'
+  })
   correlationId: string | null;
 
-  @Column({ nullable: true })
-  transactionHash: string | null; // For Stellar transactions
+  @Column({ 
+    nullable: true,
+    type: 'varchar'
+  })
+  transactionHash: string | null;
 
   @Column({
     type: 'jsonb',
@@ -85,13 +111,16 @@ export class AuditLog {
   })
   status: 'success' | 'failure' | 'error';
 
-  @Column({ nullable: true })
+  @Column({ 
+    nullable: true,
+    type: 'varchar'
+  })
   errorMessage: string | null;
 
   @Column({
     type: 'bigint',
   })
-  timestamp: number; // Unix timestamp for precise ordering
+  timestamp: number;
 
   @CreateDateColumn()
   createdAt: Date;

@@ -48,7 +48,7 @@ export class MetricsController {
     status: 200,
     description: 'Metrics endpoint is healthy',
   })
-  async metricsHealth() {
+  metricsHealth() {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),

@@ -302,11 +302,11 @@ export class DuplicateDetectionService {
     };
   }
 
-  async createOverrideRequest(
+  createOverrideRequest(
     certificateId: string,
     reason: string,
     requestedBy: string,
-  ): Promise<OverrideRequest> {
+  ): OverrideRequest {
     const request: OverrideRequest = {
       id: `override_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       certificateId,
@@ -324,10 +324,10 @@ export class DuplicateDetectionService {
     return request;
   }
 
-  async approveOverrideRequest(
+  approveOverrideRequest(
     requestId: string,
     approvedBy: string,
-  ): Promise<OverrideRequest> {
+  ): OverrideRequest {
     // In a real implementation, you would update the request in the database
     this.logger.log(`Override request ${requestId} approved by ${approvedBy}`);
 

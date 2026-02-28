@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef, Global } from '@nestjs/common'; // Add Global
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
 import { WebhooksService } from './webhooks.service';
@@ -6,13 +6,16 @@ import { WebhooksController } from './webhooks.controller';
 import { WebhooksProcessor } from './webhooks.processor';
 import { WebhookSubscription } from './entities/webhook-subscription.entity';
 import { WebhookLog } from './entities/webhook-log.entity';
+import { AuthModule } from '../auth/auth.module';
 
+@Global() // Make it global so it's available everywhere without importing
 @Module({
   imports: [
     TypeOrmModule.forFeature([WebhookSubscription, WebhookLog]),
     BullModule.registerQueue({
       name: 'webhooks',
     }),
+    forwardRef(() => AuthModule),
   ],
   controllers: [WebhooksController],
   providers: [WebhooksService, WebhooksProcessor],

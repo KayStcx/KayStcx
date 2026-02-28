@@ -12,6 +12,9 @@ import { VersioningType } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  console.log('🚀 Starting application...');
+  console.log('📧 Email queue name:', process.env.EMAIL_QUEUE_NAME || 'email-queue');
+
   const sentryService = app.get(SentryService);
   const loggingService = app.get(LoggingService);
   const metricsService = app.get(MetricsService);
@@ -59,4 +62,7 @@ async function bootstrap() {
 
   loggingService.log(`Application started on port ${port}`);
 }
-bootstrap();
+bootstrap().catch((error) => {
+  console.error('Failed to start application:', error);
+  process.exit(1);
+});

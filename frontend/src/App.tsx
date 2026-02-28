@@ -9,7 +9,7 @@ import Login from './pages/Login';
 import RevokeCertificatePage from './pages/RevokeCertificate';
 import IssuerProfile from './pages/IssuerProfile';
 import CertificateManagementPage from './pages/CertificateManagement';
-import ProtectedRoute from './guard/protectedRoute';
+import ProtectedRoute from './guard/ProtectedRoute';
 import { NotificationProvider } from './context/NotificationContext';
 import ToastContainer from './components/Toast';
 import NotificationPreferences from './pages/NotificationPreferences';

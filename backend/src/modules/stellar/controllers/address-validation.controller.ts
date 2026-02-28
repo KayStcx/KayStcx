@@ -74,7 +74,7 @@ export class AddressValidationController {
     status: 400,
     description: 'Invalid address format',
   })
-  async validateAndCheckExists(
+  validateAndCheckExists(
     @Body('network') network?: StellarNetwork,
   ): Promise<AddressValidationResult> {
     // Note: In a real implementation, you'd extract the address from the URL params
@@ -93,7 +93,7 @@ export class AddressValidationController {
     description: 'Address validation and existence check result',
     type: AddressValidationResult,
   })
-  async validateAndCheckExistsWithAddress(
+  validateAndCheckExistsWithAddress(
     @Body('address') address: string,
     @Body('network') network?: StellarNetwork,
   ): Promise<AddressValidationResult> {
@@ -129,11 +129,11 @@ export class AddressValidationController {
       },
     },
   })
-  async getCacheStats(): Promise<{
+  getCacheStats(): {
     size: number;
     ttl: number;
     maxSize: number;
-  }> {
+  } {
     return this.addressValidationService.getCacheStats();
   }
 }

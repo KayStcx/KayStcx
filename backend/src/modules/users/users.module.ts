@@ -1,30 +1,20 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common'; // Add forwardRef
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { JwtModule } from '@nestjs/jwt';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+// Remove JwtModule import
+import { ConfigModule } from '@nestjs/config';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { User } from './entities/user.entity';
 import { UserRepository } from './repositories/user.repository';
 import { RolesGuard } from './guards/roles.guard';
+import { AuthModule } from '../auth/auth.module'; 
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User]),
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
-        signOptions: {
-          expiresIn: parseInt(
-            configService.get<string>('JWT_EXPIRES_IN') || '3600',
-            10,
-          ),
-        },
-      }),
-      inject: [ConfigService],
-    }),
+    // Remove JwtModule.registerAsync completely
     ConfigModule,
+    forwardRef(() => AuthModule), // Use forwardRef to break circular dependency
   ],
   controllers: [UsersController],
   providers: [UsersService, UserRepository, RolesGuard],

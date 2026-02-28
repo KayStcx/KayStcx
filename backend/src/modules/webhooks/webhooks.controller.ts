@@ -19,9 +19,9 @@ import {
 import { WebhooksService } from './webhooks.service';
 import { CreateWebhookSubscriptionDto } from './dto/create-webhook-subscription.dto';
 import { WebhookEvent } from './entities/webhook-subscription.entity';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from 'src/common';
 import { CurrentUser } from '../users/decorators/current-user.decorator';
-import { User } from '../users/entities/user.entity';
+// import { User } from '../users/entities/user.entity';
 
 @ApiTags('Webhooks')
 @Controller('webhooks')

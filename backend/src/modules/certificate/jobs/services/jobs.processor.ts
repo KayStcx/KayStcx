@@ -18,13 +18,13 @@ export class JobsProcessor {
   ) {}
 
   @Process('send-email')
-  async handleEmail(job: Job) {
+  handleEmail(job: Job) {
     this.logger.log(`Sending email with payload: ${JSON.stringify(job.data)}`);
     // integrate with email service
   }
 
   @Process('generate-pdf')
-  async handlePdf(job: Job) {
+  handlePdf(job: Job) {
     this.logger.log(`Generating PDF with payload: ${JSON.stringify(job.data)}`);
     // integrate with PDF generator
   }

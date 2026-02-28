@@ -24,7 +24,7 @@ export class NotificationsGateway
 
   constructor(private readonly jwtService: JwtService) {}
 
-  async handleConnection(client: Socket) {
+  handleConnection(client: Socket) {
     try {
       const token =
         client.handshake.auth?.token ||

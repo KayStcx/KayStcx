@@ -10,7 +10,7 @@ const roleRoutes: Record<string, string[]> = {
 
 // Define props type for ProtectedRoute
 interface ProtectedRouteProps {
-  allowedRoles: string[];
+  allowedRoles?: string[];
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {

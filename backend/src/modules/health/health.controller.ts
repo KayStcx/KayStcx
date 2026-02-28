@@ -96,7 +96,7 @@ export class HealthController {
     status: 200,
     description: 'Application is alive',
   })
-  async liveness() {
+  liveness() {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
