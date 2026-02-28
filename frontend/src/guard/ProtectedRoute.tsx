@@ -26,13 +26,20 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
   // If no user is logged in, redirect to login page
   if (!user) return <Navigate to="/login" replace />;
 
-  // Get user role and allowed routes
+  // Get user role
   const userRole: string = user.role;
-  const allowedRoutes: string[] = roleRoutes[userRole] || [];
 
-  // Check if the user is allowed to access the route
-  if (!allowedRoutes.includes(currentPath)) {
-    return <Navigate to="/" replace />;
+  // If a caller provided an explicit list of allowed roles, use that check first
+  if (allowedRoles) {
+    if (!allowedRoles.includes(userRole)) {
+      return <Navigate to="/" replace />;
+    }
+  } else {
+    // Fallback: use hard-coded route map for backwards compatibility
+    const allowedRoutes: string[] = roleRoutes[userRole] || [];
+    if (!allowedRoutes.includes(currentPath)) {
+      return <Navigate to="/" replace />;
+    }
   }
 
   return <Outlet />;
