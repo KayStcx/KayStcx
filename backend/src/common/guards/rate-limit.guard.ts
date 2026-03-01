@@ -43,7 +43,7 @@ export class RateLimitGuard implements CanActivate {
       (request as any).originalUrl ||
       request.url;
 
-    const result = this.rateLimitService.consume(
+    const result = await this.rateLimitService.consume(
       issuer.id,
       issuer.tier,
       routePath,

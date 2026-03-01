@@ -40,8 +40,12 @@ export class RateLimitService {
   private readonly issuerCache = new Map<string, CachedIssuer>();
 
   constructor(
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore decorators from TypeORM conflict with TS5 decorator types
     @InjectRepository(Issuer)
     private readonly issuerRepository: Repository<Issuer>,
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore decorators from Bull conflict with TS5 decorator types
     @InjectQueue(RATE_LIMIT_QUEUE_NAME)
     private readonly rateLimitQueue: Queue,
     private readonly configService: ConfigService,
