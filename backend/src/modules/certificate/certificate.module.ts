@@ -25,13 +25,13 @@ import { DuplicateDetectionController } from './controllers/duplicate-detection.
     // REMOVE: DuplicateDetectionModule
   ],
   controllers: [
-    CertificateController, 
-    DuplicateDetectionController // Add this directly
+    CertificateController,
+    DuplicateDetectionController, // Add this directly
   ],
   providers: [
-    CertificateService, 
+    CertificateService,
     CertificateStatsService,
-    DuplicateDetectionService // Add this directly
+    DuplicateDetectionService, // Add this directly
   ],
   exports: [CertificateService, CertificateStatsService],
 })

@@ -30,21 +30,21 @@ export class AddressValidationService {
   ) {
     // this.cache = cache;
     this.cache = {
-      get: async (key: string) => null,
+      get: (key: string) => null,
       set: async (key: string, value: any, options?: any) => {},
       del: async (key: string) => {},
       reset: async () => {},
-      wrap: async (key: string, fn: any) => null,
+      wrap: (key: string, fn: any) => null,
       store: {
-        get: async (key: string) => null,
+        get: (key: string) => null,
         set: async (key: string, value: any, options?: any) => {},
         del: async (key: string) => {},
-        keys: async () => [],
+        keys: () => [],
         reset: async () => {},
         mset: async (args: any) => {},
-        mget: async (args: any) => [],
+        mget: (args: any) => [],
         mdel: async (args: any) => {},
-        ttl: async (key: string) => 0,
+        ttl: (key: string) => 0,
       },
     } as unknown as Cache;
 

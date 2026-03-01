@@ -268,8 +268,8 @@ describe('DuplicateDetectionService', () => {
   });
 
   describe('createOverrideRequest', () => {
-    it('should create override request', async () => {
-      const request = await service.createOverrideRequest(
+    it('should create override request', () => {
+      const request = service.createOverrideRequest(
         'cert-1',
         'Business requirement',
         'user-1',
@@ -284,11 +284,8 @@ describe('DuplicateDetectionService', () => {
   });
 
   describe('approveOverrideRequest', () => {
-    it('should approve override request', async () => {
-      const request = await service.approveOverrideRequest(
-        'request-1',
-        'admin-1',
-      );
+    it('should approve override request', () => {
+      const request = service.approveOverrideRequest('request-1', 'admin-1');
 
       expect(request.id).toBe('request-1');
       expect(request.approvedBy).toBe('admin-1');

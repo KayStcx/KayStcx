@@ -7,7 +7,7 @@ import { UsersController } from './users.controller';
 import { User } from './entities/user.entity';
 import { UserRepository } from './repositories/user.repository';
 import { RolesGuard } from './guards/roles.guard';
-import { AuthModule } from '../auth/auth.module'; 
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [

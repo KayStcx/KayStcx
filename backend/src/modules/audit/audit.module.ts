@@ -6,10 +6,14 @@ import { AuditService, RequestContextService } from './services';
 import { AuditController } from './controllers';
 import { AuditContextMiddleware } from './middleware';
 import { AuditCleanupJob } from './jobs';
-import { AuthModule } from '../auth/auth.module'; 
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AuditLog]), ScheduleModule.forRoot(), AuthModule],
+  imports: [
+    TypeOrmModule.forFeature([AuditLog]),
+    ScheduleModule.forRoot(),
+    AuthModule,
+  ],
   controllers: [AuditController],
   providers: [AuditService, RequestContextService, AuditCleanupJob],
   exports: [AuditService, RequestContextService],

@@ -76,10 +76,12 @@ export class DuplicateDetectionController {
       requestedBy: string;
     },
   ): Promise<OverrideRequest> {
-    return this.duplicateDetectionService.createOverrideRequest(
-      body.certificateId,
-      body.reason,
-      body.requestedBy,
+    return Promise.resolve(
+      this.duplicateDetectionService.createOverrideRequest(
+        body.certificateId,
+        body.reason,
+        body.requestedBy,
+      ),
     );
   }
 
@@ -91,9 +93,11 @@ export class DuplicateDetectionController {
     @Param('requestId') requestId: string,
     @Body('approvedBy') approvedBy: string,
   ): Promise<OverrideRequest> {
-    return this.duplicateDetectionService.approveOverrideRequest(
-      requestId,
-      approvedBy,
+    return Promise.resolve(
+      this.duplicateDetectionService.approveOverrideRequest(
+        requestId,
+        approvedBy,
+      ),
     );
   }
 }

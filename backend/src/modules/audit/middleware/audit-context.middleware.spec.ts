@@ -26,7 +26,7 @@ describe('AuditContextMiddleware', () => {
     let mockRequest: Partial<Request>;
     let mockResponse: Partial<Response>;
     let mockNext: NextFunction;
-    let listeners: { [key: string]: Function[] };
+    let listeners: { [key: string]: Array<(...args: any[]) => void> }; // More specific type
 
     beforeEach(() => {
       listeners = {};
@@ -45,12 +45,13 @@ describe('AuditContextMiddleware', () => {
 
       mockResponse = {
         setHeader: jest.fn(),
-        on: jest.fn((event: string, callback: Function) => {
+        on: jest.fn((event: string, callback: (...args: any[]) => void) => {
+          // Specific callback type
           if (!listeners[event]) {
             listeners[event] = [];
           }
           listeners[event].push(callback);
-          return null;
+          return mockResponse;
         }) as any,
       };
 

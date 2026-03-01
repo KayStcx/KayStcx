@@ -35,9 +35,9 @@ export class AuditLog {
   resourceType: AuditResourceType;
 
   // FIX: Add explicit type for resourceId
-  @Column({ 
+  @Column({
     nullable: true,
-    type: 'varchar'  // This tells TypeORM to use PostgreSQL VARCHAR
+    type: 'varchar', // This tells TypeORM to use PostgreSQL VARCHAR
   })
   resourceId: string | null;
 
@@ -57,45 +57,45 @@ export class AuditLog {
   } | null;
 
   // Also fix userId for consistency
-  @Column({ 
+  @Column({
     nullable: true,
-    type: 'varchar'
+    type: 'varchar',
   })
   userId: string | null;
 
-  @Column({ 
+  @Column({
     nullable: true,
-    type: 'varchar'
+    type: 'varchar',
   })
   userEmail: string | null;
 
-  @Column({ 
+  @Column({
     nullable: true,
-    type: 'varchar'
+    type: 'varchar',
   })
   userRole: string | null;
 
-  @Column({ 
+  @Column({
     nullable: false,
-    type: 'varchar'
+    type: 'varchar',
   })
   ipAddress: string;
 
-  @Column({ 
+  @Column({
     nullable: true,
-    type: 'varchar'
+    type: 'varchar',
   })
   userAgent: string | null;
 
-  @Column({ 
+  @Column({
     nullable: true,
-    type: 'varchar'
+    type: 'varchar',
   })
   correlationId: string | null;
 
-  @Column({ 
+  @Column({
     nullable: true,
-    type: 'varchar'
+    type: 'varchar',
   })
   transactionHash: string | null;
 
@@ -111,9 +111,9 @@ export class AuditLog {
   })
   status: 'success' | 'failure' | 'error';
 
-  @Column({ 
+  @Column({
     nullable: true,
-    type: 'varchar'
+    type: 'varchar',
   })
   errorMessage: string | null;
 

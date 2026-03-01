@@ -85,11 +85,11 @@ export class RateLimitService {
     return { id: issuer.id, tier };
   }
 
-  consume(
+  async consume(
     issuerId: string,
     tier: IssuerTier,
     routeKey: string,
-  ): RateLimitResult {
+  ): Promise<RateLimitResult> {
     const key = `${issuerId}:${routeKey}`;
     const now = Date.now();
     const limit = tier === IssuerTier.PAID ? this.paidLimit : this.freeLimit;
@@ -114,7 +114,14 @@ export class RateLimitService {
     }
 
     if (bucket.count >= limit) {
-      this.enqueueExceeded(issuerId, tier, routeKey, now, limit, bucket.count);
+      await this.enqueueExceeded(
+        issuerId,
+        tier,
+        routeKey,
+        now,
+        limit,
+        bucket.count,
+      );
       const resetAt = bucket.windowStart + this.windowMs;
 
       return {
@@ -136,7 +143,7 @@ export class RateLimitService {
       bucket.count >= Math.floor(limit * 0.8)
     ) {
       bucket.notifiedUpgrade = true;
-      this.notifyUpgrade(issuerId, routeKey, limit, bucket.count);
+      await this.notifyUpgrade(issuerId, routeKey, limit, bucket.count);
     }
 
     this.metricsService.recordHttpRequestDuration('API_KEY', routeKey, 200, 0);

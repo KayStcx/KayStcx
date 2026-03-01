@@ -13,7 +13,10 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   console.log('🚀 Starting application...');
-  console.log('📧 Email queue name:', process.env.EMAIL_QUEUE_NAME || 'email-queue');
+  console.log(
+    '📧 Email queue name:',
+    process.env.EMAIL_QUEUE_NAME || 'email-queue',
+  );
 
   const sentryService = app.get(SentryService);
   const loggingService = app.get(LoggingService);

@@ -24,7 +24,7 @@ export class NotificationsGateway
 
   constructor(private readonly jwtService: JwtService) {}
 
-  handleConnection(client: Socket) {
+  async handleConnection(client: Socket) {
     try {
       const token =
         client.handshake.auth?.token ||
@@ -37,7 +37,7 @@ export class NotificationsGateway
       const payload = this.jwtService.verify(token);
       const userId = payload.sub || payload.id;
 
-      client.join(`user_${userId}`);
+      await client.join(`user_${userId}`);
       this.logger.log(`Client connected and joined room user_${userId}`);
     } catch (error) {
       this.logger.error(`Connection error: ${error.message}`);

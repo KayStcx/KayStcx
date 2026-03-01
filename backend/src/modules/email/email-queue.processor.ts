@@ -4,7 +4,8 @@ import type { Job } from 'bull';
 import { EmailService } from './email.service';
 import { SendEmailDto } from './dto/send-email.dto';
 
-export const EMAIL_QUEUE_NAME = 'stellar-email-queue-' + Math.random().toString(36).substring(7);
+export const EMAIL_QUEUE_NAME =
+  'stellar-email-queue-' + Math.random().toString(36).substring(7);
 
 export enum EmailJobType {
   SEND_EMAIL = 'send-email',

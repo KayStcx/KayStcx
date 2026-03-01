@@ -135,7 +135,7 @@ export class MemoryHealthIndicator extends HealthIndicator {
   private readonly logger = new Logger(MemoryHealthIndicator.name);
   private readonly maxMemoryUsage = 0.9; // 90%
 
-  async isHealthy(): Promise<HealthIndicatorResult> {
+  isHealthy(): HealthIndicatorResult {
     try {
       const memUsage = process.memoryUsage();
       const heapUsedPercent = memUsage.heapUsed / memUsage.heapTotal;

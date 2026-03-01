@@ -23,8 +23,8 @@ import { CacheModule } from '@nestjs/cache-manager';
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, JwtManagementService],
   exports: [
-    AuthService, 
-    JwtModule,  // Keep this - it's important!
+    AuthService,
+    JwtModule, // Keep this - it's important!
     JwtManagementService,
   ],
 })
