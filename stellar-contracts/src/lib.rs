@@ -14,9 +14,7 @@ impl CertificateContract {
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("Admin already initialized");
         }
-        env.storage()
-            .instance()
-            .set(&DataKey::Admin, &admin);
+        env.storage().instance().set(&DataKey::Admin, &admin);
     }
 
     /// Add an authorized issuer (only admin can call)
