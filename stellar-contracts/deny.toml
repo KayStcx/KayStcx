@@ -1,36 +1,11 @@
-# Cargo deny configuration for stellar-contracts
-# See https://embarkstudios.github.io/cargo-deny/index.html
+# Minimal cargo-deny configuration for stellar-contracts
+# See: https://embarkstudios.github.io/cargo-deny/
 
 [advisories]
-# Threshold for security advisory warnings
-vulnerability = "deny"
-unmaintained = "warn"
-yanked = "warn"
-notice = "warn"
-
-# List of advisory IDs to ignore
-# https://rustsec.org/ for more info
-ignore = [
-    # Add specific CVEs to ignore if needed
-]
+# Use defaults; keep this table empty to rely on cargo-deny built-in checks
 
 [licenses]
-# Confidence threshold for license detection
-confidence-threshold = 0.8
-
-# Lint level for crates which do not have a detectable license
-unlicensed = "deny"
-
-# Lint level for licenses considered copyleft
-copyleft = "warn"
-
-# Blanket approval or denial for OSI-approved or FSF Free/Libre licenses
-allow-osi-fsf-free = "both"
-
-# Lint level used when no other predicates are matched
-default = "deny"
-
-# Allow 1 or more licenses on a per-crate basis
+# Allow commonly-used permissive licenses
 allow = [
     "MIT",
     "Apache-2.0",
@@ -38,33 +13,15 @@ allow = [
     "BSD-2-Clause",
     "BSD-3-Clause",
     "ISC",
-    "Unicode-DFS-2016",
 ]
 
 [bans]
-# Lint level for when multiple versions of the same crate are detected
+# Warn when multiple versions of the same crate are present
 multiple-versions = "warn"
 
-# Lint level used when a crate marked with `publish = false` is detected.
-publish = "warn"
-
-# Lint level used when the source of a crate can't be verified
-unknown-git-source = "warn"
-
-# Lint level used when a crate in a workspace that isn't in the workspace
-# is detected; i.e. you workspace depends on your own crate when it's in a different
-# workspace
-workspace-default = "warn"
-
 [sources]
-# Lint level for what to happen when a crate from a crate registry that is not in the allow list is detected
-unknown-registry = "warn"
-
-# Lint level for what to happen when a crate from a git repository that is not in the allow list is detected
-unknown-git = "warn"
-
-# List of allowed crate registries
+# Restrict registries to crates.io index
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 
-# List of allowed Git repositories
+# No custom git allow-list by default
 allow-git = []
