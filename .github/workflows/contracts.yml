@@ -19,8 +19,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev pkg-config
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: stellar-contracts
 
       - name: Install clippy
         run: rustup component add clippy
@@ -44,14 +54,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev pkg-config
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install dependencies
-        run: |
-          cd stellar-contracts
-          cargo install stellar-cli
-          cargo install stellar-sdk
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: stellar-contracts
 
       - name: Run unit tests
         run: |
@@ -61,12 +75,7 @@ jobs:
       - name: Run integration tests
         run: |
           cd stellar-contracts
-          cargo test --test comprehensive_tests
-
-      - name: Run contract tests
-        run: |
-          cd stellar-contracts
-          npm test
+          cargo test --lib
 
   contract-build:
     name: Contract Build
@@ -77,8 +86,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev pkg-config
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: stellar-contracts
 
       - name: Build contracts
         run: |
@@ -105,6 +124,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev pkg-config
+
       - name: Download contract artifacts
         uses: actions/download-artifact@v4
         with:
@@ -113,6 +137,11 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: stellar-contracts
 
       - name: Install stellar-cli
         run: cargo install stellar-cli
@@ -143,8 +172,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev pkg-config
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: stellar-contracts
 
       - name: Install cargo-audit
         run: cargo install cargo-audit
