@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogIn, UserPlus, Shield } from "lucide-react";
+import { LogIn, UserPlus, Shield, Eye, EyeOff } from "lucide-react";
 import { authApi, UserRole } from "../api";
 
 const Login = () => {
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,8 +64,8 @@ const Login = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-12">
-      <div className="bg-white dark:bg-slate-900 rounded-lg shadow-md p-8 transition-colors duration-250">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-slate-900">
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-8 w-full max-w-md transition-colors duration-250">
         <div className="flex justify-center mb-6">
           <Shield className="w-12 h-12 text-blue-600 dark:text-blue-400" />
         </div>
@@ -142,24 +143,38 @@ const Login = () => {
             />
           </div>
 
-          {/* Password */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
               Password
             </label>
-            <input
-              type="password"
-              value={formData.password}
-              onChange={(e) =>
-                setFormData({ ...formData, password: e.target.value })
-              }
-              className="w-full px-4 py-2 border rounded-md 
-              bg-white dark:bg-slate-800
-              text-gray-900 dark:text-white
-              border-gray-300 dark:border-slate-700
-              focus:ring-blue-500 focus:border-blue-500"
-              required
-            />
+
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={formData.password}
+                onChange={(e) =>
+                  setFormData({ ...formData, password: e.target.value })
+                }
+                className="w-full px-4 py-2 border rounded-md 
+      bg-white dark:bg-slate-800
+      text-gray-900 dark:text-white
+      border-gray-300 dark:border-slate-700
+      focus:ring-blue-500 focus:border-blue-500 pr-10"
+                required
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400"
+              >
+                {showPassword ? (
+                  <EyeOff className="h-5 w-5" />
+                ) : (
+                  <Eye className="h-5 w-5" />
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Role */}
