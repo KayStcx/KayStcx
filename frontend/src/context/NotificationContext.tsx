@@ -67,7 +67,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     const markAsRead = async (id: string) => {
         try {
-            const token = localStorage.getItem('token');
             await apiClient(`/notifications/${id}/read`, {
                 method: 'PATCH',
             });
@@ -81,7 +80,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     const markAllAsRead = async () => {
         try {
-            const token = localStorage.getItem('token');
             await apiClient(`/notifications/read-all`, {
                 method: 'PATCH',
             });
