@@ -113,12 +113,15 @@ export class AdminAnalyticsService {
    * Get user count breakdown by status
    */
   private async getUsersByStatus(): Promise<UsersByStatusDto> {
-    const [active, inactive, suspended, pendingVerification] = await Promise.all([
-      this.userRepo.count({ where: { status: UserStatus.ACTIVE } }),
-      this.userRepo.count({ where: { status: UserStatus.INACTIVE } }),
-      this.userRepo.count({ where: { status: UserStatus.SUSPENDED } }),
-      this.userRepo.count({ where: { status: UserStatus.PENDING_VERIFICATION } }),
-    ]);
+    const [active, inactive, suspended, pendingVerification] =
+      await Promise.all([
+        this.userRepo.count({ where: { status: UserStatus.ACTIVE } }),
+        this.userRepo.count({ where: { status: UserStatus.INACTIVE } }),
+        this.userRepo.count({ where: { status: UserStatus.SUSPENDED } }),
+        this.userRepo.count({
+          where: { status: UserStatus.PENDING_VERIFICATION },
+        }),
+      ]);
 
     return {
       active,
@@ -131,7 +134,9 @@ export class AdminAnalyticsService {
   /**
    * Get certificate count breakdown by status
    */
-  private async getCertificatesByStatus(dateFilter: any): Promise<CertificatesByStatusDto> {
+  private async getCertificatesByStatus(
+    dateFilter: any,
+  ): Promise<CertificatesByStatusDto> {
     const where = dateFilter.where || {};
 
     const [total, active, revoked, expired] = await Promise.all([
@@ -158,12 +163,14 @@ export class AdminAnalyticsService {
   /**
    * Get top issuers by certificate count
    */
-  private async getTopIssuers(dateFilter: any): Promise<TopIssuerAnalyticsDto[]> {
+  private async getTopIssuers(
+    dateFilter: any,
+  ): Promise<TopIssuerAnalyticsDto[]> {
     const totalCerts = await this.certificateRepo.count({
       where: dateFilter.where,
     });
 
-    const topIssuersData = await this.certificateRepo
+    const topIssuersData = this.certificateRepo
       .createQueryBuilder('cert')
       .select('cert.issuerId', 'issuerId')
       .addSelect('issuer.name', 'issuerName')
@@ -188,16 +195,21 @@ export class AdminAnalyticsService {
       issuerId: item.issuerId,
       issuerName: item.issuerName || 'Unknown',
       certificateCount: parseInt(item.certificateCount, 10),
-      percentage: totalCerts > 0
-        ? Math.round((parseInt(item.certificateCount, 10) / totalCerts) * 100 * 10) / 10
-        : 0,
+      percentage:
+        totalCerts > 0
+          ? Math.round(
+              (parseInt(item.certificateCount, 10) / totalCerts) * 100 * 10,
+            ) / 10
+          : 0,
     }));
   }
 
   /**
    * Get system-wide verification trends
    */
-  private async getVerificationTrends(dateFilter: any): Promise<VerificationTrendsDto> {
+  private async getVerificationTrends(
+    dateFilter: any,
+  ): Promise<VerificationTrendsDto> {
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -208,39 +220,41 @@ export class AdminAnalyticsService {
       baseWhere.verifiedAt = Between(dateFilter.startDate, dateFilter.endDate);
     }
 
-    const [total, successful, failed, last24h, last7d, last30d] = await Promise.all([
-      this.verificationRepo.count({ where: baseWhere }),
-      this.verificationRepo.count({
-        where: { ...baseWhere, success: true },
-      }),
-      this.verificationRepo.count({
-        where: { ...baseWhere, success: false },
-      }),
-      this.verificationRepo.count({
-        where: {
-          ...baseWhere,
-          verifiedAt: MoreThanOrEqual(oneDayAgo),
-        },
-      }),
-      this.verificationRepo.count({
-        where: {
-          ...baseWhere,
-          verifiedAt: MoreThanOrEqual(sevenDaysAgo),
-        },
-      }),
-      this.verificationRepo.count({
-        where: {
-          ...baseWhere,
-          verifiedAt: MoreThanOrEqual(thirtyDaysAgo),
-        },
-      }),
-    ]);
+    const [total, successful, failed, last24h, last7d, last30d] =
+      await Promise.all([
+        this.verificationRepo.count({ where: baseWhere }),
+        this.verificationRepo.count({
+          where: { ...baseWhere, success: true },
+        }),
+        this.verificationRepo.count({
+          where: { ...baseWhere, success: false },
+        }),
+        this.verificationRepo.count({
+          where: {
+            ...baseWhere,
+            verifiedAt: MoreThanOrEqual(oneDayAgo),
+          },
+        }),
+        this.verificationRepo.count({
+          where: {
+            ...baseWhere,
+            verifiedAt: MoreThanOrEqual(sevenDaysAgo),
+          },
+        }),
+        this.verificationRepo.count({
+          where: {
+            ...baseWhere,
+            verifiedAt: MoreThanOrEqual(thirtyDaysAgo),
+          },
+        }),
+      ]);
 
     return {
       total,
       successful,
       failed,
-      successRate: total > 0 ? Math.round((successful / total) * 100 * 10) / 10 : 0,
+      successRate:
+        total > 0 ? Math.round((successful / total) * 100 * 10) / 10 : 0,
       last24Hours: last24h,
       last7Days: last7d,
       last30Days: last30d,
@@ -250,8 +264,11 @@ export class AdminAnalyticsService {
   /**
    * Get user registration trends over time
    */
-  private async getUserRegistrationTrend(dateFilter: any): Promise<UserRegistrationTrendDto[]> {
-    const startDate = dateFilter.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  private async getUserRegistrationTrend(
+    dateFilter: any,
+  ): Promise<UserRegistrationTrendDto[]> {
+    const startDate =
+      dateFilter.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const endDate = dateFilter.endDate || new Date();
 
     const trendData = await this.userRepo
@@ -273,8 +290,11 @@ export class AdminAnalyticsService {
   /**
    * Get certificate issuance trends over time
    */
-  private async getCertificateIssuanceTrend(dateFilter: any): Promise<CertificateIssuanceTrendDto[]> {
-    const startDate = dateFilter.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  private async getCertificateIssuanceTrend(
+    dateFilter: any,
+  ): Promise<CertificateIssuanceTrendDto[]> {
+    const startDate =
+      dateFilter.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const endDate = dateFilter.endDate || new Date();
 
     const trendData = await this.certificateRepo

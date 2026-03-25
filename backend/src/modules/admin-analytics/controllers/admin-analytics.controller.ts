@@ -7,7 +7,13 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { AdminAnalyticsService } from '../services/admin-analytics.service';
 import {
   AdminAnalyticsQueryDto,
@@ -38,7 +44,8 @@ export class AdminAnalyticsController {
   @Roles(UserRole.ADMIN)
   @ApiOperation({
     summary: 'Get admin analytics',
-    description: 'Retrieves platform-wide analytics for admin dashboard. Requires admin role.',
+    description:
+      'Retrieves platform-wide analytics for admin dashboard. Requires admin role.',
   })
   @ApiQuery({ type: AdminAnalyticsQueryDto, required: false })
   @ApiResponse({
