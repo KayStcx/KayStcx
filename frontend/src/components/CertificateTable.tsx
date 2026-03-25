@@ -14,7 +14,7 @@ import {
     XCircle
 } from 'lucide-react';
 import { certificateApi } from '../api';
-import type { Certificate } from '../api';
+import type { Certificate, CertificateExportFilters } from '../api';
 
 type SortField = 'recipientName' | 'title' | 'issuerName' | 'issueDate' | 'status' | 'serialNumber';
 type SortOrder = 'asc' | 'desc';
@@ -123,7 +123,16 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
     // Handle bulk export
     const handleBulkExport = async () => {
         try {
-            const blob = await certificateApi.bulkExport(Array.from(selectedIds));
+            const filters: CertificateExportFilters = {
+                search: search || undefined,
+                status: statusFilter || undefined,
+                startDate: startDate || undefined,
+                endDate: endDate || undefined,
+            };
+            const blob = await certificateApi.bulkExport(
+                Array.from(selectedIds),
+                filters,
+            );
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
