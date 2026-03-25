@@ -115,6 +115,83 @@ impl CertificateContract {
         env.storage().instance().get(&DataKey::Certificate(id))
     }
 
+    /// Suspend a certificate
+    pub fn suspend_certificate(env: Env, id: String) {
+        let mut cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&DataKey::Certificate(id.clone()))
+            .expect("Certificate not found");
+        cert.issuer.require_auth();
+
+        if cert.status == CertificateStatus::Suspended {
+            panic!("Certificate is already suspended");
+        }
+
+        cert.status = CertificateStatus::Suspended;
+        env.storage()
+            .instance()
+            .set(&DataKey::Certificate(id.clone()), &cert);
+    }
+
+    /// Reinstate a suspended certificate
+    pub fn reinstate_certificate(env: Env, id: String) {
+        let mut cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&DataKey::Certificate(id.clone()))
+            .expect("Certificate not found");
+        cert.issuer.require_auth();
+
+        if cert.status != CertificateStatus::Suspended {
+            panic!("Certificate is not suspended");
+        }
+
+        cert.status = CertificateStatus::Active;
+        env.storage()
+            .instance()
+            .set(&DataKey::Certificate(id.clone()), &cert);
+    }
+
+    /// Freeze a certificate
+    pub fn freeze_certificate(env: Env, id: String) {
+        let mut cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&DataKey::Certificate(id.clone()))
+            .expect("Certificate not found");
+        cert.issuer.require_auth();
+
+        if cert.status == CertificateStatus::Frozen {
+            panic!("Certificate is already frozen");
+        }
+
+        cert.status = CertificateStatus::Frozen;
+        env.storage()
+            .instance()
+            .set(&DataKey::Certificate(id.clone()), &cert);
+    }
+
+    /// Unfreeze a certificate
+    pub fn unfreeze_certificate(env: Env, id: String) {
+        let mut cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&DataKey::Certificate(id.clone()))
+            .expect("Certificate not found");
+        cert.issuer.require_auth();
+
+        if cert.status != CertificateStatus::Frozen {
+            panic!("Certificate is not frozen");
+        }
+
+        cert.status = CertificateStatus::Active;
+        env.storage()
+            .instance()
+            .set(&DataKey::Certificate(id.clone()), &cert);
+    }
+
+
     /// Verify if a certificate is valid (active and not expired)
     pub fn is_valid(env: Env, id: String) -> bool {
         if let Some(cert) = env
