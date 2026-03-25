@@ -793,6 +793,7 @@ export class UsersService {
     active: number;
     byRole: Record<UserRole, number>;
     byStatus: Record<UserStatus, number>;
+    certificateIssuanceCounts: Record<string, number>;
   }> {
     const [total, active, userCount, issuerCount, adminCount] =
       await Promise.all([
@@ -811,6 +812,8 @@ export class UsersService {
         this.userRepository.countByStatus(UserStatus.PENDING_VERIFICATION),
       ]);
 
+    const certificateIssuanceCounts = await this.userRepository.getPerUserCertificateCounts();
+
     return {
       total,
       active,
@@ -825,6 +828,7 @@ export class UsersService {
         [UserStatus.SUSPENDED]: suspendedStatus,
         [UserStatus.PENDING_VERIFICATION]: pendingStatus,
       },
+      certificateIssuanceCounts,
     };
   }
 

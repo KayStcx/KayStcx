@@ -342,6 +342,7 @@ describe('UsersController', () => {
             [UserStatus.SUSPENDED]: 5,
             [UserStatus.PENDING_VERIFICATION]: 5,
           },
+          certificateIssuanceCounts: { 'user1': 5 },
         };
 
         mockUsersService.getUserStats.mockResolvedValue(stats);

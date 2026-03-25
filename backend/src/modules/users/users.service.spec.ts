@@ -90,6 +90,7 @@ describe('UsersService', () => {
     resetLoginAttempts: jest.fn(),
     lockAccount: jest.fn(),
     updateLastLogin: jest.fn(),
+    getPerUserCertificateCounts: jest.fn(),
   };
 
   const mockJwtService = {
@@ -630,6 +631,7 @@ describe('UsersService', () => {
       mockUserRepository.countActive.mockResolvedValue(80);
       mockUserRepository.countByRole.mockResolvedValue(50);
       mockUserRepository.countByStatus.mockResolvedValue(60);
+      mockUserRepository.getPerUserCertificateCounts.mockResolvedValue({'user1': 5});
 
       const result = await service.getUserStats();
 
@@ -637,6 +639,8 @@ describe('UsersService', () => {
       expect(result).toHaveProperty('active');
       expect(result).toHaveProperty('byRole');
       expect(result).toHaveProperty('byStatus');
+      expect(result).toHaveProperty('certificateIssuanceCounts');
+      expect(result.certificateIssuanceCounts).toEqual({'user1': 5});
     });
   });
 });
