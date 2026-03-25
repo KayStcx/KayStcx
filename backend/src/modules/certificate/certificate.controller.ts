@@ -6,7 +6,6 @@ import {
   Param,
   Post,
   Body,
-  Delete,
   Patch,
   ParseUUIDPipe,
   Req,
@@ -42,6 +41,8 @@ interface AuthenticatedUser {
   email: string;
   role: UserRole;
 }
+import { CreateCertificateDto } from './dto/create-certificate.dto';
+import { CertificateQrResponseDto } from './dto/certificate-qr-response.dto';
 
 @ApiTags('Certificates')
 @Controller('certificates')
@@ -184,6 +185,18 @@ export class CertificateController {
   }
 
   // ─── Single Certificate ───────────────────────────────────────────────────────
+
+  @Get(':id/qr')
+  @ApiOperation({ summary: 'Get QR code URL for a certificate' })
+  @ApiResponse({
+    status: 200,
+    description: 'QR code generated successfully',
+    type: CertificateQrResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Certificate not found' })
+  async getQrCode(@Param('id') id: string): Promise<CertificateQrResponseDto> {
+    return this.certificateService.getCertificateQrCode(id);
+  }
 
   @Get(':id')
   @Public()

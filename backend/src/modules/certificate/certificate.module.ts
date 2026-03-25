@@ -20,6 +20,11 @@ import { MetadataSchemaModule } from '../metadata-schema/metadata-schema.module'
 import { AuthModule } from '../auth/auth.module';
 import { StellarModule } from '../stellar/stellar.module';
 import { AuditModule } from '../audit/audit.module';
+import { FilesModule } from '../files/files.module';
+
+// Import services directly
+import { DuplicateDetectionService } from './services/duplicate-detection.service';
+import { DuplicateDetectionController } from './controllers/duplicate-detection.controller';
 
 @Module({
   imports: [
@@ -33,6 +38,12 @@ import { AuditModule } from '../audit/audit.module';
     AuthModule,
     StellarModule,
     AuditModule,
+    FilesModule,
+    // REMOVE: DuplicateDetectionModule
+  ],
+  controllers: [
+    CertificateController,
+    DuplicateDetectionController, // Add this directly
   ],
   controllers: [CertificateController, DuplicateDetectionController],
   providers: [
