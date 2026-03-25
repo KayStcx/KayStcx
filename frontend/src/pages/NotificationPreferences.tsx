@@ -50,7 +50,7 @@ export default function NotificationPreferences() {
         if (!preferences) return;
         setSaving(true);
         try {
-            const token = localStorage.getItem('token');
+            const token = tokenStorage.getAccessToken();
             await fetch('http://localhost:3001/notifications/preferences', {
                 method: 'PATCH',
                 headers: {
