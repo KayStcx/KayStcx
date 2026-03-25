@@ -8,6 +8,7 @@ import {
     DashboardStats,
     IssuanceTrendPoint,
     PaginatedResponse,
+    CertificateExportFilters,
     StatusDistribution,
     User,
     UserRole,
@@ -379,12 +380,46 @@ export const certificateApi = {
         return apiClient<Certificate>(`/certificates/${id}`);
     },
     getUserCertificates,
-    bulkExport: async (certificateIds: string[]): Promise<Blob> => {
+    bulkExport: async (
+        certificateIds: string[],
+        filters?: CertificateExportFilters,
+    ): Promise<Blob> => {
         if (USE_DUMMY_DATA) {
             await simulateDelay();
             // Create a dummy CSV blob
             const headers = ['ID', 'Recipient Name', 'Email', 'Title', 'Status', 'Issue Date'];
-            const certs = dummyData.certificates.filter(c => certificateIds.includes(c.id));
+            const normalizedSearch = filters?.search?.trim().toLowerCase();
+            const startDate = filters?.startDate ? new Date(filters.startDate) : null;
+            const endDate = filters?.endDate ? new Date(filters.endDate) : null;
+
+            const certs = dummyData.certificates.filter((certificate) => {
+                const matchesIds =
+                    certificateIds.length === 0 || certificateIds.includes(certificate.id);
+                const matchesSearch =
+                    !normalizedSearch ||
+                    [
+                        certificate.id,
+                        certificate.serialNumber,
+                        certificate.recipientName,
+                        certificate.recipientEmail,
+                        certificate.title,
+                        certificate.issuerName,
+                    ]
+                        .some((value) => value?.toLowerCase().includes(normalizedSearch));
+                const matchesStatus =
+                    !filters?.status || certificate.status === filters.status;
+                const issueDate = new Date(certificate.issueDate);
+                const matchesStartDate = !startDate || issueDate >= startDate;
+                const matchesEndDate = !endDate || issueDate <= endDate;
+
+                return (
+                    matchesIds &&
+                    matchesSearch &&
+                    matchesStatus &&
+                    matchesStartDate &&
+                    matchesEndDate
+                );
+            });
             const rows = certs.map(c => [c.id, c.recipientName, c.recipientEmail, c.title, c.status, c.issueDate]);
             const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
             return new Blob([csv], { type: 'text/csv' });
@@ -395,7 +430,7 @@ export const certificateApi = {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${tokenStorage.getAccessToken()}`
             },
-            body: JSON.stringify({ certificateIds })
+            body: JSON.stringify({ certificateIds, filters })
         });
         if (!response.ok) {
             throw new Error('Export failed');
