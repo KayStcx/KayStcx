@@ -368,9 +368,15 @@ impl CertificateContract {
             panic!("Not an authorized signer");
         }
 
-        if !request.approvals.contains(&approver) {
-            request.approvals.push_back(approver);
+        if request.approvals.contains(&approver) {
+            return SignatureResult {
+                success: false,
+                message: String::from_str(&env, "Request already approved by this signer"),
+                final_status: OptionalRequestStatus::Some(request.status),
+            };
         }
+
+        request.approvals.push_back(approver);
 
         if request.approvals.len() >= config.threshold {
             request.status = RequestStatus::Approved;
