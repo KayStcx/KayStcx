@@ -67,9 +67,10 @@ const CertificateWallet = () => {
         document.body.removeChild(a);
         setTimeout(() => window.URL.revokeObjectURL(objectUrl), 1000);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`Error with PDF for ${cert.id}:`, err);
-      setError(`Failed to ${action} certificate "${cert.title}". ${err?.message || 'The PDF is unavailable.'}`);
+      const errorMessage = err instanceof Error ? err.message : 'The PDF is unavailable.';
+      setError(`Failed to ${action} certificate "${cert.title}". ${errorMessage}`);
     } finally {
       setActionLoadingId(null);
     }
