@@ -40,7 +40,7 @@ const CertificateWallet = () => {
     setActionLoadingId(cert.id);
 
     try {
-      let url = cert.pdfUrl;
+      let url: string | undefined | null = cert.pdfUrl;
       
       if (!url) {
         url = await getCertificatePdfUrl(cert.id);
