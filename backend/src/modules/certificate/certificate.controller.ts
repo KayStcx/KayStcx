@@ -24,6 +24,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/constants/roles';
 import { Certificate } from './entities/certificate.entity';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
+import { CertificateQrResponseDto } from './dto/certificate-qr-response.dto';
 
 @ApiTags('Certificates')
 @Controller('certificates')
@@ -51,6 +52,18 @@ export class CertificateController {
   @ApiOperation({ summary: 'Get public certificate summary statistics' })
   async getPublicSummary(): Promise<Partial<CertificateStatsDto>> {
     return this.statsService.getPublicSummary();
+  }
+
+  @Get(':id/qr')
+  @ApiOperation({ summary: 'Get QR code URL for a certificate' })
+  @ApiResponse({
+    status: 200,
+    description: 'QR code generated successfully',
+    type: CertificateQrResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Certificate not found' })
+  async getQrCode(@Param('id') id: string): Promise<CertificateQrResponseDto> {
+    return this.certificateService.getCertificateQrCode(id);
   }
 
   @Get(':id')
