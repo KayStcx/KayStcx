@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Wallet, Download, Eye, Clock } from 'lucide-react';
-import { Certificate, getUserCertificates } from '../api';
+import { Wallet, Download, Eye, Clock, AlertCircle } from 'lucide-react';
+import { Certificate, getUserCertificates, getCertificatePdfUrl } from '../api';
 
 const CertificateWallet = () => {
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+
   // const userId = "b3a1863c-15a9-4df1-989e-a9d4e4f3840e";
   useEffect(() => {
     const user = localStorage.getItem('user');
@@ -32,12 +35,60 @@ const CertificateWallet = () => {
     fetchCertificates();
   }, []);
 
+  const handlePdfAction = async (cert: Certificate, action: 'view' | 'download') => {
+    setError(null);
+    setActionLoadingId(cert.id);
+
+    try {
+      let url: string | undefined | null = cert.pdfUrl;
+      
+      if (!url) {
+        url = await getCertificatePdfUrl(cert.id);
+      }
+
+      if (!url) {
+        throw new Error('PDF not found');
+      }
+
+      if (action === 'view') {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      } else {
+        const fetchRes = await fetch(url);
+        if (!fetchRes.ok) {
+           throw new Error('PDF file is currently unavailable');
+        }
+        const blob = await fetchRes.blob();
+        const objectUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = `Certificate-${cert.serialNumber || cert.id}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => window.URL.revokeObjectURL(objectUrl), 1000);
+      }
+    } catch (err: unknown) {
+      console.error(`Error with PDF for ${cert.id}:`, err);
+      const errorMessage = err instanceof Error ? err.message : 'The PDF is unavailable.';
+      setError(`Failed to ${action} certificate "${cert.title}". ${errorMessage}`);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto">
       <div className="flex items-center gap-4 mb-8">
         <Wallet className="w-10 h-10 text-blue-600" />
         <h1 className="text-3xl font-bold">Certificate Wallet</h1>
       </div>
+
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3 text-red-700">
+          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <p>{error}</p>
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center py-12">
@@ -71,23 +122,22 @@ const CertificateWallet = () => {
               </div>
 
               <div className="flex justify-between">
-                <a
-                  href={cert.pdfUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-blue-600 hover:text-blue-700"
+                <button
+                  onClick={() => handlePdfAction(cert, 'view')}
+                  disabled={actionLoadingId === cert.id}
+                  className="flex items-center gap-2 text-blue-600 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Eye className="w-4 h-4" />
                   View
-                </a>
-                <a
-                  href={cert.pdfUrl}
-                  download
-                  className="flex items-center gap-2 text-green-600 hover:text-green-700"
+                </button>
+                <button
+                  onClick={() => handlePdfAction(cert, 'download')}
+                  disabled={actionLoadingId === cert.id}
+                  className="flex items-center gap-2 text-green-600 hover:text-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Download className="w-4 h-4" />
                   Download
-                </a>
+                </button>
               </div>
             </div>
           ))}

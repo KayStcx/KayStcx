@@ -12,6 +12,9 @@ import {
   HttpCode,
   HttpStatus,
   ParseUUIDPipe,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -20,7 +23,9 @@ import {
   ApiBearerAuth,
   ApiParam,
   ApiQuery,
+  ApiConsumes,
 } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from 'src/common';
 import { RolesGuard } from './guards/roles.guard';
@@ -57,11 +62,19 @@ import {
   IssuerActivityResponseDto,
   UpdateIssuerProfileDto,
 } from './dto/issuer-profile.dto';
+import {
+  ProfilePictureUploadResponseDto,
+} from './dto/upload-profile-picture.dto';
+import { StorageService } from '../files/services/storage.service';
+import { maxFileSize, allowedImageMimeTypes } from 'src/common/constants';
 
 @ApiTags('Users')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly storageService: StorageService,
+  ) {}
 
   // ==================== Authentication Endpoints ====================
 
@@ -224,6 +237,65 @@ export class UsersController {
     @Body() updateProfileDto: UpdateProfileDto,
   ) {
     return this.usersService.updateProfile(userId, updateProfileDto);
+  }
+
+  @Post('profile/picture')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload profile picture' })
+  @ApiResponse({
+    status: 201,
+    description: 'Profile picture uploaded successfully',
+    type: ProfilePictureUploadResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid file type or size' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async uploadProfilePicture(
+    @CurrentUser('id') userId: string,
+    @UploadedFile() file: any,
+  ) {
+    // Validate file exists
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    // Validate file size
+    if (file.size > maxFileSize) {
+      throw new BadRequestException(
+        `File size exceeds maximum allowed size of ${maxFileSize / 1024 / 1024}MB`,
+      );
+    }
+
+    // Validate file type
+    if (!allowedImageMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException(
+        `Invalid file type. Allowed types: ${allowedImageMimeTypes.join(', ')}`,
+      );
+    }
+
+    // Generate unique filename with user ID
+    const extension = file.originalname.split('.').pop();
+    const key = `profile-pictures/${userId}-${Date.now()}.${extension}`;
+
+    // Upload to S3
+    const { url } = await this.storageService.uploadFile(
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+      key,
+    );
+
+    // Update user's profile picture in database
+    await this.usersService.updateProfile(userId, {
+      profilePicture: url,
+    });
+
+    return {
+      profilePicture: url,
+      message: 'Profile picture uploaded successfully',
+    };
   }
 
   @Delete('profile')

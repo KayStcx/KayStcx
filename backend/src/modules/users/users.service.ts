@@ -34,6 +34,8 @@ import {
 } from './dto/email-verification.dto';
 import { IPaginatedResult } from './interfaces';
 import { IAuthTokens, IUserPublic } from './interfaces/user.interface';
+import { CertificateStatsService } from '../certificate/services/stats.service';
+import { AuditService } from '../audit/services/audit.service';
 
 @Injectable()
 export class UsersService {
@@ -48,6 +50,8 @@ export class UsersService {
     private readonly userRepository: UserRepository,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly certificateStatsService: CertificateStatsService,
+    private readonly auditService: AuditService,
   ) {}
 
   // ==================== Authentication ====================
@@ -627,7 +631,6 @@ export class UsersService {
   // ==================== Issuer Profile Management ====================
 
   async getIssuerStats(userId: string): Promise<any> {
-    // Mock implementation - would integrate with certificate and verification services
     const user = await this.userRepository.findById(userId);
     if (!user) {
       throw new NotFoundException('User not found');
@@ -639,17 +642,17 @@ export class UsersService {
       );
     }
 
-    // In a real implementation, this would:
-    // 1. Query certificate service for issuer's certificates
-    // 2. Query verification service for verification stats
-    // 3. Aggregate the data
+    // Get real statistics from certificate service
+    const stats = await this.certificateStatsService.getStatistics({
+      issuerId: userId,
+    });
 
     return {
-      totalCertificates: 125,
-      activeCertificates: 118,
-      revokedCertificates: 7,
-      expiredCertificates: 0,
-      totalVerifications: 2847,
+      totalCertificates: stats.totalCertificates,
+      activeCertificates: stats.activeCertificates,
+      revokedCertificates: stats.revokedCertificates,
+      expiredCertificates: stats.expiredCertificates,
+      totalVerifications: stats.verificationStats?.totalVerifications || 0,
       lastLogin: user.lastLoginAt || user.updatedAt,
     };
   }
@@ -659,7 +662,6 @@ export class UsersService {
     page: number = 1,
     limit: number = 10,
   ): Promise<any> {
-    // Mock implementation - would integrate with audit service
     const user = await this.userRepository.findById(userId);
     if (!user) {
       throw new NotFoundException('User not found');
@@ -671,46 +673,28 @@ export class UsersService {
       );
     }
 
-    // In a real implementation, this would query the audit log service
-    const mockActivities = [
-      {
-        id: '1',
-        action: 'ISSUE_CERTIFICATE',
-        description:
-          'Issued "Blockchain Fundamentals" certificate to Alice Johnson',
-        ipAddress: '192.168.1.100',
-        userAgent:
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: '2',
-        action: 'REVOKE_CERTIFICATE',
-        description: 'Revoked certificate #CERT-2024-045',
-        ipAddress: '192.168.1.100',
-        userAgent:
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: '3',
-        action: 'UPDATE_PROFILE',
-        description: 'Updated organization details',
-        ipAddress: '192.168.1.100',
-        userAgent:
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-    ];
+    // Get real activity data from audit service
+    const skip = (page - 1) * limit;
+    const { data: activities, total } = await this.auditService.search({
+      userId,
+      skip,
+      take: limit,
+    });
 
-    const total = mockActivities.length;
+    // Transform audit logs to match expected format
+    const transformedActivities = activities.map((activity) => ({
+      id: activity.id,
+      action: activity.action,
+      description: this.generateActivityDescription(activity),
+      ipAddress: activity.ipAddress,
+      userAgent: activity.userAgent,
+      timestamp: new Date(activity.timestamp).toISOString(),
+    }));
+
     const totalPages = Math.ceil(total / limit);
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const activities = mockActivities.slice(startIndex, endIndex);
 
     return {
-      activities,
+      activities: transformedActivities,
       meta: {
         total,
         page,
@@ -718,6 +702,29 @@ export class UsersService {
         totalPages,
       },
     };
+  }
+
+  private generateActivityDescription(activity: any): string {
+    switch (activity.action) {
+      case 'ISSUE_CERTIFICATE':
+        return `Issued certificate "${activity.resourceData?.title || activity.resourceId}"`;
+      case 'REVOKE_CERTIFICATE':
+        return `Revoked certificate #${activity.resourceId}`;
+      case 'UPDATE_PROFILE':
+        return 'Updated profile information';
+      case 'LOGIN':
+        return 'Logged into account';
+      case 'LOGOUT':
+        return 'Logged out of account';
+      case 'CREATE_USER':
+        return 'Created new user account';
+      case 'UPDATE_USER':
+        return 'Updated user information';
+      case 'DELETE_USER':
+        return 'Deleted user account';
+      default:
+        return `Performed ${activity.action.toLowerCase()} on ${activity.resourceType}`;
+    }
   }
 
   async updateIssuerProfile(userId: string, updateDto: any): Promise<any> {
@@ -786,6 +793,7 @@ export class UsersService {
     active: number;
     byRole: Record<UserRole, number>;
     byStatus: Record<UserStatus, number>;
+    certificateIssuanceCounts: Record<string, number>;
   }> {
     const [total, active, userCount, issuerCount, adminCount] =
       await Promise.all([
@@ -804,6 +812,8 @@ export class UsersService {
         this.userRepository.countByStatus(UserStatus.PENDING_VERIFICATION),
       ]);
 
+    const certificateIssuanceCounts = await this.userRepository.getPerUserCertificateCounts();
+
     return {
       total,
       active,
@@ -818,6 +828,7 @@ export class UsersService {
         [UserStatus.SUSPENDED]: suspendedStatus,
         [UserStatus.PENDING_VERIFICATION]: pendingStatus,
       },
+      certificateIssuanceCounts,
     };
   }
 

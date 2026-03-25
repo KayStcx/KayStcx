@@ -4,6 +4,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
@@ -15,6 +16,8 @@ import { DuplicateDetectionConfig } from './interfaces/duplicate-detection.inter
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { WebhookEvent } from '../webhooks/entities/webhook-subscription.entity';
 import { MetadataSchemaService } from '../metadata-schema/services/metadata-schema.service';
+import { FilesService } from '../files/services/files.service';
+import { CertificateQrResponseDto } from './dto/certificate-qr-response.dto';
 
 @Injectable()
 export class CertificateService {
@@ -28,6 +31,8 @@ export class CertificateService {
     private readonly duplicateDetectionService: DuplicateDetectionService,
     private readonly webhooksService: WebhooksService,
     private readonly metadataSchemaService: MetadataSchemaService,
+    private readonly filesService: FilesService,
+    private readonly configService: ConfigService,
   ) {}
 
   async create(
@@ -160,6 +165,31 @@ export class CertificateService {
     return certificate;
   }
 
+  async getCertificateQrCode(id: string): Promise<CertificateQrResponseDto> {
+    const certificate = await this.findOne(id);
+
+    if (!certificate.verificationCode) {
+      throw new NotFoundException(
+        `Certificate with ID ${id} does not have a verification code`,
+      );
+    }
+
+    const verificationUrl = this.buildVerificationUrl(
+      certificate.verificationCode,
+    );
+    const { qrUrl } = await this.filesService.generateAndUploadQrCode(
+      verificationUrl,
+      `certificate-${certificate.id}-qr`,
+    );
+
+    return {
+      certificateId: certificate.id,
+      verificationCode: certificate.verificationCode,
+      verificationUrl,
+      qrUrl,
+    };
+  }
+
   async findByVerificationCode(verificationCode: string): Promise<Certificate> {
     const certificate = await this.certificateRepository
       .createQueryBuilder('certificate')
@@ -252,6 +282,121 @@ export class CertificateService {
     return savedCertificate;
   }
 
+  async freeze(id: string, reason?: string): Promise<Certificate> {
+    const certificate = await this.findOne(id);
+
+    if (certificate.status !== 'active') {
+      throw new ConflictException(
+        `Certificate must be active to freeze. Current status: ${certificate.status}`,
+      );
+    }
+
+    certificate.status = 'frozen';
+    if (reason) {
+      certificate.metadata = {
+        ...certificate.metadata,
+        freezeReason: reason,
+        frozenAt: new Date(),
+      };
+    }
+
+    const savedCertificate = await this.certificateRepository.save(certificate);
+
+    // Trigger webhook event
+    await this.webhooksService.triggerEvent(
+      WebhookEvent.CERTIFICATE_REVOKED, // Using existing revoked event, could add new freeze event
+      savedCertificate.issuerId,
+      {
+        id: savedCertificate.id,
+        status: savedCertificate.status,
+        freezeReason: reason,
+        frozenAt: new Date(),
+      },
+    );
+
+    return savedCertificate;
+  }
+
+  async unfreeze(id: string, reason?: string): Promise<Certificate> {
+    const certificate = await this.findOne(id);
+
+    if (certificate.status !== 'frozen') {
+      throw new ConflictException(
+        `Certificate must be frozen to unfreeze. Current status: ${certificate.status}`,
+      );
+    }
+
+    certificate.status = 'active';
+    if (reason) {
+      certificate.metadata = {
+        ...certificate.metadata,
+        unfreezeReason: reason,
+        unfrozenAt: new Date(),
+      };
+    }
+
+    const savedCertificate = await this.certificateRepository.save(certificate);
+
+    // Trigger webhook event
+    await this.webhooksService.triggerEvent(
+      WebhookEvent.CERTIFICATE_ISSUED, // Using existing issued event, could add new unfreeze event
+      savedCertificate.issuerId,
+      {
+        id: savedCertificate.id,
+        status: savedCertificate.status,
+        unfreezeReason: reason,
+        unfrozenAt: new Date(),
+      },
+    );
+
+    return savedCertificate;
+  }
+
+  async bulkRevoke(
+    certificateIds: string[],
+    reason?: string,
+  ): Promise<{
+    revoked: Certificate[];
+    failed: { id: string; error: string }[];
+  }> {
+    const revoked: Certificate[] = [];
+    const failed: { id: string; error: string }[] = [];
+
+    for (const id of certificateIds) {
+      try {
+        const certificate = await this.revoke(id, reason);
+        revoked.push(certificate);
+      } catch (error) {
+        failed.push({
+          id,
+          error: error.message || 'Failed to revoke certificate',
+        });
+      }
+    }
+
+    return { revoked, failed };
+  }
+
+  async exportCertificates(
+    issuerId?: string,
+    status?: string,
+  ): Promise<Certificate[]> {
+    const queryBuilder = this.certificateRepository
+      .createQueryBuilder('certificate')
+      .leftJoinAndSelect('certificate.issuer', 'issuer')
+      .orderBy('certificate.issuedAt', 'DESC');
+
+    if (issuerId) {
+      queryBuilder.andWhere('certificate.issuerId = :issuerId', { issuerId });
+    }
+
+    if (status) {
+      queryBuilder.andWhere('certificate.status = :status', { status });
+    }
+
+    return queryBuilder.getMany();
+  }
+
   async remove(id: string): Promise<void> {
     const certificate = await this.findOne(id);
     await this.certificateRepository.remove(certificate);
@@ -297,5 +442,16 @@ export class CertificateService {
       code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return code;
+  }
+
+  private buildVerificationUrl(verificationCode: string): string {
+    const appUrl =
+      process.env.APP_URL ||
+      this.configService.get<string>('APP_URL') ||
+      this.configService.get<string>('ALLOWED_ORIGINS')?.split(',')[0] ||
+      'http://localhost:5173';
+
+    const normalizedBaseUrl = appUrl.replace(/\/+$/, '');
+    return `${normalizedBaseUrl}/verify?serial=${encodeURIComponent(verificationCode)}`;
   }
 }

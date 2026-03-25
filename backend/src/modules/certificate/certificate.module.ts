@@ -8,6 +8,7 @@ import { CertificateStatsService } from './services/stats.service';
 import { CertificateController } from './certificate.controller';
 import { MetadataSchemaModule } from '../metadata-schema/metadata-schema.module';
 import { AuthModule } from '../auth/auth.module';
+import { FilesModule } from '../files/files.module';
 
 // Import services directly
 import { DuplicateDetectionService } from './services/duplicate-detection.service';
@@ -22,6 +23,7 @@ import { DuplicateDetectionController } from './controllers/duplicate-detection.
     }),
     MetadataSchemaModule,
     AuthModule,
+    FilesModule,
     // REMOVE: DuplicateDetectionModule
   ],
   controllers: [

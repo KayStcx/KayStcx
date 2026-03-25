@@ -8,6 +8,9 @@ import { User } from './entities/user.entity';
 import { UserRepository } from './repositories/user.repository';
 import { RolesGuard } from './guards/roles.guard';
 import { AuthModule } from '../auth/auth.module';
+import { CertificateModule } from '../certificate/certificate.module';
+import { AuditModule } from '../audit/audit.module';
+import { FilesModule } from '../files/files.module';
 
 @Module({
   imports: [
@@ -15,6 +18,9 @@ import { AuthModule } from '../auth/auth.module';
     // Remove JwtModule.registerAsync completely
     ConfigModule,
     forwardRef(() => AuthModule), // Use forwardRef to break circular dependency
+    CertificateModule,
+    AuditModule,
+    forwardRef(() => FilesModule), // Import FilesModule for StorageService
   ],
   controllers: [UsersController],
   providers: [UsersService, UserRepository, RolesGuard],

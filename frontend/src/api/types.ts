@@ -158,6 +158,13 @@ export interface PaginatedResponse<T> {
   totalPages: number;
 }
 
+export interface CertificateExportFilters {
+  search?: string;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
 export interface LoginCredentials {
   email: string;
   password?: string;
