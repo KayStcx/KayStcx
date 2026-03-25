@@ -25,7 +25,8 @@ import { tokenStorage } from './tokens';
 
 // Configuration flag - set to true to use dummy data
 let USE_DUMMY_DATA = true;
-const API_URL = (import.meta as unknown as { env: Record<string, string> }).env?.VITE_API_URL || 'http://localhost:3000/api/v1';
+const API_URL_BASE = (import.meta as unknown as { env: Record<string, string> }).env?.VITE_API_URL || 'http://localhost:3000/api/v1';
+export const API_URL = API_URL_BASE;
 
 // Helper function to simulate API delay
 const simulateDelay = () => new Promise(resolve => setTimeout(resolve, 300));
@@ -48,7 +49,7 @@ const handleError = (error: unknown, endpointName: string): never => {
 /**
  * Standardized API client for all requests
  */
-async function apiClient<T>(
+export async function apiClient<T>(
     endpoint: string,
     options: RequestInit = {}
 ): Promise<T> {
