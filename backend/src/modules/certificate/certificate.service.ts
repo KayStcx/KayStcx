@@ -4,6 +4,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
@@ -15,6 +16,8 @@ import { DuplicateDetectionConfig } from './interfaces/duplicate-detection.inter
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { WebhookEvent } from '../webhooks/entities/webhook-subscription.entity';
 import { MetadataSchemaService } from '../metadata-schema/services/metadata-schema.service';
+import { FilesService } from '../files/services/files.service';
+import { CertificateQrResponseDto } from './dto/certificate-qr-response.dto';
 
 @Injectable()
 export class CertificateService {
@@ -28,6 +31,8 @@ export class CertificateService {
     private readonly duplicateDetectionService: DuplicateDetectionService,
     private readonly webhooksService: WebhooksService,
     private readonly metadataSchemaService: MetadataSchemaService,
+    private readonly filesService: FilesService,
+    private readonly configService: ConfigService,
   ) {}
 
   async create(
@@ -158,6 +163,31 @@ export class CertificateService {
     }
 
     return certificate;
+  }
+
+  async getCertificateQrCode(id: string): Promise<CertificateQrResponseDto> {
+    const certificate = await this.findOne(id);
+
+    if (!certificate.verificationCode) {
+      throw new NotFoundException(
+        `Certificate with ID ${id} does not have a verification code`,
+      );
+    }
+
+    const verificationUrl = this.buildVerificationUrl(
+      certificate.verificationCode,
+    );
+    const { qrUrl } = await this.filesService.generateAndUploadQrCode(
+      verificationUrl,
+      `certificate-${certificate.id}-qr`,
+    );
+
+    return {
+      certificateId: certificate.id,
+      verificationCode: certificate.verificationCode,
+      verificationUrl,
+      qrUrl,
+    };
   }
 
   async findByVerificationCode(verificationCode: string): Promise<Certificate> {
@@ -412,5 +442,16 @@ export class CertificateService {
       code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return code;
+  }
+
+  private buildVerificationUrl(verificationCode: string): string {
+    const appUrl =
+      process.env.APP_URL ||
+      this.configService.get<string>('APP_URL') ||
+      this.configService.get<string>('ALLOWED_ORIGINS')?.split(',')[0] ||
+      'http://localhost:5173';
+
+    const normalizedBaseUrl = appUrl.replace(/\/+$/, '');
+    return `${normalizedBaseUrl}/verify?serial=${encodeURIComponent(verificationCode)}`;
   }
 }
