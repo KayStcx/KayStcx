@@ -232,4 +232,20 @@ export class UserRepository {
   async updateLastLogin(id: string): Promise<void> {
     await this.repository.update(id, { lastLoginAt: new Date() });
   }
+
+  async getPerUserCertificateCounts(): Promise<Record<string, number>> {
+    const rawData = await this.repository
+      .createQueryBuilder('user')
+      .leftJoin('certificates', 'cert', 'cert."issuerId" = user.id')
+      .select('user.id', 'userId')
+      .addSelect('COUNT(cert.id)', 'count')
+      .groupBy('user.id')
+      .getRawMany();
+
+    const result: Record<string, number> = {};
+    rawData.forEach(row => {
+      result[row.userId] = parseInt(row.count, 10);
+    });
+    return result;
+  }
 }
