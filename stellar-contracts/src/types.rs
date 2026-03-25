@@ -6,6 +6,8 @@ pub enum CertificateStatus {
     Active,
     Revoked,
     Expired,
+    Suspended,
+    Frozen,
 }
 
 #[contracttype]

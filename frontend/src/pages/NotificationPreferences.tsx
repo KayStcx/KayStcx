@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Bell, CheckCircle, AlertTriangle, Info, Save } from 'lucide-react';
+import { apiClient } from '../api';
 
 interface Preferences {
     inAppEnabled: boolean;
@@ -19,19 +20,13 @@ export default function NotificationPreferences() {
 
     const fetchPreferences = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:3001/notifications/preferences', {
-                headers: { Authorization: `Bearer ${token}` },
+            const data = await apiClient<Preferences>('/notifications/preferences');
+            setPreferences({
+                inAppEnabled: data.inAppEnabled,
+                infoEnabled: data.infoEnabled,
+                successEnabled: data.successEnabled,
+                errorEnabled: data.errorEnabled,
             });
-            if (res.ok) {
-                const data = await res.json();
-                setPreferences({
-                    inAppEnabled: data.inAppEnabled,
-                    infoEnabled: data.infoEnabled,
-                    successEnabled: data.successEnabled,
-                    errorEnabled: data.errorEnabled,
-                });
-            }
         } catch (error) {
             console.error('Failed to load preferences:', error);
         } finally {
@@ -49,13 +44,8 @@ export default function NotificationPreferences() {
         if (!preferences) return;
         setSaving(true);
         try {
-            const token = localStorage.getItem('token');
-            await fetch('http://localhost:3001/notifications/preferences', {
+            await apiClient('/notifications/preferences', {
                 method: 'PATCH',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
                 body: JSON.stringify(preferences),
             });
             // Could show a success toast here

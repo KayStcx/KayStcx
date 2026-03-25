@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
+import { apiClient, API_URL } from '../api';
 
 export type NotificationType = 'info' | 'success' | 'error';
 
@@ -37,14 +38,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             const token = localStorage.getItem('token');
             if (!token) return;
 
-            // Ensure your backend runs on port 3001 or correct the URL
-            const response = await fetch('http://localhost:3001/notifications', {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (response.ok) {
-                const data = await response.json();
-                setNotifications(data);
-            }
+            const data = await apiClient<Notification[]>('/notifications');
+            setNotifications(data);
         } catch (error) {
             console.error('Failed to fetch notifications:', error);
         }
@@ -56,7 +51,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
         fetchNotifications();
 
-        const newSocket = io('http://localhost:3001', {
+        const socketUrl = API_URL.replace('/api/v1', '');
+        const newSocket = io(socketUrl, {
             auth: { token },
         });
 
@@ -71,10 +67,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     const markAsRead = async (id: string) => {
         try {
-            const token = localStorage.getItem('token');
-            await fetch(`http://localhost:3001/notifications/${id}/read`, {
+            await apiClient(`/notifications/${id}/read`, {
                 method: 'PATCH',
-                headers: { Authorization: `Bearer ${token}` },
             });
             setNotifications((prev) =>
                 prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
@@ -86,10 +80,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     const markAllAsRead = async () => {
         try {
-            const token = localStorage.getItem('token');
-            await fetch(`http://localhost:3001/notifications/read-all`, {
+            await apiClient(`/notifications/read-all`, {
                 method: 'PATCH',
-                headers: { Authorization: `Bearer ${token}` },
             });
             setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
         } catch (error) {

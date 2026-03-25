@@ -10,6 +10,7 @@ import { RolesGuard } from './guards/roles.guard';
 import { AuthModule } from '../auth/auth.module';
 import { CertificateModule } from '../certificate/certificate.module';
 import { AuditModule } from '../audit/audit.module';
+import { FilesModule } from '../files/files.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { AuditModule } from '../audit/audit.module';
     forwardRef(() => AuthModule), // Use forwardRef to break circular dependency
     CertificateModule,
     AuditModule,
+    forwardRef(() => FilesModule), // Import FilesModule for StorageService
   ],
   controllers: [UsersController],
   providers: [UsersService, UserRepository, RolesGuard],
