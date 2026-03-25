@@ -23,3 +23,12 @@ export const ACCOUNT_STATUS = {
   INACTIVE: 'inactive',
   SUSPENDED: 'suspended',
 };
+
+// File upload constants
+export const maxFileSize = 5 * 1024 * 1024; // 5MB
+export const allowedImageMimeTypes = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+];

@@ -46,13 +46,14 @@ export class StorageService {
     buffer: Buffer,
     originalFilename: string,
     mimeType: string,
+    customKey?: string,
   ): Promise<{ key: string; url: string }> {
     if (!this.s3Client) {
       throw new Error('Storage service is not configured');
     }
 
-    const extension = extname(originalFilename);
-    const key = `${uuidv4()}${extension}`;
+    // Use custom key if provided, otherwise generate one
+    const key = customKey || `${uuidv4()}${extname(originalFilename)}`;
 
     try {
       await this.s3Client.send(
