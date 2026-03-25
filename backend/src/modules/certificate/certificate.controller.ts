@@ -6,7 +6,6 @@ import {
   Param,
   Post,
   Body,
-  Delete,
   Patch,
 } from '@nestjs/common';
 import { CertificateService } from './certificate.service';
@@ -22,7 +21,6 @@ import { JwtAuthGuard } from 'src/common';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/constants/roles';
-import { Certificate } from './entities/certificate.entity';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { CertificateQrResponseDto } from './dto/certificate-qr-response.dto';
 
