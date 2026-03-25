@@ -29,7 +29,9 @@ export class IssueCertificateDto {
   @MaxLength(255)
   recipientName: string;
 
-  @ApiPropertyOptional({ description: "Recipient's Stellar public key address" })
+  @ApiPropertyOptional({
+    description: "Recipient's Stellar public key address",
+  })
   @IsOptional()
   @IsString()
   recipientStellarAddress?: string;
@@ -46,19 +48,25 @@ export class IssueCertificateDto {
   @MaxLength(5000)
   description?: string;
 
-  @ApiPropertyOptional({ description: 'Custom pre-generated verification code' })
+  @ApiPropertyOptional({
+    description: 'Custom pre-generated verification code',
+  })
   @IsOptional()
   @IsString()
   @MinLength(4)
   @MaxLength(64)
   verificationCode?: string;
 
-  @ApiPropertyOptional({ description: 'Certificate expiration date (ISO 8601)' })
+  @ApiPropertyOptional({
+    description: 'Certificate expiration date (ISO 8601)',
+  })
   @IsOptional()
   @IsDateString()
   expiresAt?: string;
 
-  @ApiPropertyOptional({ description: 'Metadata schema ID to validate certificate metadata against' })
+  @ApiPropertyOptional({
+    description: 'Metadata schema ID to validate certificate metadata against',
+  })
   @IsOptional()
   @IsUUID()
   metadataSchemaId?: string;
@@ -82,12 +90,17 @@ export class IssueCertificateDto {
   @MaxLength(255)
   issuerName?: string;
 
-  @ApiPropertyOptional({ description: "Issuer's Stellar public key address for direct recipient payment" })
+  @ApiPropertyOptional({
+    description:
+      "Issuer's Stellar public key address for direct recipient payment",
+  })
   @IsOptional()
   @IsString()
   issuerStellarAddress?: string;
 
-  @ApiPropertyOptional({ description: 'Skip Stellar transaction recording (default: false)' })
+  @ApiPropertyOptional({
+    description: 'Skip Stellar transaction recording (default: false)',
+  })
   @IsOptional()
   skipStellar?: boolean;
 }
@@ -98,12 +111,17 @@ export class IssueCertificateBatchDto {
   @Type(() => IssueCertificateDto)
   certificates: IssueCertificateDto[];
 
-  @ApiPropertyOptional({ description: 'Issuer UUID (applied to all if not set per certificate)' })
+  @ApiPropertyOptional({
+    description: 'Issuer UUID (applied to all if not set per certificate)',
+  })
   @IsOptional()
   @IsUUID()
   defaultIssuerId?: string;
 
-  @ApiPropertyOptional({ description: 'Maximum number of certificates in batch', default: 50 })
+  @ApiPropertyOptional({
+    description: 'Maximum number of certificates in batch',
+    default: 50,
+  })
   @IsOptional()
   @IsNumber()
   @Min(1)

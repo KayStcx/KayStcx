@@ -46,7 +46,9 @@ export class CertificateRepository {
       .getOne();
   }
 
-  async findByCertificateId(certificateId: string): Promise<Certificate | null> {
+  async findByCertificateId(
+    certificateId: string,
+  ): Promise<Certificate | null> {
     return this.repo
       .createQueryBuilder('cert')
       .leftJoinAndSelect('cert.issuer', 'issuer')
@@ -54,7 +56,9 @@ export class CertificateRepository {
       .getOne();
   }
 
-  async findByVerificationCode(verificationCode: string): Promise<Certificate | null> {
+  async findByVerificationCode(
+    verificationCode: string,
+  ): Promise<Certificate | null> {
     return this.repo
       .createQueryBuilder('cert')
       .leftJoinAndSelect('cert.issuer', 'issuer')
@@ -62,7 +66,9 @@ export class CertificateRepository {
       .getOne();
   }
 
-  async findByStellarTransactionHash(hash: string): Promise<Certificate | null> {
+  async findByStellarTransactionHash(
+    hash: string,
+  ): Promise<Certificate | null> {
     return this.repo
       .createQueryBuilder('cert')
       .leftJoinAndSelect('cert.issuer', 'issuer')
@@ -189,7 +195,9 @@ export class CertificateRepository {
       .getMany();
   }
 
-  async findActiveByStellarSequence(maxSequence: string): Promise<Certificate[]> {
+  async findActiveByStellarSequence(
+    maxSequence: string,
+  ): Promise<Certificate[]> {
     return this.repo
       .createQueryBuilder('cert')
       .where('cert.status = :status', { status: CertificateStatus.ACTIVE })
@@ -235,7 +243,14 @@ export class CertificateRepository {
   }
 
   private sanitizeSortField(field: string): string {
-    const allowed = ['issuedAt', 'expiresAt', 'title', 'recipientName', 'updatedAt', 'verificationCount'];
+    const allowed = [
+      'issuedAt',
+      'expiresAt',
+      'title',
+      'recipientName',
+      'updatedAt',
+      'verificationCount',
+    ];
     return allowed.includes(field) ? field : 'issuedAt';
   }
 }

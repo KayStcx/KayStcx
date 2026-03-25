@@ -83,11 +83,14 @@ export class CertificateExpirationJob {
     }
 
     // ── 2. Stellar sequence-based expiration ──────────────────────────────────
-    const issuerPublicKey = this.configService.get<string>('STELLAR_ISSUER_PUBLIC_KEY');
+    const issuerPublicKey = this.configService.get<string>(
+      'STELLAR_ISSUER_PUBLIC_KEY',
+    );
 
     if (issuerPublicKey) {
       try {
-        const accountInfo = await this.stellarService.getAccountInfo(issuerPublicKey);
+        const accountInfo =
+          await this.stellarService.getAccountInfo(issuerPublicKey);
         const currentSequence = BigInt(accountInfo.sequence);
 
         const candidatesBySequence = await this.certificateRepository

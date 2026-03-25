@@ -14,12 +14,16 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { CertificateStatus } from '../constants/certificate-status.enum';
 
 export class SearchCertificatesDto {
-  @ApiPropertyOptional({ description: 'Filter by recipient email (partial match)' })
+  @ApiPropertyOptional({
+    description: 'Filter by recipient email (partial match)',
+  })
   @IsOptional()
   @IsEmail()
   recipientEmail?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by recipient name (partial match)' })
+  @ApiPropertyOptional({
+    description: 'Filter by recipient name (partial match)',
+  })
   @IsOptional()
   @IsString()
   recipientName?: string;
@@ -29,7 +33,10 @@ export class SearchCertificatesDto {
   @IsUUID()
   issuerId?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by certificate status', enum: CertificateStatus })
+  @ApiPropertyOptional({
+    description: 'Filter by certificate status',
+    enum: CertificateStatus,
+  })
   @IsOptional()
   @IsEnum(CertificateStatus)
   status?: CertificateStatus;
@@ -39,32 +46,44 @@ export class SearchCertificatesDto {
   @IsString()
   title?: string;
 
-  @ApiPropertyOptional({ description: 'Filter certificates issued on or after this date (ISO 8601)' })
+  @ApiPropertyOptional({
+    description: 'Filter certificates issued on or after this date (ISO 8601)',
+  })
   @IsOptional()
   @IsDateString()
   issuedFrom?: string;
 
-  @ApiPropertyOptional({ description: 'Filter certificates issued on or before this date (ISO 8601)' })
+  @ApiPropertyOptional({
+    description: 'Filter certificates issued on or before this date (ISO 8601)',
+  })
   @IsOptional()
   @IsDateString()
   issuedTo?: string;
 
-  @ApiPropertyOptional({ description: 'Filter certificates expiring after this date (ISO 8601)' })
+  @ApiPropertyOptional({
+    description: 'Filter certificates expiring after this date (ISO 8601)',
+  })
   @IsOptional()
   @IsDateString()
   expiresFrom?: string;
 
-  @ApiPropertyOptional({ description: 'Filter certificates expiring before this date (ISO 8601)' })
+  @ApiPropertyOptional({
+    description: 'Filter certificates expiring before this date (ISO 8601)',
+  })
   @IsOptional()
   @IsDateString()
   expiresTo?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by human-readable certificate ID' })
+  @ApiPropertyOptional({
+    description: 'Filter by human-readable certificate ID',
+  })
   @IsOptional()
   @IsString()
   certificateId?: string;
 
-  @ApiPropertyOptional({ description: 'Filter certificates that have a Stellar transaction' })
+  @ApiPropertyOptional({
+    description: 'Filter certificates that have a Stellar transaction',
+  })
   @IsOptional()
   hasStellarTransaction?: boolean;
 
@@ -83,7 +102,10 @@ export class SearchCertificatesDto {
   @Max(100)
   limit?: number = 10;
 
-  @ApiPropertyOptional({ description: 'Sort field', enum: ['issuedAt', 'expiresAt', 'title', 'recipientName'] })
+  @ApiPropertyOptional({
+    description: 'Sort field',
+    enum: ['issuedAt', 'expiresAt', 'title', 'recipientName'],
+  })
   @IsOptional()
   @IsString()
   sortBy?: string = 'issuedAt';

@@ -18,7 +18,10 @@ import { Verification } from './entities/verification.entity';
 import { CertificateStatus } from './constants/certificate-status.enum';
 import { DuplicateDetectionService } from './services/duplicate-detection.service';
 import { DuplicateDetectionConfig } from './interfaces/duplicate-detection.interface';
-import { CertificateRepository, PaginatedCertificates } from './repositories/certificate.repository';
+import {
+  CertificateRepository,
+  PaginatedCertificates,
+} from './repositories/certificate.repository';
 import { CertificateMapper } from './mappers/certificate.mapper';
 import { VerificationResult } from './interfaces/verification-result.interface';
 import { KaystcxificateData } from './interfaces/kaystcxificate-data.interface';
@@ -26,10 +29,6 @@ import { StellarService } from '../stellar/services/stellar.service';
 import { AuditService } from '../audit/services/audit.service';
 import { AuditAction } from '../audit/constants/audit-action.enum';
 import { AuditResourceType } from '../audit/constants/audit-resource-type.enum';
-import { WebhooksService } from '../webhooks/webhooks.service';
-import { WebhookEvent } from '../webhooks/entities/webhook-subscription.entity';
-import { MetadataSchemaService } from '../metadata-schema/services/metadata-schema.service';
-
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { WebhookEvent } from '../webhooks/entities/webhook-subscription.entity';
 import { MetadataSchemaService } from '../metadata-schema/services/metadata-schema.service';
@@ -77,8 +76,11 @@ export class CertificateService {
     }
 
     const certId = await this.generateCertificateId();
-    const verificationCode = dto.verificationCode ?? this.generateVerificationCode();
-    const expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : this.calculateDefaultExpiry();
+    const verificationCode =
+      dto.verificationCode ?? this.generateVerificationCode();
+    const expiresAt = dto.expiresAt
+      ? new Date(dto.expiresAt)
+      : this.calculateDefaultExpiry();
 
     const memoText = certId.substring(0, 28);
 
@@ -99,18 +101,22 @@ export class CertificateService {
 
     if (!dto.skipStellar) {
       try {
-        const destination = dto.recipientStellarAddress ?? dto.issuerStellarAddress;
+        const destination =
+          dto.recipientStellarAddress ?? dto.issuerStellarAddress;
         if (destination) {
-          const txResult = await this.stellarService.createCertificateTransaction(
-            destination,
-            memoText,
-          );
+          const txResult =
+            await this.stellarService.createCertificateTransaction(
+              destination,
+              memoText,
+            );
           if (txResult.successful) {
             stellarTransactionHash = txResult.hash;
             stellarMemo = JSON.stringify(certDataForStellar);
             try {
               if (dto.issuerStellarAddress) {
-                const acct = await this.stellarService.getAccountInfo(dto.issuerStellarAddress);
+                const acct = await this.stellarService.getAccountInfo(
+                  dto.issuerStellarAddress,
+                );
                 stellarSequenceNumber = acct.sequence;
               }
             } catch {
@@ -199,7 +205,8 @@ export class CertificateService {
     ipAddress = 'unknown',
     userAgent = 'unknown',
   ): Promise<VerificationResult> {
-    const certificate = await this.certRepo.findByVerificationCode(verificationCode);
+    const certificate =
+      await this.certRepo.findByVerificationCode(verificationCode);
 
     if (!certificate) {
       return {
@@ -220,7 +227,10 @@ export class CertificateService {
       };
     }
 
-    if (certificate.isExpired() || certificate.status === CertificateStatus.EXPIRED) {
+    if (
+      certificate.isExpired() ||
+      certificate.status === CertificateStatus.EXPIRED
+    ) {
       return {
         isValid: false,
         certificate: this.mapper.toVerificationData(certificate),
@@ -238,7 +248,9 @@ export class CertificateService {
         );
         stellarVerified = txResult.successful;
       } catch {
-        this.logger.warn(`Could not verify Stellar tx for cert ${certificate.id}`);
+        this.logger.warn(
+          `Could not verify Stellar tx for cert ${certificate.id}`,
+        );
       }
     }
 
@@ -335,7 +347,11 @@ export class CertificateService {
       resourceId: certificate.id,
       ipAddress,
       userAgent,
-      metadata: { method: 'stellar_hash', hash, stellarVerified: txResult.successful },
+      metadata: {
+        method: 'stellar_hash',
+        hash,
+        stellarVerified: txResult.successful,
+      },
       status: 'success',
     });
 
@@ -373,7 +389,8 @@ export class CertificateService {
     const reason =
       typeof reasonOrDto === 'string'
         ? reasonOrDto
-        : (reasonOrDto as RevokeCertificateDto)?.reason ?? 'No reason provided';
+        : ((reasonOrDto as RevokeCertificateDto)?.reason ??
+          'No reason provided');
 
     const before = { status: certificate.status };
 
@@ -381,10 +398,17 @@ export class CertificateService {
     certificate.revocationReason = reason;
     certificate.revokedAt = new Date();
     certificate.revokedBy = revokedByUserId;
+    // metadata is typed as CertificateMetadata; cast to include revocation details
     certificate.metadata = {
       ...(certificate.metadata ?? {}),
-      revocationReason: reason,
-      revokedAt: certificate.revokedAt,
+      additionalFields: {
+        ...((certificate.metadata?.additionalFields as Record<
+          string,
+          unknown
+        >) ?? {}),
+        revocationReason: reason,
+        revokedAt: certificate.revokedAt,
+      },
     };
 
     const saved = await this.certificateRepository.save(certificate);
@@ -460,7 +484,8 @@ export class CertificateService {
   }
 
   async findByVerificationCode(verificationCode: string): Promise<Certificate> {
-    const certificate = await this.certRepo.findByVerificationCode(verificationCode);
+    const certificate =
+      await this.certRepo.findByVerificationCode(verificationCode);
     if (!certificate) {
       throw new NotFoundException(
         'Certificate not found or invalid verification code',
@@ -494,7 +519,9 @@ export class CertificateService {
       .getMany();
   }
 
-  async getVerificationHistory(id: string): Promise<Certificate['verificationHistory']> {
+  async getVerificationHistory(
+    id: string,
+  ): Promise<Certificate['verificationHistory']> {
     const cert = await this.findOne(id);
     return cert.verificationHistory ?? [];
   }
@@ -503,11 +530,16 @@ export class CertificateService {
     const cert = await this.findOne(id);
 
     if (!cert.stellarTransactionHash) {
-      return { hasStellarRecord: false, message: 'No Stellar transaction for this certificate.' };
+      return {
+        hasStellarRecord: false,
+        message: 'No Stellar transaction for this certificate.',
+      };
     }
 
     try {
-      const txResult = await this.stellarService.verifyTransaction(cert.stellarTransactionHash);
+      const txResult = await this.stellarService.verifyTransaction(
+        cert.stellarTransactionHash,
+      );
       return {
         hasStellarRecord: true,
         hash: cert.stellarTransactionHash,
@@ -726,11 +758,18 @@ export class CertificateService {
     return expiry;
   }
 
-  private async generateQrCode(certificateId: string, verificationCode: string): Promise<string> {
+  private async generateQrCode(
+    certificateId: string,
+    verificationCode: string,
+  ): Promise<string> {
     try {
-      return await QRCode.toDataURL(JSON.stringify({ certificateId, verificationCode }));
+      return await QRCode.toDataURL(
+        JSON.stringify({ certificateId, verificationCode }),
+      );
     } catch (err: unknown) {
-      this.logger.warn(`QR code generation failed for ${certificateId}: ${err instanceof Error ? err.message : String(err)}`);
+      this.logger.warn(
+        `QR code generation failed for ${certificateId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
       return '';
     }
   }

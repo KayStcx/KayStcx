@@ -34,10 +34,7 @@ import { AuditModule } from '../audit/audit.module';
     StellarModule,
     AuditModule,
   ],
-  controllers: [
-    CertificateController,
-    DuplicateDetectionController,
-  ],
+  controllers: [CertificateController, DuplicateDetectionController],
   providers: [
     CertificateService,
     CertificateStatsService,

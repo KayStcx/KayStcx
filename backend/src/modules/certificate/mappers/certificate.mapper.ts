@@ -49,7 +49,8 @@ export class CertificateMapper {
       issuerId: certificate.issuerId,
       issuerName: certificate.issuerName ?? certificate.issuer?.name,
       issuerStellarAddress:
-        certificate.issuerStellarAddress ?? certificate.issuer?.stellarPublicKey,
+        certificate.issuerStellarAddress ??
+        certificate.issuer?.stellarPublicKey,
       recipientName: certificate.recipientName,
       recipientEmail: certificate.recipientEmail,
       recipientStellarAddress: certificate.recipientStellarAddress,
@@ -92,7 +93,8 @@ export class CertificateMapper {
       recipientName: certificate.recipientName,
       recipientEmail: certificate.recipientEmail,
       title: certificate.title,
-      issuerName: certificate.issuerName ?? certificate.issuer?.name ?? 'Unknown',
+      issuerName:
+        certificate.issuerName ?? certificate.issuer?.name ?? 'Unknown',
       issuedAt: certificate.issuedAt,
       expiresAt: certificate.expiresAt ?? null,
       status: certificate.status,

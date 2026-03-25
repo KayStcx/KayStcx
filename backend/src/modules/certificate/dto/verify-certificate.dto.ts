@@ -1,8 +1,16 @@
-import { IsString, MinLength, MaxLength, IsOptional, IsUUID } from 'class-validator';
+import {
+  IsString,
+  MinLength,
+  MaxLength,
+  IsOptional,
+  IsUUID,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class VerifyCertificateDto {
-  @ApiPropertyOptional({ description: 'Alphanumeric verification code printed on certificate' })
+  @ApiPropertyOptional({
+    description: 'Alphanumeric verification code printed on certificate',
+  })
   @IsOptional()
   @IsString()
   @MinLength(1)
@@ -22,7 +30,9 @@ export class VerifyCertificateDto {
 }
 
 export class VerificationQueryDto {
-  @ApiPropertyOptional({ description: 'Verifier identity (name or ID) for audit trail' })
+  @ApiPropertyOptional({
+    description: 'Verifier identity (name or ID) for audit trail',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(255)

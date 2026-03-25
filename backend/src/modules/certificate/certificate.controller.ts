@@ -13,7 +13,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { CertificateService } from './certificate.service';
 import {
   ApiTags,
@@ -23,7 +23,8 @@ import {
   ApiQuery,
   ApiParam,
 } from '@nestjs/swagger';
-import { CertificateStatsDto } from './dto/stats.dto';
+import type { CertificateStatsDto } from './dto/stats.dto';
+import { StatsQueryDto } from './dto/stats.dto';
 import { CertificateStatsService } from './services/stats.service';
 import { JwtAuthGuard } from 'src/common';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -73,7 +74,9 @@ export class CertificateController {
   @Get('search')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.ISSUER)
-  @ApiOperation({ summary: 'Advanced certificate search with filters and pagination' })
+  @ApiOperation({
+    summary: 'Advanced certificate search with filters and pagination',
+  })
   async search(@Query() dto: SearchCertificatesDto) {
     return this.certificateService.search(dto);
   }
@@ -91,7 +94,9 @@ export class CertificateController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.ISSUER, UserRole.AUDITOR)
   @ApiOperation({ summary: 'Detailed certificate statistics' })
-  async getStatistics(@Query() query: CertificateStatsDto) {
+  async getStatistics(
+    @Query() query: StatsQueryDto,
+  ): Promise<CertificateStatsDto> {
     return this.statsService.getStatistics(query);
   }
 
@@ -100,14 +105,18 @@ export class CertificateController {
   @Get('verify/:code')
   @Public()
   @ApiOperation({ summary: 'Verify a certificate by its verification code' })
-  @ApiParam({ name: 'code', description: 'Alphanumeric certificate verification code' })
+  @ApiParam({
+    name: 'code',
+    description: 'Alphanumeric certificate verification code',
+  })
   @ApiResponse({ status: 200, description: 'Verification result' })
   async verifyByCode(
     @Param('code') code: string,
     @Req() req: Request,
     @Query('verifiedBy') verifiedBy?: string,
-  ) {
-    const ipAddress = (req.headers['x-forwarded-for'] as string) ?? req.ip ?? 'unknown';
+  ): Promise<unknown> {
+    const ipAddress =
+      (req.headers['x-forwarded-for'] as string) ?? req.ip ?? 'unknown';
     const userAgent = req.headers['user-agent'] ?? 'unknown';
     return this.certificateService.verifyByCode(
       code,
@@ -119,15 +128,25 @@ export class CertificateController {
 
   @Get('verify/stellar/:hash')
   @Public()
-  @ApiOperation({ summary: 'Verify a certificate using its Stellar transaction hash' })
-  @ApiParam({ name: 'hash', description: 'Stellar blockchain transaction hash' })
+  @ApiOperation({
+    summary: 'Verify a certificate using its Stellar transaction hash',
+  })
+  @ApiParam({
+    name: 'hash',
+    description: 'Stellar blockchain transaction hash',
+  })
   async verifyByStellarHash(
     @Param('hash') hash: string,
     @Req() req: Request,
-  ) {
-    const ipAddress = (req.headers['x-forwarded-for'] as string) ?? req.ip ?? 'unknown';
+  ): Promise<unknown> {
+    const ipAddress =
+      (req.headers['x-forwarded-for'] as string) ?? req.ip ?? 'unknown';
     const userAgent = req.headers['user-agent'] ?? 'unknown';
-    return this.certificateService.verifyByStellarHash(hash, ipAddress, userAgent);
+    return this.certificateService.verifyByStellarHash(
+      hash,
+      ipAddress,
+      userAgent,
+    );
   }
 
   // ─── Recipient & Issuer scoped ───────────────────────────────────────────────
@@ -141,7 +160,11 @@ export class CertificateController {
     @Query('page') page = 1,
     @Query('limit') limit = 10,
   ) {
-    return this.certificateService.getCertificatesByRecipient(email, +page, +limit);
+    return this.certificateService.getCertificatesByRecipient(
+      email,
+      +page,
+      +limit,
+    );
   }
 
   @Get('issuer/:issuerId')
@@ -153,7 +176,11 @@ export class CertificateController {
     @Query('page') page = 1,
     @Query('limit') limit = 10,
   ) {
-    return this.certificateService.getCertificatesByIssuer(issuerId, +page, +limit);
+    return this.certificateService.getCertificatesByIssuer(
+      issuerId,
+      +page,
+      +limit,
+    );
   }
 
   // ─── Single Certificate ───────────────────────────────────────────────────────
@@ -168,7 +195,9 @@ export class CertificateController {
 
   @Get(':id/stellar')
   @Public()
-  @ApiOperation({ summary: 'Get the Stellar blockchain record for a certificate' })
+  @ApiOperation({
+    summary: 'Get the Stellar blockchain record for a certificate',
+  })
   async getStellarData(@Param('id', ParseUUIDPipe) id: string) {
     return this.certificateService.getStellarTransactionData(id);
   }
@@ -194,14 +223,17 @@ export class CertificateController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ISSUER, UserRole.ADMIN)
-  @ApiOperation({ summary: 'Issue a new certificate with optional Stellar blockchain record' })
+  @ApiOperation({
+    summary: 'Issue a new certificate with optional Stellar blockchain record',
+  })
   @ApiResponse({ status: 201, description: 'Certificate issued successfully' })
   async issue(
     @Body() dto: IssueCertificateDto,
     @CurrentUser() user: AuthenticatedUser,
     @Req() req: Request,
-  ) {
-    const ipAddress = (req.headers['x-forwarded-for'] as string) ?? req.ip ?? 'unknown';
+  ): Promise<unknown> {
+    const ipAddress =
+      (req.headers['x-forwarded-for'] as string) ?? req.ip ?? 'unknown';
     const userAgent = req.headers['user-agent'] ?? 'unknown';
     return this.certificateService.issue(dto, user.id, ipAddress, userAgent);
   }
@@ -232,10 +264,17 @@ export class CertificateController {
     @Body() dto: RevokeCertificateDto,
     @CurrentUser() user: AuthenticatedUser,
     @Req() req: Request,
-  ) {
-    const ipAddress = (req.headers['x-forwarded-for'] as string) ?? req.ip ?? 'unknown';
+  ): Promise<unknown> {
+    const ipAddress =
+      (req.headers['x-forwarded-for'] as string) ?? req.ip ?? 'unknown';
     const userAgent = req.headers['user-agent'] ?? 'unknown';
-    return this.certificateService.revoke(id, dto, user.id, ipAddress, userAgent);
+    return this.certificateService.revoke(
+      id,
+      dto,
+      user.id,
+      ipAddress,
+      userAgent,
+    );
   }
 
   // ─── Delete ───────────────────────────────────────────────────────────────────
@@ -287,4 +326,3 @@ export class CertificateController {
     return this.certificateService.exportCertificates(issuerId, status);
   }
 }
-

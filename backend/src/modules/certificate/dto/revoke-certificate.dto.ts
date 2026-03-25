@@ -8,13 +8,17 @@ export class RevokeCertificateDto {
   @MaxLength(1000)
   reason: string;
 
-  @ApiPropertyOptional({ description: 'Additional notes for the revocation audit trail' })
+  @ApiPropertyOptional({
+    description: 'Additional notes for the revocation audit trail',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(2000)
   notes?: string;
 
-  @ApiPropertyOptional({ description: 'Record revocation as a Stellar transaction (default: true)' })
+  @ApiPropertyOptional({
+    description: 'Record revocation as a Stellar transaction (default: true)',
+  })
   @IsOptional()
   recordOnStellar?: boolean;
 }
