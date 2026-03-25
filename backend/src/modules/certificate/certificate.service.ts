@@ -252,6 +252,121 @@ export class CertificateService {
     return savedCertificate;
   }
 
+  async freeze(id: string, reason?: string): Promise<Certificate> {
+    const certificate = await this.findOne(id);
+
+    if (certificate.status !== 'active') {
+      throw new ConflictException(
+        `Certificate must be active to freeze. Current status: ${certificate.status}`,
+      );
+    }
+
+    certificate.status = 'frozen';
+    if (reason) {
+      certificate.metadata = {
+        ...certificate.metadata,
+        freezeReason: reason,
+        frozenAt: new Date(),
+      };
+    }
+
+    const savedCertificate = await this.certificateRepository.save(certificate);
+
+    // Trigger webhook event
+    await this.webhooksService.triggerEvent(
+      WebhookEvent.CERTIFICATE_REVOKED, // Using existing revoked event, could add new freeze event
+      savedCertificate.issuerId,
+      {
+        id: savedCertificate.id,
+        status: savedCertificate.status,
+        freezeReason: reason,
+        frozenAt: new Date(),
+      },
+    );
+
+    return savedCertificate;
+  }
+
+  async unfreeze(id: string, reason?: string): Promise<Certificate> {
+    const certificate = await this.findOne(id);
+
+    if (certificate.status !== 'frozen') {
+      throw new ConflictException(
+        `Certificate must be frozen to unfreeze. Current status: ${certificate.status}`,
+      );
+    }
+
+    certificate.status = 'active';
+    if (reason) {
+      certificate.metadata = {
+        ...certificate.metadata,
+        unfreezeReason: reason,
+        unfrozenAt: new Date(),
+      };
+    }
+
+    const savedCertificate = await this.certificateRepository.save(certificate);
+
+    // Trigger webhook event
+    await this.webhooksService.triggerEvent(
+      WebhookEvent.CERTIFICATE_ISSUED, // Using existing issued event, could add new unfreeze event
+      savedCertificate.issuerId,
+      {
+        id: savedCertificate.id,
+        status: savedCertificate.status,
+        unfreezeReason: reason,
+        unfrozenAt: new Date(),
+      },
+    );
+
+    return savedCertificate;
+  }
+
+  async bulkRevoke(
+    certificateIds: string[],
+    reason?: string,
+  ): Promise<{
+    revoked: Certificate[];
+    failed: { id: string; error: string }[];
+  }> {
+    const revoked: Certificate[] = [];
+    const failed: { id: string; error: string }[] = [];
+
+    for (const id of certificateIds) {
+      try {
+        const certificate = await this.revoke(id, reason);
+        revoked.push(certificate);
+      } catch (error) {
+        failed.push({
+          id,
+          error: error.message || 'Failed to revoke certificate',
+        });
+      }
+    }
+
+    return { revoked, failed };
+  }
+
+  async exportCertificates(
+    issuerId?: string,
+    status?: string,
+  ): Promise<Certificate[]> {
+    const queryBuilder = this.certificateRepository
+      .createQueryBuilder('certificate')
+      .leftJoinAndSelect('certificate.issuer', 'issuer')
+      .orderBy('certificate.issuedAt', 'DESC');
+
+    if (issuerId) {
+      queryBuilder.andWhere('certificate.issuerId = :issuerId', { issuerId });
+    }
+
+    if (status) {
+      queryBuilder.andWhere('certificate.status = :status', { status });
+    }
+
+    return queryBuilder.getMany();
+  }
+
   async remove(id: string): Promise<void> {
     const certificate = await this.findOne(id);
     await this.certificateRepository.remove(certificate);

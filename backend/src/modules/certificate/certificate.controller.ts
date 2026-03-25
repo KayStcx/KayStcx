@@ -8,6 +8,7 @@ import {
   Body,
   Delete,
   Patch,
+  Res,
 } from '@nestjs/common';
 import { CertificateService } from './certificate.service';
 import {
@@ -73,5 +74,43 @@ export class CertificateController {
   @ApiOperation({ summary: 'Revoke certificate' })
   async revoke(@Param('id') id: string, @Body('reason') reason?: string) {
     return this.certificateService.revoke(id, reason);
+  }
+
+  @Patch(':id/freeze')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ISSUER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Freeze certificate' })
+  async freeze(@Param('id') id: string, @Body('reason') reason?: string) {
+    return this.certificateService.freeze(id, reason);
+  }
+
+  @Patch(':id/unfreeze')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ISSUER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Unfreeze certificate' })
+  async unfreeze(@Param('id') id: string, @Body('reason') reason?: string) {
+    return this.certificateService.unfreeze(id, reason);
+  }
+
+  @Post('bulk-revoke')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ISSUER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Bulk revoke certificates' })
+  async bulkRevoke(
+    @Body('certificateIds') certificateIds: string[],
+    @Body('reason') reason?: string,
+  ) {
+    return this.certificateService.bulkRevoke(certificateIds, reason);
+  }
+
+  @Get('export')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ISSUER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Export certificates' })
+  async exportCertificates(
+    @Query('issuerId') issuerId?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.certificateService.exportCertificates(issuerId, status);
   }
 }

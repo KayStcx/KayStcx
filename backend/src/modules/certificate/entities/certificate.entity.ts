@@ -33,7 +33,7 @@ export class Certificate {
   @Column({ type: 'text', nullable: true })
   description?: string;
 
-  @Column({ type: 'enum', enum: ['active', 'revoked', 'expired'] })
+  @Column({ type: 'enum', enum: ['active', 'revoked', 'expired', 'frozen'] })
   status: string;
 
   @Column({ type: 'jsonb', nullable: true })
