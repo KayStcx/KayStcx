@@ -352,6 +352,21 @@ export const getUserCertificates = async (userId: string): Promise<Certificate[]
     }
 };
 
+export const getCertificateQR = async (certificateId: string): Promise<string> => {
+    if (USE_DUMMY_DATA) {
+        await simulateDelay();
+        // Return a dummy QR code URL (in real implementation, this would be actual QR code image)
+        return `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzMzMyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkJJIENvZGU6ICR7Y2VydGlmaWNhdGVJZH08L3RleHQ+Cjwvc3ZnPg==`;
+    }
+
+    try {
+        const data = await apiClient<{ qrCode: string }>(`/certificates/${certificateId}/qr`);
+        return data.qrCode;
+    } catch (error) {
+        return handleError(error, "getCertificateQR");
+    }
+};
+
 export const certificateApi = {
     list: async (params?: {
         page?: number;
@@ -492,6 +507,7 @@ export const certificateApi = {
             method: 'POST'
         });
     },
+    getQR: getCertificateQR,
 };
 
 // ==================== AUTHENTICATION ====================

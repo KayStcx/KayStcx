@@ -62,9 +62,7 @@ import {
   IssuerActivityResponseDto,
   UpdateIssuerProfileDto,
 } from './dto/issuer-profile.dto';
-import {
-  ProfilePictureUploadResponseDto,
-} from './dto/upload-profile-picture.dto';
+import { ProfilePictureUploadResponseDto } from './dto/upload-profile-picture.dto';
 import { StorageService } from '../files/services/storage.service';
 import { maxFileSize, allowedImageMimeTypes } from 'src/common/constants';
 

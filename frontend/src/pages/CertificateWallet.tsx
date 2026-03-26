@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Wallet, Download, Eye, Clock } from 'lucide-react';
-import { Certificate, getUserCertificates } from '../api';
+import { Wallet, Download, Eye, Clock, QrCode, X } from 'lucide-react';
+import { Certificate, getUserCertificates, certificateApi } from '../api';
 
 const CertificateWallet = () => {
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [qrCodes, setQrCodes] = useState<Record<string, string>>({});
+  const [selectedQR, setSelectedQR] = useState<string | null>(null);
+  const [loadingQR, setLoadingQR] = useState<Record<string, boolean>>({});
   // const userId = "b3a1863c-15a9-4df1-989e-a9d4e4f3840e";
   useEffect(() => {
     const user = localStorage.getItem('user');
@@ -31,6 +34,32 @@ const CertificateWallet = () => {
 
     fetchCertificates();
   }, []);
+
+  const fetchQRCode = async (certificateId: string) => {
+    if (qrCodes[certificateId]) {
+      return qrCodes[certificateId];
+    }
+
+    setLoadingQR(prev => ({ ...prev, [certificateId]: true }));
+    
+    try {
+      const qrCode = await certificateApi.getQR(certificateId);
+      setQrCodes(prev => ({ ...prev, [certificateId]: qrCode }));
+      return qrCode;
+    } catch (error) {
+      console.error('Error fetching QR code:', error);
+      return null;
+    } finally {
+      setLoadingQR(prev => ({ ...prev, [certificateId]: false }));
+    }
+  };
+
+  const handleShowQR = async (certificateId: string) => {
+    const qrCode = await fetchQRCode(certificateId);
+    if (qrCode) {
+      setSelectedQR(qrCode);
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -80,6 +109,18 @@ const CertificateWallet = () => {
                   <Eye className="w-4 h-4" />
                   View
                 </a>
+                <button
+                  onClick={() => handleShowQR(cert.id)}
+                  disabled={loadingQR[cert.id]}
+                  className="flex items-center gap-2 text-purple-600 hover:text-purple-700 disabled:opacity-50"
+                >
+                  {loadingQR[cert.id] ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                  ) : (
+                    <QrCode className="w-4 h-4" />
+                  )}
+                  QR Code
+                </button>
                 <a
                   href={cert.pdfUrl}
                   download
@@ -91,6 +132,34 @@ const CertificateWallet = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+      
+      {/* QR Code Modal */}
+      {selectedQR && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Certificate QR Code</h3>
+              <button
+                onClick={() => setSelectedQR(null)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex justify-center mb-4">
+              <img 
+                src={selectedQR} 
+                alt="Certificate QR Code" 
+                className="max-w-full h-auto"
+                style={{ maxHeight: '300px' }}
+              />
+            </div>
+            <p className="text-sm text-gray-600 text-center">
+              Scan this QR code to verify the certificate
+            </p>
+          </div>
         </div>
       )}
     </div>

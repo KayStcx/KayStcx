@@ -812,7 +812,8 @@ export class UsersService {
         this.userRepository.countByStatus(UserStatus.PENDING_VERIFICATION),
       ]);
 
-    const certificateIssuanceCounts = await this.userRepository.getPerUserCertificateCounts();
+    const certificateIssuanceCounts =
+      await this.userRepository.getPerUserCertificateCounts();
 
     return {
       total,
