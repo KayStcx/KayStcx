@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Wallet, Download, Eye, Clock, QrCode, X, AlertCircle } from 'lucide-react';
+import { Wallet, Download, Eye, Clock, QrCode, X, AlertCircle, Share2, Check } from 'lucide-react';
 import { Certificate, getUserCertificates, certificateApi, getCertificatePdfUrl } from '../api';
 
 const CertificateWallet = () => {
@@ -13,6 +13,7 @@ const CertificateWallet = () => {
 
   const [error, setError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     const user = localStorage.getItem('user');
@@ -59,6 +60,34 @@ const CertificateWallet = () => {
   const handleShowQR = async (certificateId: string) => {
     const qrCode = await fetchQRCode(certificateId);
     if (qrCode) setSelectedQR(qrCode);
+  };
+
+  // ✅ SHARE LOGIC
+  const handleShare = async (cert: Certificate) => {
+    const serial = cert.serialNumber || cert.id;
+    const url = `${window.location.origin}/verify?serial=${encodeURIComponent(serial)}`;
+
+    const copyToClipboard = async () => {
+      await navigator.clipboard.writeText(url);
+      setCopiedId(cert.id);
+      setTimeout(() => setCopiedId(null), 2000);
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: cert.title,
+          text: `Check out my certificate: ${cert.title} — awarded to ${cert.recipientName}`,
+          url,
+        });
+      } catch (err) {
+        if (err instanceof Error && err.name !== 'AbortError') {
+          await copyToClipboard();
+        }
+      }
+    } else {
+      await copyToClipboard();
+    }
   };
 
   // ✅ PDF VIEW/DOWNLOAD LOGIC
@@ -180,6 +209,18 @@ const CertificateWallet = () => {
                 >
                   <Download className="w-4 h-4" />
                   Download
+                </button>
+
+                <button
+                  onClick={() => handleShare(cert)}
+                  className="flex items-center gap-2 text-indigo-600"
+                >
+                  {copiedId === cert.id ? (
+                    <Check className="w-4 h-4" />
+                  ) : (
+                    <Share2 className="w-4 h-4" />
+                  )}
+                  {copiedId === cert.id ? 'Copied!' : 'Share'}
                 </button>
               </div>
             </div>
