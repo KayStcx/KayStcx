@@ -72,7 +72,7 @@ export class AuthService {
       registerDto.email,
     );
     if (existingUser) {
-      throw new UnauthorizedException('User already exists');
+      throw new UnauthorizedException('Registration failed');
     }
 
     // Hash password
