@@ -4,8 +4,11 @@ use soroban_sdk::{contract, contractimpl, symbol_short, Address, Env, String, Ve
 mod types;
 pub use types::*;
 
-mod metadata;
-pub use metadata::*;
+// mod metadata;
+// pub use metadata::*;
+
+mod multisig;
+pub use multisig::*;
 
 #[contract]
 pub struct CertificateContract;
