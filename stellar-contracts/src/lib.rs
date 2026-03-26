@@ -13,6 +13,12 @@ pub use multisig::*;
 mod crl;
 pub use crl::*;
 
+mod admin_multisig;
+pub use admin_multisig::*;
+
+#[cfg(test)]
+mod admin_multisig_test;
+
 #[contract]
 pub struct CertificateContract;
 
@@ -583,7 +589,7 @@ impl CertificateContract {
         let total_cost = BASE_VERIFICATION_COST + (COST_PER_CERTIFICATE * ids.len() as u64);
 
         VerificationReport {
-            total: ids.len() as u32,
+            total: ids.len(),
             successful,
             failed,
             total_cost,

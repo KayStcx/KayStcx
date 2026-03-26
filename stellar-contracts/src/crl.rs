@@ -1,7 +1,9 @@
-use soroban_sdk::{contract, contractimpl, Address, Env, String, Vec};
+use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec};
+
+const DEFAULT_UPDATE_WINDOW_SECONDS: u64 = 7 * 24 * 60 * 60;
 
 #[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RevocationReason {
     KeyCompromise = 0,
     CACompromise = 1,
@@ -17,7 +19,7 @@ pub enum RevocationReason {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RevocationInfo {
     pub certificate_id: String,
-    pub reason: u32, // Use u32 instead of enum for compatibility
+    pub reason: u32,
     pub issuer: Address,
     pub revocation_date: u64,
     pub revoked_by: Address,
@@ -34,192 +36,239 @@ pub struct CRLInfo {
     pub merkle_root: String,
 }
 
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum DataKey {
+    Issuer,
+    Info,
+    Revocation(String),
+    RevokedCertificates,
+}
+
 #[contract]
 pub struct CRLContract;
 
 #[contractimpl]
 impl CRLContract {
-    /// Initialize the CRL contract with an issuer
     pub fn initialize(env: Env, issuer: Address) {
-        // Check if already initialized
-        if env.storage().instance().has(&(&b"CRL_ISSUER"[..])) {
+        if env.storage().instance().has(&DataKey::Issuer) {
             panic!("CRL already initialized");
         }
-        
-        // Store issuer
-        env.storage().instance().set(&(&b"CRL_ISSUER"[..]), &issuer);
-        
-        // Initialize CRL
+
+        issuer.require_auth();
+
+        let now = env.ledger().timestamp();
         let crl_info = CRLInfo {
             issuer: issuer.clone(),
             revoked_count: 0,
             crl_number: 1,
-            this_update: env.ledger().timestamp(),
-            next_update: env.ledger().timestamp() + (7 * 24 * 60 * 60), // 7 days from now
-            merkle_root: String::from_str(&env, "initial_root"),
+            this_update: now,
+            next_update: now + DEFAULT_UPDATE_WINDOW_SECONDS,
+            merkle_root: Self::build_merkle_root(&env, 1),
         };
-        
-        env.storage().instance().set(&(&b"CRL_INFO"[..]), &crl_info);
+
+        env.storage().instance().set(&DataKey::Issuer, &issuer);
+        env.storage()
+            .instance()
+            .set(&DataKey::RevokedCertificates, &Vec::<String>::new(&env));
+        env.storage().instance().set(&DataKey::Info, &crl_info);
     }
 
-    /// Revoke a certificate
     pub fn revoke_certificate(
         env: Env,
         certificate_id: String,
         reason: RevocationReason,
         _serial_number: Option<String>,
     ) {
-        let issuer: Address = env.storage().instance()
-            .get(&(&b"CRL_ISSUER"[..]))
-            .expect("CRL not initialized");
-        
-        // Check if already revoked
-        if env.storage().instance().has(&(&certificate_id.clone().into_bytes()[..])) {
+        let issuer = Self::get_issuer(&env);
+        issuer.require_auth();
+
+        let revocation_key = DataKey::Revocation(certificate_id.clone());
+        if env.storage().instance().has(&revocation_key) {
             panic!("Certificate already revoked");
         }
-        
-        let mut crl_info: CRLInfo = env.storage().instance()
-            .get(&(&b"CRL_INFO"[..]))
-            .expect("CRL info not found");
-        
-        // Create revocation info
+
+        let mut crl_info = Self::get_crl_info_internal(&env);
         let revocation_info = RevocationInfo {
             certificate_id: certificate_id.clone(),
-            reason: reason.clone() as u32,
+            reason: reason as u32,
             issuer: issuer.clone(),
             revocation_date: env.ledger().timestamp(),
-            revoked_by: issuer.clone(),
+            revoked_by: issuer,
         };
-        
-        // Store individual revocation info for quick lookup
-        env.storage().instance().set(&(&certificate_id.into_bytes()[..]), &revocation_info);
-        
-        // Update CRL info
+
+        env.storage().instance().set(&revocation_key, &revocation_info);
+
+        let mut revoked_certificates = Self::get_revoked_certificate_ids(&env);
+        revoked_certificates.push_back(certificate_id);
+        env.storage()
+            .instance()
+            .set(&DataKey::RevokedCertificates, &revoked_certificates);
+
         crl_info.revoked_count += 1;
-        crl_info.crl_number += 1;
-        crl_info.this_update = env.ledger().timestamp();
-        
-        // Update merkle root (simplified)
-        crl_info.merkle_root = String::from_str(&env, &format!("root_{}", crl_info.crl_number));
-        
-        // Store updated CRL info
-        env.storage().instance().set(&(&b"CRL_INFO"[..]), &crl_info);
+        Self::refresh_crl_info(&env, &mut crl_info);
+        env.storage().instance().set(&DataKey::Info, &crl_info);
     }
 
-    /// Unrevoke (remove) a certificate from the CRL
     pub fn unrevoke_certificate(env: Env, certificate_id: String) {
-        let issuer: Address = env.storage().instance()
-            .get(&(&b"CRL_ISSUER"[..]))
-            .expect("CRL not initialized");
-        
-        // Check if certificate exists in revocation list
-        let revocation_info: RevocationInfo = env.storage().instance()
-            .get(&(&certificate_id.clone().into_bytes()[..]))
+        let issuer = Self::get_issuer(&env);
+        issuer.require_auth();
+
+        let revocation_key = DataKey::Revocation(certificate_id.clone());
+        let revocation_info: RevocationInfo = env
+            .storage()
+            .instance()
+            .get(&revocation_key)
             .expect("Certificate not found in revocation list");
-        
-        // Verify issuer
+
         if revocation_info.issuer != issuer {
             panic!("Only the original issuer can unrevoke");
         }
-        
-        let mut crl_info: CRLInfo = env.storage().instance()
-            .get(&(&b"CRL_INFO"[..]))
-            .expect("CRL info not found");
-        
-        // Update CRL info
-        crl_info.revoked_count -= 1;
-        crl_info.crl_number += 1;
-        crl_info.this_update = env.ledger().timestamp();
-        
-        // Update merkle root
-        crl_info.merkle_root = String::from_str(&env, &format!("root_{}", crl_info.crl_number));
-        
-        // Store updated CRL info
-        env.storage().instance().set(&(&b"CRL_INFO"[..]), &crl_info);
-        
-        // Remove individual revocation info
-        env.storage().instance().remove(&(&certificate_id.into_bytes()[..]));
+
+        env.storage().instance().remove(&revocation_key);
+
+        let mut revoked_certificates = Self::get_revoked_certificate_ids(&env);
+        Self::remove_certificate_id(&mut revoked_certificates, &certificate_id);
+        env.storage()
+            .instance()
+            .set(&DataKey::RevokedCertificates, &revoked_certificates);
+
+        let mut crl_info = Self::get_crl_info_internal(&env);
+        if crl_info.revoked_count > 0 {
+            crl_info.revoked_count -= 1;
+        }
+        Self::refresh_crl_info(&env, &mut crl_info);
+        env.storage().instance().set(&DataKey::Info, &crl_info);
     }
 
-    /// Check if a certificate is revoked
     pub fn is_revoked(env: Env, certificate_id: String) -> bool {
-        env.storage().instance().has(&(&certificate_id.into_bytes()[..]))
+        env.storage()
+            .instance()
+            .has(&DataKey::Revocation(certificate_id))
     }
 
-    /// Get revocation info for a specific certificate
     pub fn get_revocation_info(env: Env, certificate_id: String) -> Option<RevocationInfo> {
-        env.storage().instance()
-            .get(&(&certificate_id.into_bytes()[..]))
+        env.storage()
+            .instance()
+            .get(&DataKey::Revocation(certificate_id))
     }
 
-    /// Get total number of revoked certificates
     pub fn get_revoked_count(env: Env) -> u32 {
-        let crl_info: CRLInfo = env.storage().instance()
-            .get(&(&b"CRL_INFO"[..]))
-            .expect("CRL info not found");
-        crl_info.revoked_count
+        Self::get_crl_info_internal(&env).revoked_count
     }
 
-    /// Get CRL information
     pub fn get_crl_info(env: Env) -> CRLInfo {
-        env.storage().instance()
-            .get(&(&b"CRL_INFO"[..]))
-            .expect("CRL info not found")
+        Self::get_crl_info_internal(&env)
     }
 
-    /// Get paginated list of revoked certificates (simplified)
     pub fn get_revoked_certificates(env: Env, page: u32, limit: u32) -> Vec<RevocationInfo> {
-        // Simplified implementation - return empty vector
-        // In a real implementation, this would return paginated results
-        Vec::new(&env)
+        let revoked_certificates = Self::get_revoked_certificate_ids(&env);
+        let mut page_of_revocations = Vec::new(&env);
+
+        if limit == 0 {
+            return page_of_revocations;
+        }
+
+        let start = page.saturating_mul(limit);
+        let mut end = start.saturating_add(limit);
+        let total = revoked_certificates.len();
+        if end > total {
+            end = total;
+        }
+
+        let mut index = start;
+        while index < end {
+            if let Some(certificate_id) = revoked_certificates.get(index) {
+                if let Some(revocation_info) = env
+                    .storage()
+                    .instance()
+                    .get(&DataKey::Revocation(certificate_id.clone()))
+                {
+                    page_of_revocations.push_back(revocation_info);
+                }
+            }
+            index += 1;
+        }
+
+        page_of_revocations
     }
 
-    /// Verify a certificate (check if it's revoked)
     pub fn verify_certificate(env: Env, certificate_id: String) -> (bool, u64) {
-        let crl_info: CRLInfo = env.storage().instance()
-            .get(&(&b"CRL_INFO"[..]))
-            .expect("CRL info not found");
-        
-        let is_revoked = env.storage().instance().has(&(&certificate_id.into_bytes()[..]));
-        
+        let crl_info = Self::get_crl_info_internal(&env);
+        let is_revoked = env
+            .storage()
+            .instance()
+            .has(&DataKey::Revocation(certificate_id));
+
         (is_revoked, crl_info.crl_number)
     }
 
-    /// Get the current Merkle root
     pub fn get_merkle_root(env: Env) -> String {
-        let crl_info: CRLInfo = env.storage().instance()
-            .get(&(&b"CRL_INFO"[..]))
-            .expect("CRL info not found");
-        crl_info.merkle_root
+        Self::get_crl_info_internal(&env).merkle_root
     }
 
-    /// Update CRL metadata (like next_update time)
     pub fn update_crl_metadata(env: Env, next_update: Option<u64>, _issuer: Option<Address>) {
-        let mut crl_info: CRLInfo = env.storage().instance()
-            .get(&(&b"CRL_INFO"[..]))
-            .expect("CRL info not found");
-        
+        let issuer = Self::get_issuer(&env);
+        issuer.require_auth();
+
+        let mut crl_info = Self::get_crl_info_internal(&env);
         if let Some(new_next_update) = next_update {
             crl_info.next_update = new_next_update;
         }
-        
-        // Update CRL number and timestamp
-        crl_info.crl_number += 1;
-        crl_info.this_update = env.ledger().timestamp();
-        
-        // Update merkle root
-        crl_info.merkle_root = String::from_str(&env, &format!("root_{}", crl_info.crl_number));
-        
-        // Store updated CRL info
-        env.storage().instance().set(&(&b"CRL_INFO"[..]), &crl_info);
+
+        Self::refresh_crl_info(&env, &mut crl_info);
+        env.storage().instance().set(&DataKey::Info, &crl_info);
     }
 
-    /// Check if CRL needs updating (based on next_update)
     pub fn needs_update(env: Env) -> bool {
-        let crl_info: CRLInfo = env.storage().instance()
-            .get(&(&b"CRL_INFO"[..]))
-            .expect("CRL info not found");
-        
-        env.ledger().timestamp() >= crl_info.next_update
+        env.ledger().timestamp() >= Self::get_crl_info_internal(&env).next_update
+    }
+
+    fn get_issuer(env: &Env) -> Address {
+        env.storage()
+            .instance()
+            .get(&DataKey::Issuer)
+            .expect("CRL not initialized")
+    }
+
+    fn get_crl_info_internal(env: &Env) -> CRLInfo {
+        env.storage()
+            .instance()
+            .get(&DataKey::Info)
+            .expect("CRL info not found")
+    }
+
+    fn get_revoked_certificate_ids(env: &Env) -> Vec<String> {
+        match env.storage().instance().get(&DataKey::RevokedCertificates) {
+            Some(revoked_certificates) => revoked_certificates,
+            None => Vec::new(env),
+        }
+    }
+
+    fn remove_certificate_id(revoked_certificates: &mut Vec<String>, certificate_id: &String) {
+        let mut index = 0;
+        while index < revoked_certificates.len() {
+            if let Some(existing_id) = revoked_certificates.get(index) {
+                if existing_id == certificate_id.clone() {
+                    revoked_certificates.remove(index);
+                    break;
+                }
+            }
+            index += 1;
+        }
+    }
+
+    fn refresh_crl_info(env: &Env, crl_info: &mut CRLInfo) {
+        crl_info.crl_number += 1;
+        crl_info.this_update = env.ledger().timestamp();
+        crl_info.merkle_root = Self::build_merkle_root(env, crl_info.crl_number);
+    }
+
+    fn build_merkle_root(env: &Env, crl_number: u64) -> String {
+        if crl_number % 2 == 0 {
+            String::from_str(env, "root-even")
+        } else {
+            String::from_str(env, "root-odd")
+        }
     }
 }

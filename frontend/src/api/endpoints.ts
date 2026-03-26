@@ -844,5 +844,37 @@ export const issuerProfileApi = {
             method: 'PUT',
             body: JSON.stringify(data),
         });
+    },
+
+    uploadProfilePicture: async (file: File): Promise<{ profilePicture: string; message: string }> => {
+        if (USE_DUMMY_DATA) {
+            await simulateDelay();
+            return {
+                profilePicture: URL.createObjectURL(file),
+                message: 'Profile picture uploaded successfully'
+            };
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch(`${API_URL}/users/profile/picture`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${tokenStorage.getAccessToken() ?? ''}`,
+            },
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const errorData: ApiError = await response.json().catch(() => ({
+                message: response.statusText || 'Profile picture upload failed',
+                statusCode: response.status,
+            }));
+
+            throw errorData;
+        }
+
+        return response.json();
     }
 };

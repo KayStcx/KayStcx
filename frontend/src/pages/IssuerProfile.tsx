@@ -1,12 +1,35 @@
-import { useState, useEffect } from 'react';
-import { Save, Key, Shield, Activity, Settings, User as UserIcon, Building, Hash } from 'lucide-react';
-import { userApi } from '../api';
+import { useState, useEffect, useRef } from 'react';
+import {
+  Save,
+  Key,
+  Shield,
+  Activity,
+  Settings,
+  User as UserIcon,
+  Building,
+  Hash,
+  Upload,
+  ImagePlus,
+} from 'lucide-react';
+import { issuerProfileApi, userApi } from '../api';
+
+const MAX_PROFILE_PICTURE_SIZE = 5 * 1024 * 1024;
+const ALLOWED_PROFILE_PICTURE_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+];
 
 const IssuerProfile = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [profilePreview, setProfilePreview] = useState('');
+  const [selectedProfileImage, setSelectedProfileImage] = useState<File | null>(null);
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -25,6 +48,7 @@ const IssuerProfile = () => {
     totalCertificates: 0,
     activeCertificates: 0,
     revokedCertificates: 0,
+    expiredCertificates: 0,
     totalVerifications: 0,
     lastLogin: ''
   });
@@ -39,70 +63,64 @@ const IssuerProfile = () => {
   }[]>([]);
 
   useEffect(() => {
-    loadProfile();
-    loadStats();
-    loadActivity();
+    const loadPageData = async () => {
+      try {
+        setLoading(true);
+        const profile = await userApi.getProfile();
+        setFormData({
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          email: profile.email,
+          username: profile.username || '',
+          phone: profile.phone || '',
+          organization: profile.metadata?.organization
+            ? String(profile.metadata.organization)
+            : '',
+          stellarPublicKey: profile.stellarPublicKey || '',
+          profilePicture: profile.profilePicture || ''
+        });
+        setSelectedProfileImage(null);
+        setProfilePreview(profile.profilePicture || '');
+      } catch (err) {
+        setError('Failed to load profile');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+
+      try {
+        const profileStats = await issuerProfileApi.getStats();
+        setStats(profileStats);
+      } catch (err) {
+        console.error('Failed to load issuer stats', err);
+      }
+
+      try {
+        const activityResponse = await issuerProfileApi.getActivity();
+        setActivities(
+          activityResponse.activities.map((activity) => ({
+            id: activity.id,
+            action: activity.action,
+            description: activity.description,
+            timestamp: activity.timestamp,
+            ip: activity.ipAddress || 'Unknown IP',
+          })),
+        );
+      } catch (err) {
+        console.error('Failed to load issuer activity', err);
+      }
+    };
+
+    void loadPageData();
   }, []);
 
-  const loadProfile = async () => {
-    try {
-      setLoading(true);
-      const profile = await userApi.getProfile();
-      setFormData({
-        firstName: profile.firstName,
-        lastName: profile.lastName,
-        email: profile.email,
-        username: profile.username || '',
-        phone: profile.phone || '',
-        organization: profile.metadata?.organization ? String(profile.metadata.organization) : '',
-        stellarPublicKey: profile.stellarPublicKey || '',
-        profilePicture: profile.profilePicture || ''
-      });
-    } catch (err) {
-      setError('Failed to load profile');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadStats = async () => {
-    // Mock stats for now - would call actual API
-    setStats({
-      totalCertificates: 125,
-      activeCertificates: 118,
-      revokedCertificates: 7,
-      totalVerifications: 2847,
-      lastLogin: new Date().toISOString()
-    });
-  };
-
-  const loadActivity = async () => {
-    // Mock activity data for now
-    setActivities([
-      {
-        id: '1',
-        action: 'ISSUE_CERTIFICATE',
-        description: 'Issued "Blockchain Fundamentals" certificate to Alice Johnson',
-        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        ip: '192.168.1.100'
-      },
-      {
-        id: '2',
-        action: 'REVOKE_CERTIFICATE',
-        description: 'Revoked certificate #CERT-2024-045',
-        timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-        ip: '192.168.1.100'
-      },
-      {
-        id: '3',
-        action: 'UPDATE_PROFILE',
-        description: 'Updated organization details',
-        timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        ip: '192.168.1.100'
+  useEffect(() => {
+    return () => {
+      if (localPreviewUrl) {
+        URL.revokeObjectURL(localPreviewUrl);
       }
-    ]);
-  };
+    };
+  }, [localPreviewUrl]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -118,6 +136,33 @@ const IssuerProfile = () => {
     return regex.test(key);
   };
 
+  const handleProfilePictureChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!ALLOWED_PROFILE_PICTURE_TYPES.includes(file.type)) {
+      setError('Please select a JPG, PNG, GIF, or WebP image');
+      return;
+    }
+
+    if (file.size > MAX_PROFILE_PICTURE_SIZE) {
+      setError('Profile picture must be 5MB or smaller');
+      return;
+    }
+
+    if (localPreviewUrl) {
+      URL.revokeObjectURL(localPreviewUrl);
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    setSelectedProfileImage(file);
+    setLocalPreviewUrl(previewUrl);
+    setProfilePreview(previewUrl);
+    setError(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -130,19 +175,43 @@ const IssuerProfile = () => {
       setSaving(true);
       setError(null);
       setSuccess(null);
+      let uploadedProfilePicture = formData.profilePicture;
 
-      // In a real implementation, this would call the update API
-      // const updatedUser = await userApi.updateProfile({
-      //   ...formData,
-      //   metadata: {
-      //     organization: formData.organization
-      //   }
-      // });
+      if (selectedProfileImage) {
+        const uploadResult =
+          await issuerProfileApi.uploadProfilePicture(selectedProfileImage);
+        uploadedProfilePicture = uploadResult.profilePicture;
+      }
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const updatedUser = await issuerProfileApi.updateProfile({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        username: formData.username || undefined,
+        phone: formData.phone || undefined,
+        organization: formData.organization || undefined,
+        stellarPublicKey: formData.stellarPublicKey || undefined,
+        profilePicture: uploadedProfilePicture || undefined,
+      });
+
+      setFormData({
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        email: updatedUser.email,
+        username: updatedUser.username || '',
+        phone: updatedUser.phone || '',
+        organization: updatedUser.metadata?.organization
+          ? String(updatedUser.metadata.organization)
+          : formData.organization,
+        stellarPublicKey: updatedUser.stellarPublicKey || '',
+        profilePicture: uploadedProfilePicture || updatedUser.profilePicture || '',
+      });
+      if (localPreviewUrl) {
+        URL.revokeObjectURL(localPreviewUrl);
+        setLocalPreviewUrl(null);
+      }
+      setProfilePreview(uploadedProfilePicture || updatedUser.profilePicture || '');
+      setSelectedProfileImage(null);
       setSuccess('Profile updated successfully');
-
     } catch (err) {
       setError('Failed to update profile');
       console.error(err);
@@ -275,16 +344,51 @@ const IssuerProfile = () => {
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Profile Picture URL
+                    Profile Picture
                   </label>
-                  <input
-                    type="url"
-                    name="profilePicture"
-                    value={formData.profilePicture}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="https://example.com/profile.jpg"
-                  />
+                  <div className="flex flex-col gap-4 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 sm:flex-row sm:items-center">
+                    <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-white">
+                      {profilePreview ? (
+                        <img
+                          src={profilePreview}
+                          alt="Profile preview"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <ImagePlus className="h-8 w-8 text-gray-400" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept={ALLOWED_PROFILE_PICTURE_TYPES.join(',')}
+                        className="hidden"
+                        onChange={handleProfilePictureChange}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                      >
+                        <Upload className="mr-2 h-4 w-4" />
+                        {selectedProfileImage ? 'Change Image' : 'Select Image'}
+                      </button>
+                      <p className="mt-2 text-sm text-gray-600">
+                        JPG, PNG, GIF, or WebP. Maximum size 5MB.
+                      </p>
+                      {selectedProfileImage && (
+                        <p className="mt-1 text-sm text-gray-500">
+                          Ready to upload: {selectedProfileImage.name}
+                        </p>
+                      )}
+                      {!selectedProfileImage && formData.profilePicture && (
+                        <p className="mt-1 text-sm text-gray-500">
+                          Current picture will stay unless you select a new file.
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
