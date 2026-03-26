@@ -63,9 +63,55 @@ const IssuerProfile = () => {
   }[]>([]);
 
   useEffect(() => {
-    loadProfile();
-    loadStats();
-    loadActivity();
+    const loadPageData = async () => {
+      try {
+        setLoading(true);
+        const profile = await userApi.getProfile();
+        setFormData({
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          email: profile.email,
+          username: profile.username || '',
+          phone: profile.phone || '',
+          organization: profile.metadata?.organization
+            ? String(profile.metadata.organization)
+            : '',
+          stellarPublicKey: profile.stellarPublicKey || '',
+          profilePicture: profile.profilePicture || ''
+        });
+        setSelectedProfileImage(null);
+        setProfilePreview(profile.profilePicture || '');
+      } catch (err) {
+        setError('Failed to load profile');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+
+      try {
+        const profileStats = await issuerProfileApi.getStats();
+        setStats(profileStats);
+      } catch (err) {
+        console.error('Failed to load issuer stats', err);
+      }
+
+      try {
+        const activityResponse = await issuerProfileApi.getActivity();
+        setActivities(
+          activityResponse.activities.map((activity) => ({
+            id: activity.id,
+            action: activity.action,
+            description: activity.description,
+            timestamp: activity.timestamp,
+            ip: activity.ipAddress || 'Unknown IP',
+          })),
+        );
+      } catch (err) {
+        console.error('Failed to load issuer activity', err);
+      }
+    };
+
+    void loadPageData();
   }, []);
 
   useEffect(() => {
@@ -75,60 +121,6 @@ const IssuerProfile = () => {
       }
     };
   }, [localPreviewUrl]);
-
-  const loadProfile = async () => {
-    try {
-      setLoading(true);
-      const profile = await userApi.getProfile();
-      setFormData({
-        firstName: profile.firstName,
-        lastName: profile.lastName,
-        email: profile.email,
-        username: profile.username || '',
-        phone: profile.phone || '',
-        organization: profile.metadata?.organization ? String(profile.metadata.organization) : '',
-        stellarPublicKey: profile.stellarPublicKey || '',
-        profilePicture: profile.profilePicture || ''
-      });
-      if (localPreviewUrl) {
-        URL.revokeObjectURL(localPreviewUrl);
-        setLocalPreviewUrl(null);
-      }
-      setSelectedProfileImage(null);
-      setProfilePreview(profile.profilePicture || '');
-    } catch (err) {
-      setError('Failed to load profile');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadStats = async () => {
-    try {
-      const profileStats = await issuerProfileApi.getStats();
-      setStats(profileStats);
-    } catch (err) {
-      console.error('Failed to load issuer stats', err);
-    }
-  };
-
-  const loadActivity = async () => {
-    try {
-      const activityResponse = await issuerProfileApi.getActivity();
-      setActivities(
-        activityResponse.activities.map((activity) => ({
-          id: activity.id,
-          action: activity.action,
-          description: activity.description,
-          timestamp: activity.timestamp,
-          ip: activity.ipAddress || 'Unknown IP',
-        })),
-      );
-    } catch (err) {
-      console.error('Failed to load issuer activity', err);
-    }
-  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

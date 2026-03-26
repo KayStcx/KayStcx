@@ -582,7 +582,7 @@ impl CertificateContract {
         let total_cost = BASE_VERIFICATION_COST + (COST_PER_CERTIFICATE * ids.len() as u64);
 
         VerificationReport {
-            total: ids.len() as u32,
+            total: ids.len(),
             successful,
             failed,
             total_cost,
