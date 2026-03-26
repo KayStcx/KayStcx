@@ -10,6 +10,9 @@ pub use types::*;
 mod multisig;
 pub use multisig::*;
 
+mod crl;
+pub use crl::*;
+
 #[contract]
 pub struct CertificateContract;
 
