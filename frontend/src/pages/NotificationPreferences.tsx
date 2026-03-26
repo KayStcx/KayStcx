@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Bell, CheckCircle, AlertTriangle, Info, Save } from 'lucide-react';
-import { tokenStorage } from '@/api';
 import { apiClient } from '../api';
 
 interface Preferences {
