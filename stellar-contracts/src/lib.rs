@@ -13,6 +13,12 @@ pub use multisig::*;
 mod crl;
 pub use crl::*;
 
+mod admin_multisig;
+pub use admin_multisig::*;
+
+#[cfg(test)]
+mod admin_multisig_test;
+
 #[contract]
 pub struct CertificateContract;
 
