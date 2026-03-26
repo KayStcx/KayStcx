@@ -1,5 +1,5 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec, BytesN};
+use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, IntoVal, String, Vec};
 
 /// Types of critical administrative actions that can be proposed.
 #[contracttype]
@@ -51,10 +51,14 @@ pub struct AdminMultisigContract;
 #[contractimpl]
 impl AdminMultisigContract {
     /// Initialize the global admin multisig config.
+    ///
+    /// `certificate_contract` is the address of the CertificateContract that this
+    /// admin multisig governs (used for cross-contract upgrade calls).
     pub fn init_admin_multisig(
         env: Env,
         threshold: u32,
         signers: Vec<Address>,
+        certificate_contract: Address,
     ) {
         if signers.is_empty() {
             panic!("Must provide at least one signer");
@@ -62,16 +66,19 @@ impl AdminMultisigContract {
         if threshold == 0 || threshold > signers.len() as u32 {
             panic!("Invalid threshold");
         }
-        
+
         let config_key = DataKey::AdminConfig;
         if env.storage().instance().has(&config_key) {
             panic!("Admin multisig already initialized");
         }
-        
+
         env.storage().instance().set(&config_key, &AdminMultisigConfig {
             threshold,
             signers,
         });
+        env.storage()
+            .instance()
+            .set(&DataKey::CertificateContractId, &certificate_contract);
     }
 
     /// Propose a new administrative action.
@@ -195,10 +202,26 @@ impl AdminMultisigContract {
 
         match &proposal.action {
             AdminAction::UpgradeContract(wasm_hash) => {
-                env.deployer().update_current_contract_wasm(wasm_hash.clone());
+                let cert_contract: Address = env
+                    .storage()
+                    .instance()
+                    .get(&DataKey::CertificateContractId)
+                    .expect("Certificate contract not registered");
+                env.invoke_contract::<()>(
+                    &cert_contract,
+                    &symbol_short!("upgrade"),
+                    (wasm_hash.clone(),).into_val(&env),
+                );
             },
-            AdminAction::UpdateConfig(_threshold, _signers) => {
-                // E.g. updating the admin config itself could go here
+            AdminAction::UpdateConfig(new_threshold, new_signers) => {
+                let mut config: AdminMultisigConfig = env
+                    .storage()
+                    .instance()
+                    .get(&DataKey::AdminConfig)
+                    .expect("Admin config not found");
+                config.threshold = *new_threshold;
+                config.signers = new_signers.clone();
+                env.storage().instance().set(&DataKey::AdminConfig, &config);
             },
             AdminAction::Other(_data) => {
                 // Execute other custom logic
@@ -222,4 +245,5 @@ impl AdminMultisigContract {
 pub enum DataKey {
     AdminConfig,
     AdminProposal(String),
+    CertificateContractId,
 }

@@ -1,5 +1,5 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, symbol_short, Address, Env, String, Vec};
+use soroban_sdk::{contract, contractimpl, symbol_short, Address, BytesN, Env, String, Vec};
 
 mod types;
 pub use types::*;
@@ -519,5 +519,16 @@ impl CertificateContract {
             .instance()
             .set(&DataKey::PendingRequest(request_id), &request);
         true
+    }
+
+    /// Upgrade the contract WASM. Only callable by the stored admin (i.e. AdminMultisigContract).
+    pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Contract not initialized");
+        admin.require_auth();
+        env.deployer().update_current_contract_wasm(new_wasm_hash);
     }
 }
