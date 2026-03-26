@@ -243,7 +243,7 @@ export class UserRepository {
       .getRawMany();
 
     const result: Record<string, number> = {};
-    rawData.forEach(row => {
+    rawData.forEach((row) => {
       result[row.userId] = parseInt(row.count, 10);
     });
     return result;
