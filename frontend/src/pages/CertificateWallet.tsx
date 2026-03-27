@@ -1,7 +1,21 @@
-import { useEffect, useState } from 'react';
-import { Wallet, Download, Eye, Clock, QrCode, AlertCircle, Share2, Check } from 'lucide-react';
-import { Certificate, getUserCertificates, certificateApi, getCertificatePdfUrl } from '../api';
-import QRCodeModal from '../components/QRCodeModal';
+import { useEffect, useState } from "react";
+import {
+  Wallet,
+  Download,
+  Eye,
+  Clock,
+  QrCode,
+  AlertCircle,
+  Share2,
+  Check,
+} from "lucide-react";
+import {
+  Certificate,
+  getUserCertificates,
+  certificateApi,
+  getCertificatePdfUrl,
+} from "../api";
+import QRCodeModal from "../components/QRCodeModal";
 
 const CertificateWallet = () => {
   const [certificates, setCertificates] = useState<Certificate[]>([]);
@@ -19,7 +33,7 @@ const CertificateWallet = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
-    const user = localStorage.getItem('user');
+    const user = localStorage.getItem("user");
 
     if (!user) {
       setLoading(false);
@@ -33,7 +47,7 @@ const CertificateWallet = () => {
         const data = await getUserCertificates(parsedUser.id);
         if (data) setCertificates(data);
       } catch (error) {
-        console.error('Error fetching certificates:', error);
+        console.error("Error fetching certificates:", error);
       } finally {
         setLoading(false);
       }
@@ -44,7 +58,11 @@ const CertificateWallet = () => {
 
   // ✅ QR CODE LOGIC: open shared QR modal which provides copy/download
   const handleShowQR = (certificateId: string, certificateName?: string) => {
-    setQrModal({ isOpen: true, certificateId, certificateName: certificateName || 'Certificate' });
+    setQrModal({
+      isOpen: true,
+      certificateId,
+      certificateName: certificateName || "Certificate",
+    });
   };
 
   // ✅ SHARE LOGIC
@@ -66,7 +84,7 @@ const CertificateWallet = () => {
           url,
         });
       } catch (err) {
-        if (err instanceof Error && err.name !== 'AbortError') {
+        if (err instanceof Error && err.name !== "AbortError") {
           await copyToClipboard();
         }
       }
@@ -76,7 +94,10 @@ const CertificateWallet = () => {
   };
 
   // ✅ PDF VIEW/DOWNLOAD LOGIC
-  const handlePdfAction = async (cert: Certificate, action: 'view' | 'download') => {
+  const handlePdfAction = async (
+    cert: Certificate,
+    action: "view" | "download",
+  ) => {
     setError(null);
     setActionLoadingId(cert.id);
 
@@ -87,18 +108,18 @@ const CertificateWallet = () => {
         url = await getCertificatePdfUrl(cert.id);
       }
 
-      if (!url) throw new Error('PDF not found');
+      if (!url) throw new Error("PDF not found");
 
-      if (action === 'view') {
-        window.open(url, '_blank', 'noopener,noreferrer');
+      if (action === "view") {
+        window.open(url, "_blank", "noopener,noreferrer");
       } else {
         const res = await fetch(url);
-        if (!res.ok) throw new Error('PDF unavailable');
+        if (!res.ok) throw new Error("PDF unavailable");
 
         const blob = await res.blob();
         const objectUrl = window.URL.createObjectURL(blob);
 
-        const a = document.createElement('a');
+        const a = document.createElement("a");
         a.href = objectUrl;
         a.download = `Certificate-${cert.serialNumber || cert.id}.pdf`;
         document.body.appendChild(a);
@@ -109,7 +130,7 @@ const CertificateWallet = () => {
       }
     } catch (err: unknown) {
       console.error(err);
-      const message = err instanceof Error ? err.message : 'Unknown error';
+      const message = err instanceof Error ? err.message : "Unknown error";
       setError(`Failed to ${action} certificate "${cert.title}". ${message}`);
     } finally {
       setActionLoadingId(null);
@@ -138,20 +159,26 @@ const CertificateWallet = () => {
       ) : certificates.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-lg shadow-md">
           <Wallet className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-600">No Certificates Yet</h2>
-          <p className="text-gray-500 mt-2">Your earned certificates will appear here</p>
+          <h2 className="text-xl font-semibold text-gray-600">
+            No Certificates Yet
+          </h2>
+          <p className="text-gray-500 mt-2">
+            Your earned certificates will appear here
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {certificates.map(cert => (
+          {certificates.map((cert) => (
             <div key={cert.id} className="bg-white rounded-lg shadow-md p-6">
               <div className="flex justify-between mb-4">
                 <h3 className="text-xl font-semibold">{cert.title}</h3>
-                <span className={`px-2 py-1 text-sm rounded ${
-                  cert.status === 'active'
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-red-100 text-red-800'
-                }`}>
+                <span
+                  className={`px-2 py-1 text-sm rounded ${
+                    cert.status === "active"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800"
+                  }`}
+                >
                   {cert.status}
                 </span>
               </div>
@@ -166,7 +193,7 @@ const CertificateWallet = () => {
 
               <div className="flex justify-between">
                 <button
-                  onClick={() => handlePdfAction(cert, 'view')}
+                  onClick={() => handlePdfAction(cert, "view")}
                   disabled={actionLoadingId === cert.id}
                   className="flex items-center gap-2 text-blue-600 disabled:opacity-50"
                 >
@@ -183,7 +210,7 @@ const CertificateWallet = () => {
                 </button>
 
                 <button
-                  onClick={() => handlePdfAction(cert, 'download')}
+                  onClick={() => handlePdfAction(cert, "download")}
                   disabled={actionLoadingId === cert.id}
                   className="flex items-center gap-2 text-green-600 disabled:opacity-50"
                 >
@@ -200,7 +227,7 @@ const CertificateWallet = () => {
                   ) : (
                     <Share2 className="w-4 h-4" />
                   )}
-                  {copiedId === cert.id ? 'Copied!' : 'Share'}
+                  {copiedId === cert.id ? "Copied!" : "Share"}
                 </button>
               </div>
             </div>
@@ -212,8 +239,8 @@ const CertificateWallet = () => {
       <QRCodeModal
         isOpen={!!qrModal.isOpen}
         onClose={() => setQrModal({ isOpen: false, certificateId: null })}
-        certificateId={qrModal.certificateId ?? ''}
-        certificateName={qrModal.certificateName ?? 'Certificate'}
+        certificateId={qrModal.certificateId ?? ""}
+        certificateName={qrModal.certificateName ?? "Certificate"}
       />
     </div>
   );

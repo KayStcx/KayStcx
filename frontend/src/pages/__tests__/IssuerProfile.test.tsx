@@ -1,9 +1,9 @@
-import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
-import { vi } from 'vitest';
+import React from "react";
+import { render, screen, waitFor } from "@testing-library/react";
+import { vi } from "vitest";
 
 // Mock the api module that IssuerProfile imports from '../api'
-vi.mock('../../api', () => {
+vi.mock("../../api", () => {
   const mockStats = {
     totalCertificates: 125,
     activeCertificates: 118,
@@ -16,11 +16,12 @@ vi.mock('../../api', () => {
   const mockActivity = {
     activities: [
       {
-        id: '1',
-        action: 'ISSUE_CERTIFICATE',
-        description: 'Issued "Blockchain Fundamentals" certificate to Alice Johnson',
-        ipAddress: '192.168.1.100',
-        userAgent: 'Mozilla/5.0',
+        id: "1",
+        action: "ISSUE_CERTIFICATE",
+        description:
+          'Issued "Blockchain Fundamentals" certificate to Alice Johnson',
+        ipAddress: "192.168.1.100",
+        userAgent: "Mozilla/5.0",
         timestamp: new Date().toISOString(),
       },
     ],
@@ -28,15 +29,15 @@ vi.mock('../../api', () => {
   };
 
   const mockProfile = {
-    id: 'u1',
-    email: 'john@example.com',
-    firstName: 'John',
-    lastName: 'Doe',
-    role: 'issuer',
+    id: "u1",
+    email: "john@example.com",
+    firstName: "John",
+    lastName: "Doe",
+    role: "issuer",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    profilePicture: '',
-    metadata: { organization: 'Acme' },
+    profilePicture: "",
+    metadata: { organization: "Acme" },
   };
 
   return {
@@ -52,17 +53,19 @@ vi.mock('../../api', () => {
   };
 });
 
-import IssuerProfile from '../IssuerProfile';
+import IssuerProfile from "../IssuerProfile";
 
-describe('IssuerProfile', () => {
-  it('renders issuer stats and recent activity from API', async () => {
+describe("IssuerProfile", () => {
+  it("renders issuer stats and recent activity from API", async () => {
     render(<IssuerProfile />);
 
     // Wait for the total certificates stat to appear
-    await waitFor(() => expect(screen.getByText(/Total Certificates/i)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText(/Total Certificates/i)).toBeInTheDocument(),
+    );
 
     // Check numbers and activity description
-    expect(screen.getByText('125')).toBeInTheDocument();
+    expect(screen.getByText("125")).toBeInTheDocument();
     expect(screen.getByText(/Blockchain Fundamentals/i)).toBeInTheDocument();
   });
 });
