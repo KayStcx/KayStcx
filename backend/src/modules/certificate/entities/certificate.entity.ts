@@ -46,10 +46,10 @@ export class Certificate {
   verificationCode: string;
 
   @Column({ nullable: true })
-  pdfUrl: string;
+  pdfUrl?: string;
 
   @Column({ nullable: true })
-  qrCodeUrl: string;
+  qrCodeUrl?: string;
 
   @Column({ default: false })
   isDuplicate: boolean;
