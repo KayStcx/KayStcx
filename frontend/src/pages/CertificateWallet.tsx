@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
-import { Wallet, Download, Eye, Clock, QrCode, X, AlertCircle, Share2, Check } from 'lucide-react';
+import { Wallet, Download, Eye, Clock, QrCode, AlertCircle, Share2, Check } from 'lucide-react';
 import { Certificate, getUserCertificates, certificateApi, getCertificatePdfUrl } from '../api';
+import QRCodeModal from '../components/QRCodeModal';
 
 const CertificateWallet = () => {
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ QR states
-  const [qrCodes, setQrCodes] = useState<Record<string, string>>({});
-  const [selectedQR, setSelectedQR] = useState<string | null>(null);
-  const [loadingQR, setLoadingQR] = useState<Record<string, boolean>>({});
+  // QR modal state (uses shared QRCodeModal component)
+  const [qrModal, setQrModal] = useState<{
+    isOpen: boolean;
+    certificateId?: string | null;
+    certificateName?: string | null;
+  }>({ isOpen: false, certificateId: null, certificateName: null });
 
   const [error, setError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -39,27 +42,9 @@ const CertificateWallet = () => {
     fetchCertificates();
   }, []);
 
-  // ✅ QR CODE LOGIC
-  const fetchQRCode = async (certificateId: string) => {
-    if (qrCodes[certificateId]) return qrCodes[certificateId];
-
-    setLoadingQR(prev => ({ ...prev, [certificateId]: true }));
-
-    try {
-      const qrCode = await certificateApi.getQR(certificateId);
-      setQrCodes(prev => ({ ...prev, [certificateId]: qrCode }));
-      return qrCode;
-    } catch (error) {
-      console.error('Error fetching QR code:', error);
-      return null;
-    } finally {
-      setLoadingQR(prev => ({ ...prev, [certificateId]: false }));
-    }
-  };
-
-  const handleShowQR = async (certificateId: string) => {
-    const qrCode = await fetchQRCode(certificateId);
-    if (qrCode) setSelectedQR(qrCode);
+  // ✅ QR CODE LOGIC: open shared QR modal which provides copy/download
+  const handleShowQR = (certificateId: string, certificateName?: string) => {
+    setQrModal({ isOpen: true, certificateId, certificateName: certificateName || 'Certificate' });
   };
 
   // ✅ SHARE LOGIC
@@ -190,15 +175,10 @@ const CertificateWallet = () => {
                 </button>
 
                 <button
-                  onClick={() => handleShowQR(cert.id)}
-                  disabled={loadingQR[cert.id]}
-                  className="flex items-center gap-2 text-purple-600 disabled:opacity-50"
+                  onClick={() => handleShowQR(cert.id, cert.title)}
+                  className="flex items-center gap-2 text-purple-600"
                 >
-                  {loadingQR[cert.id] ? (
-                    <div className="animate-spin h-4 w-4 border-b-2 border-purple-600 rounded-full"></div>
-                  ) : (
-                    <QrCode className="w-4 h-4" />
-                  )}
+                  <QrCode className="w-4 h-4" />
                   QR
                 </button>
 
@@ -228,24 +208,13 @@ const CertificateWallet = () => {
         </div>
       )}
 
-      {/* ✅ QR MODAL */}
-      {selectedQR && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-sm w-full">
-            <div className="flex justify-between mb-4">
-              <h3 className="font-semibold">Certificate QR Code</h3>
-              <button onClick={() => setSelectedQR(null)}>
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <img src={selectedQR} className="mx-auto max-h-[300px]" />
-            <p className="text-sm text-gray-600 text-center mt-4">
-              Scan to verify certificate
-            </p>
-          </div>
-        </div>
-      )}
+      {/* Use shared QRCodeModal component for copy/download actions */}
+      <QRCodeModal
+        isOpen={!!qrModal.isOpen}
+        onClose={() => setQrModal({ isOpen: false, certificateId: null })}
+        certificateId={qrModal.certificateId ?? ''}
+        certificateName={qrModal.certificateName ?? 'Certificate'}
+      />
     </div>
   );
 };
