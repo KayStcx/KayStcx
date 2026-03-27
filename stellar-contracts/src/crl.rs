@@ -267,7 +267,7 @@ impl CRLContract {
     }
 
     fn build_merkle_root(env: &Env, crl_number: u64) -> String {
-        if crl_number % 2 == 0 {
+        if crl_number.is_multiple_of(2) {
             String::from_str(env, "root-even")
         } else {
             String::from_str(env, "root-odd")
