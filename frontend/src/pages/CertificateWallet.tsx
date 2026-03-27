@@ -5,9 +5,12 @@ import { Certificate, getUserCertificates, certificateApi, getCertificatePdfUrl 
 const CertificateWallet = () => {
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // ✅ QR states
   const [qrCodes, setQrCodes] = useState<Record<string, string>>({});
   const [selectedQR, setSelectedQR] = useState<string | null>(null);
   const [loadingQR, setLoadingQR] = useState<Record<string, boolean>>({});
+
   const [error, setError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -122,7 +125,7 @@ const CertificateWallet = () => {
     } catch (err: unknown) {
       console.error(err);
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError(`Failed to ${action} "${cert.title}". ${message}`);
+      setError(`Failed to ${action} certificate "${cert.title}". ${message}`);
     } finally {
       setActionLoadingId(null);
     }
@@ -225,9 +228,9 @@ const CertificateWallet = () => {
         </div>
       )}
 
-      {/* QR MODAL */}
+      {/* ✅ QR MODAL */}
       {selectedQR && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg max-w-sm w-full">
             <div className="flex justify-between mb-4">
               <h3 className="font-semibold">Certificate QR Code</h3>

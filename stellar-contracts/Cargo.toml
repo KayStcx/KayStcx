@@ -9,7 +9,6 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 soroban-sdk = "21.0.0"
-time = "=0.3.47"       # Add this line to force exact version
 
 [dev-dependencies]
 soroban-sdk = { version = "21.0.0", features = ["testutils"] }

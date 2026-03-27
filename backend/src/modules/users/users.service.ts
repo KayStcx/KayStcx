@@ -36,6 +36,7 @@ import { IPaginatedResult } from './interfaces';
 import { IAuthTokens, IUserPublic } from './interfaces/user.interface';
 import { CertificateStatsService } from '../certificate/services/stats.service';
 import { AuditService } from '../audit/services/audit.service';
+import { EmailQueueService } from '../email/email-queue.service';
 
 @Injectable()
 export class UsersService {
@@ -52,6 +53,7 @@ export class UsersService {
     private readonly configService: ConfigService,
     private readonly certificateStatsService: CertificateStatsService,
     private readonly auditService: AuditService,
+    private readonly emailQueueService: EmailQueueService,
   ) {}
 
   // ==================== Authentication ====================
@@ -105,8 +107,7 @@ export class UsersService {
     // Generate tokens
     const tokens = await this.generateTokens(user);
 
-    // TODO: Send verification email
-    // await this.emailService.sendVerificationEmail(user.email, emailVerificationToken);
+    await this.queueVerificationEmail(user, emailVerificationToken);
 
     return {
       user: this.toPublicUser(user),
@@ -265,8 +266,7 @@ export class UsersService {
       emailVerificationExpires,
     });
 
-    // TODO: Send verification email
-    // await this.emailService.sendVerificationEmail(user.email, emailVerificationToken);
+    await this.queueVerificationEmail(user, emailVerificationToken);
 
     return {
       message: 'If the email exists, a verification link has been sent',
@@ -337,8 +337,7 @@ export class UsersService {
       passwordResetExpires,
     });
 
-    // TODO: Send password reset email
-    // await this.emailService.sendPasswordResetEmail(user.email, passwordResetToken);
+    await this.queuePasswordResetEmail(user, passwordResetToken);
 
     this.logger.log(`Password reset requested for: ${email}`);
 
@@ -891,6 +890,66 @@ export class UsersService {
 
   private generateToken(): string {
     return crypto.randomBytes(32).toString('hex');
+  }
+
+  private async queueVerificationEmail(
+    user: User,
+    emailVerificationToken: string,
+  ): Promise<void> {
+    try {
+      await this.emailQueueService.queueVerificationEmail({
+        to: user.email,
+        userName: this.getUserDisplayName(user),
+        verificationLink: this.buildVerificationLink(emailVerificationToken),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to queue verification email for ${user.email}: ${message}`,
+      );
+    }
+  }
+
+  private async queuePasswordResetEmail(
+    user: User,
+    passwordResetToken: string,
+  ): Promise<void> {
+    try {
+      await this.emailQueueService.queuePasswordReset({
+        to: user.email,
+        userName: this.getUserDisplayName(user),
+        resetLink: this.buildPasswordResetLink(passwordResetToken),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to queue password reset email for ${user.email}: ${message}`,
+      );
+    }
+  }
+
+  private buildVerificationLink(token: string): string {
+    return this.buildAppLink('/verify-email', token);
+  }
+
+  private buildPasswordResetLink(token: string): string {
+    return this.buildAppLink('/reset-password', token);
+  }
+
+  private buildAppLink(path: string, token: string): string {
+    const appUrl =
+      this.configService.get<string>('APP_URL') ||
+      this.configService.get<string>('ALLOWED_ORIGINS')?.split(',')[0] ||
+      'http://localhost:5173';
+
+    const normalizedBaseUrl = appUrl.replace(/\/+$/, '');
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+    return `${normalizedBaseUrl}${normalizedPath}?token=${encodeURIComponent(token)}`;
+  }
+
+  private getUserDisplayName(user: User): string {
+    return `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email;
   }
 
   private toPublicUser(user: User): IUserPublic {
