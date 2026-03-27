@@ -10,6 +10,14 @@ import {
 } from './entities/webhook-subscription.entity';
 import { WebhookLog } from './entities/webhook-log.entity';
 import { CreateWebhookSubscriptionDto } from './dto/create-webhook-subscription.dto';
+import * as crypto from 'crypto';
+
+function signPayload(secret: string, payload: any) {
+  return crypto
+    .createHmac('sha256', secret)
+    .update(JSON.stringify(payload))
+    .digest('hex');
+}
 
 @Injectable()
 export class WebhooksService {
@@ -21,7 +29,7 @@ export class WebhooksService {
     @InjectRepository(WebhookLog)
     private readonly logRepository: Repository<WebhookLog>,
     @InjectQueue('webhooks') private readonly webhookQueue: Queue,
-  ) {}
+  ) { }
 
   async createSubscription(
     issuerId: string,
@@ -113,4 +121,38 @@ export class WebhooksService {
       take: 50,
     });
   }
+
+  async createSubscription(dto: CreateWebhookSubscriptionDto) {
+    const secret = crypto.randomBytes(32).toString('hex');
+
+    const sub = this.subscriptionRepo.create({
+      url: dto.url,
+      events: dto.events,
+      secret,
+    });
+
+    return this.subscriptionRepo.save(sub);
+  }
+
+  async deleteSubscription(id: string) {
+    await this.subscriptionRepo.delete(id);
+    return { deleted: true };
+  }
+
+  async triggerEvent(event: string, payload: any) {
+  const subs = await this.subscriptionRepo.find({
+    where: { events: In([event]) },
+  });
+
+  for (const sub of subs) {
+    await this.queue.add('deliverWebhook', {
+      subscriptionId: sub.id,
+      url: sub.url,
+      secret: sub.secret,
+      payload,
+      event,
+    });
+  }
+}
+
 }

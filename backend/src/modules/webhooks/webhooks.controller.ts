@@ -91,4 +91,15 @@ export class WebhooksController {
 
     return { message: 'Test event queued successfully' };
   }
+
+  @Post()
+  async create(@Body() dto: CreateWebhookSubscriptionDto) {
+    return this.webhooksService.createSubscription(dto);
+  }
+
+  @Delete(':id')
+  async delete(@Param('id') id: string) {
+    return this.webhooksService.deleteSubscription(id);
+  }
+  
 }

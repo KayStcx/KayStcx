@@ -100,4 +100,41 @@ export class WebhooksProcessor {
       .update(`${timestamp}.${rawPayload}`)
       .digest('hex');
   }
+
+  @Processor('webhooks')
+export class WebhooksProcessor {
+  @Process('deliverWebhook')
+  async handle(job: Job) {
+    const { url, payload, secret, event, subscriptionId } = job.data;
+
+    const signature = signPayload(secret, payload);
+
+    try {
+      const res = await axios.post(url, payload, {
+        headers: {
+          'X-Webhook-Signature': signature,
+          'X-Webhook-Event': event,
+        },
+        timeout: 5000,
+      });
+
+      await this.logRepo.save({
+        subscriptionId,
+        status: 'success',
+        statusCode: res.status,
+        response: res.data,
+      });
+
+    } catch (err) {
+      await this.logRepo.save({
+        subscriptionId,
+        status: 'failed',
+        statusCode: err.response?.status,
+        response: err.message,
+      });
+
+      throw err; // triggers retry
+    }
+  }
+}
 }
