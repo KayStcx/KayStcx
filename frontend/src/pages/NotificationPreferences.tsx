@@ -48,7 +48,7 @@ export default function NotificationPreferences() {
                 method: 'PATCH',
                 body: JSON.stringify(preferences),
             });
-            // Could show a success toast here
+            // Optional: show success toast here
         } catch (error) {
             console.error('Failed to save preferences:', error);
         } finally {
