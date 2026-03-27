@@ -1,7 +1,7 @@
 #![no_std]
+use crate::storage::{CoreDataKey, DataKey};
 use soroban_sdk::{contract, contractimpl, symbol_short, Address, BytesN, Env, String, Vec};
 use soroban_sdk::{contract, contractimpl, symbol_short, Address, Env, String, Vec};
-use crate::storage::{DataKey, CoreDataKey};
 
 mod types;
 pub use types::*;
@@ -205,7 +205,6 @@ impl CertificateContract {
             .set(&DataKey::Certificate(id.clone()), &cert);
     }
 
-
     /// Verify if a certificate is valid (active and not expired)
     pub fn is_valid(env: Env, id: String) -> bool {
         if let Some(cert) = env
@@ -381,10 +380,7 @@ impl CertificateContract {
         if !config.signers.contains(&approver) {
             return SignatureResult {
                 success: false,
-                message: String::from_str(
-                    &env,
-                    "Approver is not an authorized signer",
-                ),
+                message: String::from_str(&env, "Approver is not an authorized signer"),
                 final_status: OptionalRequestStatus::Some(request.status),
             };
         }
@@ -551,6 +547,15 @@ impl CertificateContract {
     /// Upgrade the contract WASM. Only callable by the stored admin (i.e. AdminMultisigContract).
     pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
         let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Admin not set");
+
+        admin.require_auth();
+
+        env.deployer().set_current_contract_wasm(new_wasm_hash);
+    }
     /// Batch verify multiple certificates
     pub fn batch_verify_certificates(env: Env, ids: Vec<String>) -> VerificationReport {
         const BASE_VERIFICATION_COST: u64 = 100;
