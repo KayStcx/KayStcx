@@ -1,4 +1,5 @@
 #![no_std]
+use soroban_sdk::{contract, contractimpl, symbol_short, Address, BytesN, Env, String, Vec};
 use soroban_sdk::{contract, contractimpl, symbol_short, Address, Env, String, Vec};
 use crate::storage::{DataKey, CoreDataKey};
 
@@ -547,6 +548,9 @@ impl CertificateContract {
         true
     }
 
+    /// Upgrade the contract WASM. Only callable by the stored admin (i.e. AdminMultisigContract).
+    pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
+        let admin: Address = env
     /// Batch verify multiple certificates
     pub fn batch_verify_certificates(env: Env, ids: Vec<String>) -> VerificationReport {
         const BASE_VERIFICATION_COST: u64 = 100;
@@ -606,6 +610,7 @@ impl CertificateContract {
             .get(&DataKey::Admin)
             .expect("Contract not initialized");
         admin.require_auth();
+        env.deployer().update_current_contract_wasm(new_wasm_hash);
 
         if admin != stored_admin {
             panic!("Only admin can set certificate expiry");
