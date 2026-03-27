@@ -767,6 +767,65 @@ export const analyticsApi = {
     }
 };
 
+export const adminAnalyticsApi = {
+    getAnalytics: async (params?: {
+        startDate?: string;
+        endDate?: string;
+    }): Promise<import('./types').AdminAnalytics> => {
+        const searchParams = new URLSearchParams();
+        if (params?.startDate) searchParams.set('startDate', params.startDate);
+        if (params?.endDate) searchParams.set('endDate', params.endDate);
+        const query = searchParams.toString();
+
+        return apiClient<import('./types').AdminAnalytics>(
+            `/admin/analytics${query ? `?${query}` : ''}`
+        );
+    },
+};
+
+export const auditApi = {
+    searchLogs: async (params?: Record<string, string | number | boolean | undefined>): Promise<import('./types').AuditLogSearchResponse> => {
+        const searchParams = new URLSearchParams();
+        if (params) {
+            Object.entries(params).forEach(([key, value]) => {
+                if (value !== undefined && value !== null && String(value) !== '') {
+                    searchParams.set(key, String(value));
+                }
+            });
+        }
+        const query = searchParams.toString();
+        return apiClient<import('./types').AuditLogSearchResponse>(
+            `/audit/logs${query ? `?${query}` : ''}`
+        );
+    },
+    getStatistics: async (params?: Record<string, string | number | boolean | undefined>): Promise<import('./types').AuditStatistics> => {
+        const searchParams = new URLSearchParams();
+        if (params) {
+            Object.entries(params).forEach(([key, value]) => {
+                if (value !== undefined && value !== null && String(value) !== '') {
+                    searchParams.set(key, String(value));
+                }
+            });
+        }
+        const query = searchParams.toString();
+        return apiClient<import('./types').AuditStatistics>(
+            `/audit/statistics${query ? `?${query}` : ''}`
+        );
+    },
+    exportCsvUrl: (params?: Record<string, string | number | boolean | undefined>): string => {
+        const searchParams = new URLSearchParams();
+        if (params) {
+            Object.entries(params).forEach(([key, value]) => {
+                if (value !== undefined && value !== null && String(value) !== '') {
+                    searchParams.set(key, String(value));
+                }
+            });
+        }
+        const query = searchParams.toString();
+        return `${API_URL}/audit/export${query ? `?${query}` : ''}`;
+    },
+};
+
 // Toggle dummy data
 export const toggleDummyData = (useDummy: boolean) => {
     USE_DUMMY_DATA = useDummy;
