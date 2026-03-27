@@ -24,8 +24,10 @@ import {
 } from './types';
 import { tokenStorage } from './tokens';
 
-// Configuration flag - set to true to use dummy data
-let USE_DUMMY_DATA = true;
+// Configuration flag - can be enabled via Vite env `VITE_USE_DUMMY_DATA` ("true"/"false").
+// Defaults to `false` so the app uses real API endpoints unless explicitly overridden.
+const VITE_USE_DUMMY = (import.meta as unknown as { env: Record<string, string> }).env?.VITE_USE_DUMMY_DATA;
+let USE_DUMMY_DATA = VITE_USE_DUMMY ? VITE_USE_DUMMY === 'true' : false;
 const API_URL_BASE = (import.meta as unknown as { env: Record<string, string> }).env?.VITE_API_URL || 'http://localhost:3000/api/v1';
 export const API_URL = API_URL_BASE;
 
