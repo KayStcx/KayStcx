@@ -2,6 +2,8 @@ use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, String, Vec,
 };
 
+use crate::storage::{DataKey, AdminDataKey};
+
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AdminAction {
