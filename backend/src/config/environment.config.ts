@@ -144,7 +144,7 @@ export function validateEnv(): EnvironmentVariables {
       DB_USERNAME: process.env.DB_USERNAME || 'postgres',
       DB_PASSWORD: process.env.DB_PASSWORD || 'password',
       DB_NAME: process.env.DB_NAME || 'kaystcx',
-      JWT_SECRET: process.env.JWT_SECRET || 'your-secret-key',
+      JWT_SECRET: process.env.JWT_SECRET,
       JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '24h',
       STELLAR_NETWORK: process.env.STELLAR_NETWORK || 'testnet',
       STELLAR_HORIZON_URL:
