@@ -185,6 +185,12 @@ export const userApi = {
     getProfile: async (): Promise<User> => {
         return apiClient<User>('/users/profile');
     },
+    updateProfile: async (data: ProfileUpdateData): Promise<User> => {
+        return apiClient<User>('/users/profile', {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    },
     getByEmail: fetchUserByEmail,
     listAll: async (params?: Record<string, string | number | boolean>): Promise<PaginatedResponse<User>> => {
         const searchParams = new URLSearchParams();
@@ -835,11 +841,6 @@ export const issuerProfileApi = {
     },
 
     updateProfile: async (data: ProfileUpdateData): Promise<User> => {
-        if (USE_DUMMY_DATA) {
-            await simulateDelay();
-            // In a real implementation, this would update the user data
-            return dummyData.users[0]; // Return first user as example
-        }
         return apiClient<User>('/users/profile/issuer', {
             method: 'PUT',
             body: JSON.stringify(data),
