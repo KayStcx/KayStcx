@@ -1,4 +1,5 @@
-import { Module, forwardRef } from '@nestjs/common'; // Add forwardRef
+import { Module, forwardRef } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
@@ -11,21 +12,32 @@ import { CacheModule } from '@nestjs/cache-manager';
 @Module({
   imports: [
     CacheModule.register(),
+    ConfigModule,
     PassportModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'default_secret_key_for_dev',
-      signOptions: {
-        expiresIn: parseInt(process.env.JWT_EXPIRES_IN || '3600', 10),
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        const secret = configService.get<string>('JWT_SECRET');
+        const expiresIn = (configService.get<string>('JWT_EXPIRES_IN') ||
+          '24h') as any;
+
+        if (!secret) {
+          throw new Error('JWT_SECRET must be configured');
+        }
+
+        return {
+          secret,
+          signOptions: {
+            expiresIn,
+          },
+        };
       },
     }),
-    forwardRef(() => UsersModule), // Use forwardRef here too
+    forwardRef(() => UsersModule),
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, JwtManagementService],
-  exports: [
-    AuthService,
-    JwtModule, // Keep this - it's important!
-    JwtManagementService,
-  ],
+  exports: [AuthService, JwtModule, JwtManagementService],
 })
 export class AuthModule {}
