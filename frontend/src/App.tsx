@@ -46,6 +46,7 @@ function App() {
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/preferences" element={<NotificationPreferences />} />
 
+<<<<<<< HEAD
                 {/* Protected Routes */}
                 <Route
                   element={
@@ -56,6 +57,16 @@ function App() {
                 >
                   <Route path="/wallet" element={<CertificateWallet />} />
                 </Route>
+=======
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/verify" element={<VerifyCertificate />} />
+              <Route path="/profile" element={<IssuerProfile />} />
+              <Route path="/preferences" element={<NotificationPreferences />} />
+>>>>>>> origin/main
 
                 <Route
                   element={
