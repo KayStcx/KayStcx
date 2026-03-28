@@ -51,6 +51,12 @@ export class Certificate {
   stellarTransactionId: string;
 
   @Column({ nullable: true })
+  onChainId: string;
+
+  @Column({ nullable: true })
+  metadataUri: string;
+
+  @Column({ nullable: true })
   verificationCode: string;
 
   @Column({ nullable: true })
