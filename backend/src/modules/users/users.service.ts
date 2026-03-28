@@ -195,7 +195,7 @@ export class UsersService {
     try {
       payload = this.jwtService.verify(refreshToken, {
         secret: this.configService.get<string>('JWT_SECRET'),
-      });
+      }) as { sub: string };
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
