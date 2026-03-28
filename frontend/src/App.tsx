@@ -44,10 +44,7 @@ function App() {
                 <Route path="/verify" element={<VerifyCertificate />} />
                 <Route path="/profile" element={<IssuerProfile />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
-                <Route
-                  path="/preferences"
-                  element={<NotificationPreferences />}
-                />
+                <Route path="/preferences" element={<NotificationPreferences />} />
 
                 {/* Protected Routes */}
                 <Route
@@ -67,10 +64,7 @@ function App() {
                 >
                   <Route path="/issue" element={<IssueCertificate />} />
                   <Route path="/revoke" element={<RevokeCertificatePage />} />
-                  <Route
-                    path="/certificates"
-                    element={<CertificateManagementPage />}
-                  />
+                  <Route path="/certificates" element={<CertificateManagementPage />} />
                 </Route>
               </Routes>
             </Suspense>

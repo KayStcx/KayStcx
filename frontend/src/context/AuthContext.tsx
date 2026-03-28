@@ -1,41 +1,47 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { User } from "../api/types";
-import { tokenStorage } from "../api/tokens";
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { User } from '../api/types';
+import { tokenStorage } from '../api/tokens';
 
 interface AuthContextValue {
   user: User | null;
   setUser: (user: User | null) => void;
   isAuthenticated: boolean;
+  isLoading: boolean;
   clearAuth: () => void;
+  login?: (accessToken: string, refreshToken: string, user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const useAuth = (): AuthContextValue => {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 };
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUserState] = useState<User | null>(() => {
     try {
-      const raw = localStorage.getItem("user");
+      const raw = localStorage.getItem('user');
       return raw ? (JSON.parse(raw) as User) : null;
     } catch {
       return null;
     }
   });
 
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    setIsLoading(false);
+  }, []);
+
   useEffect(() => {
     if (user) {
       try {
-        localStorage.setItem("user", JSON.stringify(user));
+        localStorage.setItem('user', JSON.stringify(user));
       } catch {}
     } else {
-      localStorage.removeItem("user");
+      localStorage.removeItem('user');
       tokenStorage.clearTokens();
     }
   }, [user]);
@@ -47,11 +53,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     tokenStorage.clearTokens();
   };
 
+  const login = (accessToken: string, refreshToken: string, u: User) => {
+    tokenStorage.setAccessToken(accessToken);
+    tokenStorage.setRefreshToken(refreshToken);
+    setUserState(u);
+  };
+
   const value: AuthContextValue = {
     user,
     setUser,
     isAuthenticated: !!user && !!tokenStorage.getAccessToken(),
+    isLoading,
     clearAuth,
+    login,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

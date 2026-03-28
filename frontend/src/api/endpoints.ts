@@ -199,6 +199,12 @@ export const userApi = {
   getProfile: async (): Promise<User> => {
     return apiClient<User>("/users/profile");
   },
+  updateProfile: async (data: ProfileUpdateData): Promise<User> => {
+    return apiClient<User>("/users/profile", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
   getByEmail: fetchUserByEmail,
   listAll: async (
     params?: Record<string, string | number | boolean>,
@@ -213,6 +219,27 @@ export const userApi = {
       `/users?${searchParams.toString()}`,
     );
   },
+  getAll: async (params?: Record<string, string | number | boolean>) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        searchParams.set(key, String(value));
+      });
+    }
+    return apiClient<PaginatedResponse<User>>(`/users?${searchParams.toString()}`);
+  },
+  getById: async (id: string) => apiClient<User>(`/users/${id}`),
+  updateRole: async (id: string, role: string) =>
+    apiClient<User>(`/users/${id}/role`, {
+      method: "PATCH",
+      body: JSON.stringify({ role }),
+    }),
+  toggleStatus: async (id: string, isActive: boolean) =>
+    apiClient<User>(`/users/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ isActive }),
+    }),
+  delete: async (id: string) => apiClient<void>(`/users/${id}`, { method: "DELETE" }),
 };
 
 // ==================== TEMPLATE MANAGEMENT ====================
@@ -587,8 +614,6 @@ export const certificateApi = {
   getQR: getCertificateQR,
 };
 
-// ==================== AUTHENTICATION ====================
-
 export const loginApi = async (
   credentials: LoginCredentials,
 ): Promise<AuthResponse> => {
@@ -885,13 +910,70 @@ export const analyticsApi = {
   },
 };
 
+export const adminAnalyticsApi = {
+  getAnalytics: async (params?: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<import("./types").AdminAnalytics> => {
+    const searchParams = new URLSearchParams();
+    if (params?.startDate) searchParams.set("startDate", params.startDate);
+    if (params?.endDate) searchParams.set("endDate", params.endDate);
+    const query = searchParams.toString();
+
+    return apiClient<import("./types").AdminAnalytics>(
+      `/admin/analytics${query ? `?${query}` : ""}`,
+    );
+  },
+};
+
+export const auditApi = {
+  searchLogs: async (params?: Record<string, string | number | boolean | undefined>): Promise<import('./types').AuditLogSearchResponse> => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && String(value) !== '') {
+          searchParams.set(key, String(value));
+        }
+      });
+    }
+    const query = searchParams.toString();
+    return apiClient<import('./types').AuditLogSearchResponse>(
+      `/audit/logs${query ? `?${query}` : ''}`
+    );
+  },
+  getStatistics: async (params?: Record<string, string | number | boolean | undefined>): Promise<import('./types').AuditStatistics> => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && String(value) !== '') {
+          searchParams.set(key, String(value));
+        }
+      });
+    }
+    const query = searchParams.toString();
+    return apiClient<import('./types').AuditStatistics>(
+      `/audit/statistics${query ? `?${query}` : ''}`
+    );
+  },
+  exportCsvUrl: (params?: Record<string, string | number | boolean | undefined>): string => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && String(value) !== '') {
+          searchParams.set(key, String(value));
+        }
+      });
+    }
+    const query = searchParams.toString();
+    return `${API_URL}/audit/export${query ? `?${query}` : ''}`;
+  },
+};
+
 // Toggle dummy data
 export const toggleDummyData = (useDummy: boolean) => {
   USE_DUMMY_DATA = useDummy;
   console.log(`Using ${useDummy ? "dummy" : "real"} data`);
 };
-
-// ==================== ISSUER PROFILE MANAGEMENT ====================
 
 export const issuerProfileApi = {
   getStats: async (): Promise<IssuerStats> => {
@@ -906,6 +988,7 @@ export const issuerProfileApi = {
         lastLogin: new Date().toISOString(),
       };
     }
+
     return apiClient<IssuerStats>("/users/profile/stats");
   },
 
