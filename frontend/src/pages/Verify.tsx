@@ -43,6 +43,9 @@ const Verify: React.FC = () => {
   };
   const s = result ? (styles[result.status] || styles.invalid) : null;
 
+import React from 'react';
+
+export default function Verify(): React.JSX.Element {
   return (
     <div className="max-w-2xl mx-auto px-4 py-12">
       <div className="text-center mb-10">
