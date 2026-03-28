@@ -60,6 +60,41 @@ export interface Certificate {
 }
 
 /**
+ * Certificate Transfer model (#286)
+ */
+export interface CertificateTransfer {
+  id: string;
+  certificateId: string;
+  fromUserId: string;
+  toEmail: string;
+  toUserId?: string;
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  initiationReason?: string;
+  rejectionReason?: string;
+  confirmationCode?: string;
+  createdAt: string;
+  updatedAt: string;
+  certificate?: Certificate;
+}
+
+export interface InitiateTransferDto {
+  certificateId: string;
+  newOwnerEmail: string;
+  newOwnerName: string;
+  reason?: string;
+}
+
+export interface ApproveTransferDto {
+  transferId: string;
+  confirmationCode?: string;
+}
+
+export interface RejectTransferDto {
+  transferId: string;
+  reason?: string;
+}
+
+/**
  * Request payload for creating a certificate
  */
 export interface CreateCertificateData {
