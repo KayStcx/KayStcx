@@ -193,9 +193,15 @@ export class UsersService {
     // Verify refresh token signature and extract payload
     let payload: { sub: string } | null = null;
     try {
-      payload = this.jwtService.verify(refreshToken, {
+      const decoded = this.jwtService.verify(refreshToken, {
         secret: this.configService.get<string>('JWT_SECRET'),
-      }) as { sub: string };
+      }) as Record<string, unknown>;
+
+      if (!decoded || !decoded.sub || typeof decoded.sub !== 'string') {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      payload = { sub: decoded.sub };
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
