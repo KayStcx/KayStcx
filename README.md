@@ -17,6 +17,8 @@ Statistics Dashboard: Track total certificates, active certificates, and issuer 
 
 **Soroban Smart Contract Integration**: On-chain certificate operations with multi-signature support
 
+**Rate Limiting**: IP-based rate limiting on public verification endpoints for security
+
 Technical Features
 React Frontend: Modern, responsive UI with real-time updates
 
@@ -25,6 +27,8 @@ NestJS Backend: Scalable API with JWT authentication
 **Soroban Smart Contracts**: Decentralized certificate management on Stellar blockchain
 
 Stellar Integration: Smart contract-like functionality using Stellar transactions
+
+**Security Features**: Rate limiting, authentication, and authorization
 
 QR Code Generation: Easy certificate sharing and verification
 
