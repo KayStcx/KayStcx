@@ -11,6 +11,7 @@ import { AuthResponseDto } from './dto/auth-response.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { LogoutResponseDto } from './dto/logout-response.dto';
 import { JwtManagementService } from './services/jwt.service';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class AuthService {
