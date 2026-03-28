@@ -195,7 +195,7 @@ export class UsersService {
     try {
       payload = this.jwtService.verify(refreshToken, {
         secret: this.configService.get<string>('JWT_SECRET'),
-      }) as { sub: string };
+      });
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
@@ -895,7 +895,10 @@ export class UsersService {
     const refreshTokenExpires = new Date();
     refreshTokenExpires.setDate(refreshTokenExpires.getDate() + 7);
 
-    const hashedRefreshToken = await bcrypt.hash(refreshToken, this.SALT_ROUNDS);
+    const hashedRefreshToken = await bcrypt.hash(
+      refreshToken,
+      this.SALT_ROUNDS,
+    );
 
     await this.userRepository.update(user.id, {
       refreshToken: hashedRefreshToken,
@@ -970,7 +973,9 @@ export class UsersService {
   }
 
   private getUserDisplayName(user: User): string {
-    return `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email;
+    return (
+      `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email
+    );
   }
 
   private toPublicUser(user: User): IUserPublic {

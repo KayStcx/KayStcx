@@ -252,22 +252,7 @@ const createInitialDateRange = (): DateRange => {
   };
 };
 
-const Dashboard = () => {
-  const userRole = useMemo(() => {
-    try {
-      const raw = localStorage.getItem('user');
-      if (!raw) return null;
-      const parsed = JSON.parse(raw) as { role?: string } | null;
-      return parsed?.role ?? null;
-    } catch {
-      return null;
-    }
-  }, []);
-
-  if (userRole === UserRole.ADMIN) {
-    return <AdminAnalyticsDashboard />;
-  }
-
+const IssuerDashboard = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -630,6 +615,25 @@ const Dashboard = () => {
       </div>
     </div>
   );
+};
+
+const Dashboard = () => {
+  const userRole = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('user');
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { role?: string } | null;
+      return parsed?.role ?? null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  if (userRole === UserRole.ADMIN) {
+    return <AdminAnalyticsDashboard />;
+  }
+
+  return <IssuerDashboard />;
 };
 
 export default Dashboard;
