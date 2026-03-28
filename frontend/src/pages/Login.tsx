@@ -11,7 +11,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showForgot, setShowForgot] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSuccess, setForgotSuccess] = useState<string | null>(null);
   const [forgotLoading, setForgotLoading] = useState(false);
 
@@ -57,7 +57,6 @@ const Login = () => {
       if (res.accessToken) {
         tokenStorage.setAccessToken(res.accessToken);
         tokenStorage.setRefreshToken(res.refreshToken);
-
 
         // Redirect to dashboard or home page
         navigate("/");
@@ -249,7 +248,10 @@ const Login = () => {
               </button>
             ) : (
               <div className="mt-4">
-                <p className="text-sm text-gray-600 mb-2">Enter your account email to receive password reset instructions.</p>
+                <p className="text-sm text-gray-600 mb-2">
+                  Enter your account email to receive password reset
+                  instructions.
+                </p>
                 {forgotSuccess ? (
                   <div className="text-sm text-green-600">{forgotSuccess}</div>
                 ) : (
@@ -267,9 +269,15 @@ const Login = () => {
                         setError(null);
                         try {
                           await authApi.forgotPassword({ email: forgotEmail });
-                          setForgotSuccess('If the email exists, a reset link has been sent.');
+                          setForgotSuccess(
+                            "If the email exists, a reset link has been sent.",
+                          );
                         } catch (err: unknown) {
-                          setError(err instanceof Error ? err.message : 'Failed to request password reset');
+                          setError(
+                            err instanceof Error
+                              ? err.message
+                              : "Failed to request password reset",
+                          );
                         } finally {
                           setForgotLoading(false);
                         }
@@ -277,12 +285,17 @@ const Login = () => {
                       disabled={forgotLoading}
                       className="px-3 py-2 bg-blue-600 text-white rounded-md"
                     >
-                      {forgotLoading ? 'Sending...' : 'Send'}
+                      {forgotLoading ? "Sending..." : "Send"}
                     </button>
                   </div>
                 )}
                 <div className="mt-2">
-                  <button onClick={() => setShowForgot(false)} className="text-xs text-gray-500 hover:underline">Cancel</button>
+                  <button
+                    onClick={() => setShowForgot(false)}
+                    className="text-xs text-gray-500 hover:underline"
+                  >
+                    Cancel
+                  </button>
                 </div>
               </div>
             )}

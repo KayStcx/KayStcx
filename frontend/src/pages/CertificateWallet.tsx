@@ -33,17 +33,15 @@ const CertificateWallet = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
-    const user = localStorage.getItem("user");
-
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    const parsedUser = JSON.parse(user);
-
     const fetchCertificates = async () => {
       try {
+        // prefer user from auth context if available
+        const userRaw = localStorage.getItem("user");
+        if (!userRaw) {
+          setLoading(false);
+          return;
+        }
+        const parsedUser = JSON.parse(userRaw);
         const data = await getUserCertificates(parsedUser.id);
         if (data) setCertificates(data);
       } catch (error) {
