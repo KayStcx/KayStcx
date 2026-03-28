@@ -39,6 +39,14 @@ export class CreateCertificateDto {
   metadataSchemaId?: string;
 
   @IsOptional()
+  @IsUUID()
+  templateId?: string;
+
+  @IsOptional()
+  @IsString()
+  courseName?: string;
+
+  @IsOptional()
   @IsObject()
   metadata?: Record<string, any>;
 }

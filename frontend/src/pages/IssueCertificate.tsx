@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { Award, Upload, XCircle } from 'lucide-react';
-import { createCertificate, fetchDefaultTemplate, fetchUserByEmail } from '../api';
+import { useState, useEffect } from 'react';
+import { Award, Upload, XCircle, Layout } from 'lucide-react';
+import { createCertificate, fetchDefaultTemplate, fetchUserByEmail, templateApi, CertificateTemplate } from '../api';
 import { useNavigate } from 'react-router-dom';
 
 const IssueCertificate = () => {
   const [error, setError] = useState("");
+  const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
   const [formData, setFormData] = useState({
     recipientName: '',
     recipientEmail: '',
@@ -20,13 +21,32 @@ const IssueCertificate = () => {
 
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        const [allTemplates, defaultTemplate] = await Promise.all([
+          templateApi.list(),
+          fetchDefaultTemplate()
+        ]);
+        setTemplates(allTemplates);
+        if (defaultTemplate && !formData.templateId) {
+          setFormData(prev => ({ ...prev, templateId: defaultTemplate.id }));
+        }
+      } catch (err) {
+        console.error("Failed to load templates:", err);
+      }
+    };
+    loadTemplates();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       // Fetch recipient and issuer details
       const recipient = await fetchUserByEmail(formData.recipientEmail);
       const issuer = await fetchUserByEmail(formData.issuerEmail);
-      const template = await fetchDefaultTemplate();
+      // Use selected templateId if available, otherwise fetch default as fallback
+      const templateId = formData.templateId || (await fetchDefaultTemplate())?.id;
 
       if (!recipient) {
         setError("Failed to fetch recipient details. Please Recheck Email");
@@ -38,8 +58,8 @@ const IssueCertificate = () => {
         return;
       }
 
-      if (!template) {
-        setError("Failed to fetch template.");
+      if (!templateId) {
+        setError("Please select a template.");
         return;
       }
 
@@ -49,7 +69,7 @@ const IssueCertificate = () => {
         ...prev,
         recipientId: recipient.id,
         issuerId: issuer.id,
-        templateId: template.id
+        templateId: templateId
       }));
 
       const certificateData = {
@@ -63,7 +83,7 @@ const IssueCertificate = () => {
         expiryDate: formData.expiryDate || undefined,
         issuerId: issuer.id,
         recipientId: recipient.id,
-        templateId: template.id,
+        templateId: templateId,
         metadata: {
           grade: 'A',
           courseName: formData.courseName
@@ -157,6 +177,28 @@ const IssueCertificate = () => {
               className="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
               required
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="flex items-center gap-2">
+                <Layout className="w-4 h-4" />
+                Certificate Template
+              </div>
+            </label>
+            <select
+              value={formData.templateId}
+              onChange={(e) => setFormData({ ...formData, templateId: e.target.value })}
+              className="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white"
+              required
+            >
+              <option value="" disabled>Select a template</option>
+              {templates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
