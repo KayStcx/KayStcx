@@ -30,6 +30,14 @@ export class Certificate {
   @Index()
   title: string;
 
+  @Column({ nullable: true })
+  @Index()
+  courseName: string;
+
+  @Column({ nullable: true })
+  @Index()
+  templateId: string;
+
   @Column({ type: 'text', nullable: true })
   description?: string;
 
