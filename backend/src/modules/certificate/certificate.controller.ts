@@ -15,6 +15,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiParam,
 } from '@nestjs/swagger';
 import { CertificateStatsDto } from './dto/stats.dto';
 import { CertificateStatsService } from './services/stats.service';
@@ -52,6 +53,26 @@ export class CertificateController {
   @ApiOperation({ summary: 'Get public certificate summary statistics' })
   async getPublicSummary(): Promise<Partial<CertificateStatsDto>> {
     return this.statsService.getPublicSummary();
+  }
+
+  // FIX #270 — Public verify endpoint: GET /certificates/:serialNumber/verify
+  // No JwtAuthGuard so any caller (frontend, third-party verifier) can check
+  // a certificate without being authenticated.
+  // Placed BEFORE /:id so the literal segment "verify" is matched first and
+  // NestJS does not confuse it with a dynamic :id segment.
+  @Get(':serialNumber/verify')
+  @ApiOperation({ summary: 'Verify a certificate by serial number (public)' })
+  @ApiParam({
+    name: 'serialNumber',
+    description: 'Certificate serial number',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Certificate verification result',
+  })
+  @ApiResponse({ status: 404, description: 'Certificate not found' })
+  async verifyCertificate(@Param('serialNumber') serialNumber: string) {
+    return this.certificateService.verifyCertificate(serialNumber);
   }
 
   @Get(':id/qr')
