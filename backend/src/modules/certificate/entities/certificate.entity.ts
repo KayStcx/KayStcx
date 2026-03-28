@@ -45,6 +45,12 @@ export class Certificate {
   @Column({ nullable: true })
   verificationCode: string;
 
+  @Column({ nullable: true })
+  pdfUrl?: string;
+
+  @Column({ nullable: true })
+  qrCodeUrl?: string;
+
   @Column({ default: false })
   isDuplicate: boolean;
 

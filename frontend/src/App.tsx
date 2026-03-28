@@ -1,18 +1,28 @@
 import { Routes, Route } from 'react-router-dom';
+import { Suspense, lazy } from 'react';
 import { Shield, Award, Search, ShieldAlert } from 'lucide-react';
 import Navbar from './components/Header';
-import Dashboard from './pages/Dashboard';
-import IssueCertificate from './pages/IssueCertificate';
-import VerifyCertificate from './pages/VerifyCertificate';
-import CertificateWallet from './pages/CertificateWallet';
-import Login from './pages/Login';
-import RevokeCertificatePage from './pages/RevokeCertificate';
-import IssuerProfile from './pages/IssuerProfile';
-import CertificateManagementPage from './pages/CertificateManagement';
 import ProtectedRoute from './guard/ProtectedRoute';
 import { NotificationProvider } from './context/NotificationContext';
 import ToastContainer from './components/Toast';
-import NotificationPreferences from './pages/NotificationPreferences';
+
+// Lazy load page components for code splitting
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const IssueCertificate = lazy(() => import('./pages/IssueCertificate'));
+const VerifyCertificate = lazy(() => import('./pages/VerifyCertificate'));
+const CertificateWallet = lazy(() => import('./pages/CertificateWallet'));
+const Login = lazy(() => import('./pages/Login'));
+const RevokeCertificatePage = lazy(() => import('./pages/RevokeCertificate'));
+const IssuerProfile = lazy(() => import('./pages/IssuerProfile'));
+const CertificateManagementPage = lazy(() => import('./pages/CertificateManagement'));
+const NotificationPreferences = lazy(() => import('./pages/NotificationPreferences'));
+
+// Loading fallback component
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-[200px]">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+  </div>
+);
 
 function App() {
   return (
@@ -21,25 +31,27 @@ function App() {
         <Navbar />
         <div className="container mx-auto px-4 py-8">
 
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/verify" element={<VerifyCertificate />} />
-            <Route path="/profile" element={<IssuerProfile />} />
-            <Route path="/preferences" element={<NotificationPreferences />} />
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/verify" element={<VerifyCertificate />} />
+              <Route path="/profile" element={<IssuerProfile />} />
+              <Route path="/preferences" element={<NotificationPreferences />} />
 
-            {/* Protected Routes */}
-            <Route element={<ProtectedRoute allowedRoles={["user", "verifier", "issuer", "admin"]} />}>
-              <Route path="/wallet" element={<CertificateWallet />} />
-            </Route>
+              {/* Protected Routes */}
+              <Route element={<ProtectedRoute allowedRoles={["user", "verifier", "issuer", "admin"]} />}>
+                <Route path="/wallet" element={<CertificateWallet />} />
+              </Route>
 
-            <Route element={<ProtectedRoute allowedRoles={["issuer", "admin"]} />}>
-              <Route path="/issue" element={<IssueCertificate />} />
-              <Route path="/revoke" element={<RevokeCertificatePage />} />
-              <Route path="/certificates" element={<CertificateManagementPage />} />
-            </Route>
-          </Routes>
+              <Route element={<ProtectedRoute allowedRoles={["issuer", "admin"]} />}>
+                <Route path="/issue" element={<IssueCertificate />} />
+                <Route path="/revoke" element={<RevokeCertificatePage />} />
+                <Route path="/certificates" element={<CertificateManagementPage />} />
+              </Route>
+            </Routes>
+          </Suspense>
 
         </div>
 

@@ -2,13 +2,18 @@ import { Injectable, Logger } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 
 export interface CertificateData {
+  tokenId?: string;
   recipientName: string;
-  courseName: string;
-  date: Date;
+  title?: string;
+  courseName?: string;
+  description?: string;
+  date?: Date;
+  issuedAt?: Date;
+  expiresAt?: Date;
   issuerName: string;
   qrCodeBuffer?: Buffer;
   verificationUrl?: string;
-  tokenId?: string;
+  metadata?: Record<string, any>;
 }
 
 @Injectable()
@@ -37,10 +42,11 @@ export class PdfService {
 
         // Header
         doc.moveDown(2);
+        const certificateTitle = data.title || data.courseName || 'Certificate of Completion';
         doc
           .fontSize(36)
           .font('Helvetica-Bold')
-          .text('Certificate of Completion', {
+          .text(certificateTitle, {
             align: 'center',
           });
         doc.moveDown();
@@ -58,27 +64,34 @@ export class PdfService {
         doc.moveDown();
 
         // Course Text
-        doc
-          .fontSize(18)
-          .font('Helvetica')
-          .text(`Has successfully completed the course`, {
+        const courseText = data.title || data.courseName ? 'Has successfully completed the course' : '';
+        if (courseText) {
+          doc
+            .fontSize(18)
+            .font('Helvetica')
+            .text(courseText, {
+              align: 'center',
+            });
+          doc.moveDown(0.5);
+        }
+
+        // Course Name / Title
+        const certName = data.title || data.courseName;
+        if (certName) {
+          doc.fontSize(24).font('Helvetica-Bold').text(certName, {
             align: 'center',
           });
-        doc.moveDown(0.5);
-
-        // Course Name
-        doc.fontSize(24).font('Helvetica-Bold').text(data.courseName, {
-          align: 'center',
-        });
-        doc.moveDown(2);
+          doc.moveDown(2);
+        }
 
         // Date and Issuer
+        const certificateDate = data.date || data.issuedAt || new Date();
         const yPos = doc.y;
 
         doc
           .fontSize(16)
           .font('Helvetica')
-          .text(`Date: ${new Date(data.date).toLocaleDateString()}`, 60, yPos);
+          .text(`Date: ${new Date(certificateDate).toLocaleDateString()}`, 60, yPos);
 
         doc
           .fontSize(16)

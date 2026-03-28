@@ -103,6 +103,37 @@ export class CertificateService {
       await this.certificateRepository.save(savedCertificate);
     }
 
+    // Generate PDF and QR code for the certificate
+    try {
+      const verificationUrl = this.buildVerificationUrl(
+        savedCertificate.verificationCode,
+      );
+      const { pdfUrl, qrUrl } = await this.filesService.generateAndUploadCertificate({
+        tokenId: savedCertificate.id,
+        recipientName: savedCertificate.recipientName,
+        title: savedCertificate.title,
+        description: savedCertificate.description,
+        issuedAt: savedCertificate.issuedAt,
+        expiresAt: savedCertificate.expiresAt,
+        issuerName: savedCertificate.issuer?.name || 'Unknown Issuer',
+        verificationUrl,
+        metadata: savedCertificate.metadata,
+      });
+
+      savedCertificate.pdfUrl = pdfUrl;
+      savedCertificate.qrCodeUrl = qrUrl;
+      await this.certificateRepository.save(savedCertificate);
+
+      this.logger.log(
+        `Generated PDF and QR code for certificate: ${savedCertificate.id}`,
+      );
+    } catch (fileError) {
+      this.logger.error(
+        `Failed to generate PDF/QR for certificate ${savedCertificate.id}: ${fileError.message}`,
+      );
+      // Continue with certificate creation even if file generation fails
+    }
+
     this.logger.log(
       `Certificate created: ${savedCertificate.id} for ${createCertificateDto.recipientEmail}`,
     );
