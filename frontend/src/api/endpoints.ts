@@ -1,37 +1,17 @@
-import {
-    ActivityItem,
-    ApiError,
-    AuthResponse,
-    Certificate,
-    CertificateTemplate,
-    CreateCertificateData,
-    DashboardStats,
-    IssuanceTrendPoint,
-    PaginatedResponse,
-    CertificateExportFilters,
-    StatusDistribution,
-    User,
-    UserRole,
-    VerificationResult,
-    LoginCredentials,
-    RegisterData,
-    ProfileUpdateData,
-    DailyVerificationStats,
-    TotalCertificatesStats,
-    TotalActiveUsersStats,
-    IssuerStats,
-    PaginatedActivityLog
-} from './types';
-import { tokenStorage } from './tokens';
+import axios from 'axios';
 
-// Configuration flag - set to true to use dummy data
-let USE_DUMMY_DATA = true;
-const API_URL_BASE = (import.meta as unknown as { env: Record<string, string> }).env?.VITE_API_URL || 'http://localhost:3000/api/v1';
-export const API_URL = API_URL_BASE;
+const API_BASE = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001/api';
 
-// Helper function to simulate API delay
-const simulateDelay = () => new Promise(resolve => setTimeout(resolve, 300));
+const api = axios.create({
+  baseURL: API_BASE,
+  headers: { 'Content-Type': 'application/json' },
+});
 
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('authToken');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 // Common error handler
 const handleError = (error: unknown, endpointName: string): never => {
     console.error(`Error in ${endpointName}:`, error);
@@ -374,148 +354,29 @@ export const getCertificateQR = async (certificateId: string): Promise<string> =
 };
 
 export const certificateApi = {
-    list: async (params?: {
-        page?: number;
-        limit?: number;
-        search?: string;
-        status?: string;
-        sortBy?: string;
-        sortOrder?: 'asc' | 'desc';
-        startDate?: string;
-        endDate?: string;
-    }): Promise<PaginatedResponse<Certificate>> => {
-        const searchParams = new URLSearchParams();
-        if (params) {
-            Object.entries(params).forEach(([key, value]) => {
-                if (value !== undefined && value !== '') {
-                    searchParams.append(key, String(value));
-                }
-            });
-        }
-        return apiClient<PaginatedResponse<Certificate>>(`/certificates?${searchParams.toString()}`);
-    },
-    create: createCertificate,
-    verify: verifyCertificate,
-    revoke: revokeCertificate,
-    getById: async (id: string): Promise<Certificate> => {
-        return apiClient<Certificate>(`/certificates/${id}`);
-    },
-    getUserCertificates,
-    bulkExport: async (
-        certificateIds: string[],
-        filters?: CertificateExportFilters,
-    ): Promise<Blob> => {
-        if (USE_DUMMY_DATA) {
-            await simulateDelay();
-            // Create a dummy CSV blob
-            const headers = ['ID', 'Recipient Name', 'Email', 'Title', 'Status', 'Issue Date'];
-            const normalizedSearch = filters?.search?.trim().toLowerCase();
-            const startDate = filters?.startDate ? new Date(filters.startDate) : null;
-            const endDate = filters?.endDate ? new Date(filters.endDate) : null;
-
-            const certs = dummyData.certificates.filter((certificate) => {
-                const matchesIds =
-                    certificateIds.length === 0 || certificateIds.includes(certificate.id);
-                const matchesSearch =
-                    !normalizedSearch ||
-                    [
-                        certificate.id,
-                        certificate.serialNumber,
-                        certificate.recipientName,
-                        certificate.recipientEmail,
-                        certificate.title,
-                        certificate.issuerName,
-                    ]
-                        .some((value) => value?.toLowerCase().includes(normalizedSearch));
-                const matchesStatus =
-                    !filters?.status || certificate.status === filters.status;
-                const issueDate = new Date(certificate.issueDate);
-                const matchesStartDate = !startDate || issueDate >= startDate;
-                const matchesEndDate = !endDate || issueDate <= endDate;
-
-                return (
-                    matchesIds &&
-                    matchesSearch &&
-                    matchesStatus &&
-                    matchesStartDate &&
-                    matchesEndDate
-                );
-            });
-            const rows = certs.map(c => [c.id, c.recipientName, c.recipientEmail, c.title, c.status, c.issueDate]);
-            const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
-            return new Blob([csv], { type: 'text/csv' });
-        }
-        const response = await fetch(`${API_URL}/certificates/export`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${tokenStorage.getAccessToken()}`
-            },
-            body: JSON.stringify({ certificateIds, filters })
-        });
-        if (!response.ok) {
-            throw new Error('Export failed');
-        }
-        return response.blob();
-    },
-    bulkRevoke: async (certificateIds: string[], reason?: string): Promise<Certificate[]> => {
-        if (USE_DUMMY_DATA) {
-            await simulateDelay();
-            const updatedCerts: Certificate[] = [];
-            for (const id of certificateIds) {
-                const cert = dummyData.certificates.find(c => c.id === id);
-                if (cert) {
-                    cert.status = 'revoked';
-                    updatedCerts.push(cert);
-                }
-            }
-            return updatedCerts;
-        }
-        return apiClient<Certificate[]>('/certificates/bulk-revoke', {
-            method: 'POST',
-            body: JSON.stringify({ certificateIds, reason })
-        });
-    },
-    freeze: async (certificateId: string, reason: string, durationDays: number): Promise<Certificate> => {
-        if (USE_DUMMY_DATA) {
-            await simulateDelay();
-            const cert = dummyData.certificates.find(c => c.id === certificateId);
-            if (cert) {
-                cert.status = 'frozen';
-                cert.freezeReason = reason;
-                cert.frozenAt = new Date().toISOString();
-                const unfreezeDate = new Date();
-                unfreezeDate.setDate(unfreezeDate.getDate() + durationDays);
-                cert.unfreezeAt = unfreezeDate.toISOString();
-                return cert;
-            }
-            throw new Error('Certificate not found');
-        }
-        return apiClient<Certificate>(`/certificates/${certificateId}/freeze`, {
-            method: 'POST',
-            body: JSON.stringify({ reason, durationDays })
-        });
-    },
-    unfreeze: async (certificateId: string): Promise<Certificate> => {
-        if (USE_DUMMY_DATA) {
-            await simulateDelay();
-            const cert = dummyData.certificates.find(c => c.id === certificateId);
-            if (cert) {
-                cert.status = 'active';
-                cert.freezeReason = undefined;
-                cert.frozenAt = undefined;
-                cert.unfreezeAt = undefined;
-                return cert;
-            }
-            throw new Error('Certificate not found');
-        }
-        return apiClient<Certificate>(`/certificates/${certificateId}/unfreeze`, {
-            method: 'POST'
-        });
-    },
-    getQR: getCertificateQR,
+  getAll: (params?: Record<string, unknown>) =>
+    api.get('/certificates', { params }).then((r) => r.data),
+  getById: (id: string) =>
+    api.get(`/certificates/${id}`).then((r) => r.data),
+  issue: (data: Record<string, unknown>) =>
+    api.post('/certificates', data).then((r) => r.data),
+  revoke: (id: string, reason: string) =>
+    api.patch(`/certificates/${id}/revoke`, { reason }).then((r) => r.data),
+  verify: (certificateId: string) =>
+    api.get(`/certificates/verify/${certificateId}`).then((r) => r.data),
 };
 
+export const userApi = {
+  getAll: (params?: Record<string, unknown>) =>
+    api.get('/users', { params }).then((r) => r.data),
+  getById: (id: string) =>
+    api.get(`/users/${id}`).then((r) => r.data),
+  updateRole: (id: string, role: string) =>
+    api.patch(`/users/${id}/role`, { role }).then((r) => r.data),
+  toggleStatus: (id: string, isActive: boolean) =>
+    api.patch(`/users/${id}/status`, { isActive }).then((r) => r.data),
+  delete: (id: string) =>
+    api.delete(`/users/${id}`).then((r) => r.data),
 // ==================== AUTHENTICATION ====================
 
 
@@ -832,9 +693,15 @@ export const toggleDummyData = (useDummy: boolean) => {
     console.log(`Using ${useDummy ? 'dummy' : 'real'} data`);
 };
 
-// ==================== ISSUER PROFILE MANAGEMENT ====================
-
 export const issuerProfileApi = {
+  getProfile: (issuerId: string) =>
+    api.get(`/issuers/${issuerId}/profile`).then((r) => r.data),
+  updateProfile: (issuerId: string, data: Record<string, unknown>) =>
+    api.put(`/issuers/${issuerId}/profile`, data).then((r) => r.data),
+  getStats: (issuerId: string) =>
+    api.get(`/issuers/${issuerId}/stats`).then((r) => r.data),
+  getActivity: (issuerId: string, params?: Record<string, unknown>) =>
+    api.get(`/issuers/${issuerId}/activity`, { params }).then((r) => r.data),
     getStats: async (): Promise<IssuerStats> => {
         if (USE_DUMMY_DATA) {
             await simulateDelay();
@@ -938,3 +805,5 @@ export const issuerProfileApi = {
         return response.json();
     }
 };
+
+export default api;
