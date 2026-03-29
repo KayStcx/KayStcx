@@ -98,10 +98,15 @@ export interface RejectTransferDto {
  * Request payload for creating a certificate
  */
 export interface CreateCertificateData {
+  title: string;
+  description: string;
   recipientName: string;
   recipientEmail: string;
   courseName: string;
+  issuerName: string;
+  issueDate: string;
   issuerId: string;
+  recipientId: string;
   expiryDate?: string;
   templateId?: string;
   metadata?: Record<string, unknown>;

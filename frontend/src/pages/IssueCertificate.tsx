@@ -1,16 +1,42 @@
 import { useState, useEffect } from 'react';
-import { Award, Upload, XCircle, Layout } from 'lucide-react';
+import { Award, Eye, Layout, XCircle } from 'lucide-react';
 import { createCertificate, fetchDefaultTemplate, fetchUserByEmail, templateApi, CertificateTemplate } from '../api';
+import CertificatePreviewModal, { CertificatePreviewData } from '../components/CertificatePreviewModal';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const GRADE_OPTIONS = ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D', 'F', 'Pass', 'Distinction', 'Merit'];
 
+interface IssueCertificateFormData {
+  recipientName: string;
+  recipientEmail: string;
+  courseName: string;
+  issuerName: string;
+  grade: string;
+  issueDate: string;
+  expiryDate: string;
+  templateId: string;
+}
+
+const formatPreviewDate = (value: string) => {
+  if (!value) {
+    return '';
+  }
+
+  return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+};
+
 const IssueCertificate = () => {
   const { user } = useAuth();
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<IssueCertificateFormData>({
     recipientName: '',
     recipientEmail: '',
     courseName: '',
@@ -18,7 +44,6 @@ const IssueCertificate = () => {
     grade: '',
     issueDate: '',
     expiryDate: '',
-    recipientId: '',
     templateId: ''
   });
 
@@ -41,8 +66,10 @@ const IssueCertificate = () => {
           fetchDefaultTemplate()
         ]);
         setTemplates(allTemplates);
-        if (defaultTemplate && !formData.templateId) {
-          setFormData(prev => ({ ...prev, templateId: defaultTemplate.id }));
+        if (defaultTemplate) {
+          setFormData((prev) => (
+            prev.templateId ? prev : { ...prev, templateId: defaultTemplate.id }
+          ));
         }
       } catch (err) {
         console.error("Failed to load templates:", err);
@@ -51,13 +78,44 @@ const IssueCertificate = () => {
     loadTemplates();
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const selectedTemplate = templates.find((template) => template.id === formData.templateId);
+
+  const previewData: CertificatePreviewData = {
+    recipientName: formData.recipientName,
+    recipientEmail: formData.recipientEmail,
+    courseName: formData.courseName,
+    issuerName: formData.issuerName,
+    grade: formData.grade,
+    issueDate: formData.issueDate,
+    expiryDate: formData.expiryDate || undefined,
+    templateName: selectedTemplate?.name,
+  };
+
+  const handleOpenPreview = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!e.currentTarget.checkValidity()) {
+      e.currentTarget.reportValidity();
+      return;
+    }
+
+    if (!formData.templateId) {
+      setError('Please select a template.');
+      return;
+    }
+
+    setError('');
+    setIsPreviewOpen(true);
+  };
+
+  const handleConfirmIssue = async () => {
     try {
       if (!user) {
         setError("You must be logged in to issue a certificate.");
         return;
       }
+
+      setIsSubmitting(true);
+      setError('');
 
       // Fetch recipient details
       const recipient = await fetchUserByEmail(formData.recipientEmail);
@@ -101,10 +159,13 @@ const IssueCertificate = () => {
         setError("Failed to create Certificate");
         return;
       }
+      setIsPreviewOpen(false);
       navigate("/");
     } catch (error: unknown) {
       console.error('Error issuing certificate:', error);
       setError(error instanceof Error ? error.message : 'Failed to issue certificate');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -116,7 +177,7 @@ const IssueCertificate = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleOpenPreview} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Recipient Name</label>
             <input
@@ -224,8 +285,8 @@ const IssueCertificate = () => {
               type="submit"
               className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
             >
-              <Upload className="w-4 h-4" />
-              Issue Certificate
+              <Eye className="w-4 h-4" />
+              Preview Certificate
             </button>
           </div>
         </form>
@@ -235,7 +296,27 @@ const IssueCertificate = () => {
             <p>{error}</p>
           </div>
         )}
+
+        <div className="mt-6 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
+          <p className="font-medium">Preview before issuance</p>
+          <p className="mt-1 text-blue-800">
+            You will review recipient details, course name, template, and dates before the certificate is submitted.
+          </p>
+          {formData.issueDate && (
+            <p className="mt-2 text-blue-700">
+              Current draft issue date: {formatPreviewDate(formData.issueDate)}
+            </p>
+          )}
+        </div>
       </div>
+
+      <CertificatePreviewModal
+        isOpen={isPreviewOpen}
+        preview={previewData}
+        isSubmitting={isSubmitting}
+        onClose={() => setIsPreviewOpen(false)}
+        onConfirm={handleConfirmIssue}
+      />
     </div>
   );
 };
