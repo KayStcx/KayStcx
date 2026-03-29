@@ -184,7 +184,6 @@ describe('CertificateManager Integration Tests', () => {
 
       // Verify the certificate
       const verified = await certificateService.verifyCertificate(
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         created.verificationCode!,
       );
 
@@ -389,7 +388,6 @@ describe('CertificateManager Integration Tests', () => {
 
       // Check it's approximately 1 year from now (within 1 day tolerance)
       const diff = Math.abs(
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         certificate.expiresAt!.getTime() - expectedExpiry.getTime(),
       );
       expect(diff).toBeLessThan(24 * 60 * 60 * 1000); // 1 day in milliseconds
@@ -409,7 +407,6 @@ describe('CertificateManager Integration Tests', () => {
 
       const certificate = await certificateService.create(createDto);
 
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       expect(certificate.expiresAt!.getTime()).toBe(customExpiry.getTime());
     });
   });

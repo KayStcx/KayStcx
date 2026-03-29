@@ -42,7 +42,11 @@ export class AuthService {
     return null;
   }
 
-  async login(loginDto: LoginDto): Promise<AuthResponseDto & { requires2FA?: boolean; preAuthToken?: string }> {
+  async login(
+    loginDto: LoginDto,
+  ): Promise<
+    AuthResponseDto & { requires2FA?: boolean; preAuthToken?: string }
+  > {
     const user = await this.validateUser(loginDto.email, loginDto.password);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');

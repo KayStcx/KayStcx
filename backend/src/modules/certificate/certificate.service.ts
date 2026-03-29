@@ -67,7 +67,12 @@ export class CertificateService {
     ipAddress = 'unknown',
     userAgent = 'unknown',
   ): Promise<Certificate> {
-    return this.issue(dto as unknown as IssueCertificateDto, dto.issuerId, ipAddress, userAgent);
+    return this.issue(
+      dto as unknown as IssueCertificateDto,
+      dto.issuerId,
+      ipAddress,
+      userAgent,
+    );
   }
 
   async issue(

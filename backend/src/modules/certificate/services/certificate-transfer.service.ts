@@ -170,7 +170,9 @@ export class CertificateTransferService {
       additionalFields: {
         ...(certificate.metadata?.additionalFields ?? {}),
         transferHistory: [
-          ...((certificate.metadata?.additionalFields?.['transferHistory'] as unknown[]) || []),
+          ...((certificate.metadata?.additionalFields?.[
+            'transferHistory'
+          ] as unknown[]) || []),
           {
             fromEmail: previousEmail,
             fromName: previousName,
