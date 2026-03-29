@@ -19,6 +19,8 @@ import { WebhookEvent } from '../webhooks/entities/webhook-subscription.entity';
 import { MetadataSchemaService } from '../metadata-schema/services/metadata-schema.service';
 import { FilesService } from '../files/services/files.service';
 import { CertificateQrResponseDto } from './dto/certificate-qr-response.dto';
+import { AuditService } from '../audit/services/audit.service';
+import { AuditAction, AuditResourceType } from '../audit/constants';
 
 @Injectable()
 export class CertificateService {
@@ -34,6 +36,7 @@ export class CertificateService {
     private readonly metadataSchemaService: MetadataSchemaService,
     private readonly filesService: FilesService,
     private readonly configService: ConfigService,
+    private readonly auditService: AuditService,
   ) {}
 
   async create(
@@ -103,9 +106,57 @@ export class CertificateService {
       await this.certificateRepository.save(savedCertificate);
     }
 
+    // Generate PDF and QR code for the certificate
+    try {
+      const verificationUrl = this.buildVerificationUrl(
+        savedCertificate.verificationCode,
+      );
+      const { pdfUrl, qrUrl } =
+        await this.filesService.generateAndUploadCertificate({
+          tokenId: savedCertificate.id,
+          recipientName: savedCertificate.recipientName,
+          title: savedCertificate.title,
+          description: savedCertificate.description,
+          issuedAt: savedCertificate.issuedAt,
+          expiresAt: savedCertificate.expiresAt,
+          issuerName: savedCertificate.issuer?.name || 'Unknown Issuer',
+          verificationUrl,
+          metadata: savedCertificate.metadata,
+        });
+
+      savedCertificate.pdfUrl = pdfUrl;
+      savedCertificate.qrCodeUrl = qrUrl;
+      await this.certificateRepository.save(savedCertificate);
+
+      this.logger.log(
+        `Generated PDF and QR code for certificate: ${savedCertificate.id}`,
+      );
+    } catch (fileError) {
+      this.logger.error(
+        `Failed to generate PDF/QR for certificate ${savedCertificate.id}: ${fileError.message}`,
+      );
+      // Continue with certificate creation even if file generation fails
+    }
+
     this.logger.log(
       `Certificate created: ${savedCertificate.id} for ${createCertificateDto.recipientEmail}`,
     );
+
+    // Audit logging
+    await this.auditService.log({
+      action: AuditAction.CERTIFICATE_ISSUE,
+      resourceType: AuditResourceType.CERTIFICATE,
+      resourceId: savedCertificate.id,
+      userId: savedCertificate.issuerId,
+      userEmail: createCertificateDto.recipientEmail,
+      status: 'success',
+      metadata: {
+        title: savedCertificate.title,
+        recipientName: savedCertificate.recipientName,
+        courseName: savedCertificate.courseName,
+        templateId: savedCertificate.templateId,
+      },
+    });
 
     // Trigger webhook event
     await this.webhooksService.triggerEvent(
@@ -234,6 +285,18 @@ export class CertificateService {
         },
       );
 
+      // Audit logging
+      await this.auditService.log({
+        action: AuditAction.CERTIFICATE_VERIFY,
+        resourceType: AuditResourceType.CERTIFICATE,
+        resourceId: certificate.id,
+        status: 'success',
+        metadata: {
+          verificationCode,
+          recipientEmail: certificate.recipientEmail,
+        },
+      });
+
       return certificate;
     } catch (error) {
       if (error instanceof NotFoundException) {
@@ -291,6 +354,19 @@ export class CertificateService {
       },
     );
 
+    // Audit logging
+    await this.auditService.log({
+      action: AuditAction.CERTIFICATE_REVOKE,
+      resourceType: AuditResourceType.CERTIFICATE,
+      resourceId: savedCertificate.id,
+      userId: issuerId,
+      status: 'success',
+      metadata: {
+        reason,
+        status: savedCertificate.status,
+      },
+    });
+
     return savedCertificate;
   }
 
@@ -326,6 +402,18 @@ export class CertificateService {
       },
     );
 
+    // Audit logging
+    await this.auditService.log({
+      action: AuditAction.CERTIFICATE_FREEZE,
+      resourceType: AuditResourceType.CERTIFICATE,
+      resourceId: savedCertificate.id,
+      status: 'success',
+      metadata: {
+        reason,
+        status: savedCertificate.status,
+      },
+    });
+
     return savedCertificate;
   }
 
@@ -360,6 +448,18 @@ export class CertificateService {
         unfrozenAt: new Date(),
       },
     );
+
+    // Audit logging
+    await this.auditService.log({
+      action: AuditAction.CERTIFICATE_UNFREEZE,
+      resourceType: AuditResourceType.CERTIFICATE,
+      resourceId: savedCertificate.id,
+      status: 'success',
+      metadata: {
+        reason,
+        status: savedCertificate.status,
+      },
+    });
 
     return savedCertificate;
   }
@@ -510,7 +610,7 @@ export class CertificateService {
 
     const rows = certificates.map((cert) => [
       cert.id,
-      cert.serialNumber,
+      cert.verificationCode || cert.id,
       cert.recipientName,
       cert.recipientEmail,
       cert.title,

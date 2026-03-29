@@ -9,14 +9,21 @@ import { CertificateController } from './certificate.controller';
 import { MetadataSchemaModule } from '../metadata-schema/metadata-schema.module';
 import { AuthModule } from '../auth/auth.module';
 import { FilesModule } from '../files/files.module';
+import { AuditModule } from '../audit/audit.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { EmailModule } from '../email/email.module';
 
 // Import services directly
 import { DuplicateDetectionService } from './services/duplicate-detection.service';
 import { DuplicateDetectionController } from './controllers/duplicate-detection.controller';
+import { CertificateTransferService } from './services/certificate-transfer.service';
+import { CertificateTransferController } from './controllers/certificate-transfer.controller';
+import { CertificateExpirationJob } from './jobs/certificate-expiration.job';
+import { CertificateTransfer } from './entities/certificate-transfer.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Certificate, Verification]),
+    TypeOrmModule.forFeature([Certificate, Verification, CertificateTransfer]),
     CacheModule.register({
       ttl: 300,
       max: 100,
@@ -24,16 +31,21 @@ import { DuplicateDetectionController } from './controllers/duplicate-detection.
     MetadataSchemaModule,
     AuthModule,
     FilesModule,
-    // REMOVE: DuplicateDetectionModule
+    AuditModule,
+    NotificationsModule,
+    EmailModule,
   ],
   controllers: [
     CertificateController,
-    DuplicateDetectionController, // Add this directly
+    DuplicateDetectionController,
+    CertificateTransferController,
   ],
   providers: [
     CertificateService,
     CertificateStatsService,
-    DuplicateDetectionService, // Add this directly
+    DuplicateDetectionService,
+    CertificateTransferService,
+    CertificateExpirationJob,
   ],
   exports: [CertificateService, CertificateStatsService],
 })

@@ -98,7 +98,13 @@ const IssuerProfile = () => {
       try {
         const activityResponse = await issuerProfileApi.getActivity();
         setActivities(
-          activityResponse.activities.map((activity) => ({
+          activityResponse.activities.map((activity: {
+            id: string;
+            action: string;
+            description: string;
+            timestamp: string;
+            ipAddress?: string;
+          }) => ({
             id: activity.id,
             action: activity.action,
             description: activity.description,
@@ -183,7 +189,7 @@ const IssuerProfile = () => {
         uploadedProfilePicture = uploadResult.profilePicture;
       }
 
-      const updatedUser = await issuerProfileApi.updateProfile({
+      const updatedUser = await userApi.updateProfile({
         firstName: formData.firstName,
         lastName: formData.lastName,
         username: formData.username || undefined,

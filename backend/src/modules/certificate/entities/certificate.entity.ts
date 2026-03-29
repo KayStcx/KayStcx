@@ -30,6 +30,14 @@ export class Certificate {
   @Index()
   title: string;
 
+  @Column({ nullable: true })
+  @Index()
+  courseName: string;
+
+  @Column({ nullable: true })
+  @Index()
+  templateId: string;
+
   @Column({ type: 'text', nullable: true })
   description?: string;
 
@@ -44,6 +52,12 @@ export class Certificate {
 
   @Column({ nullable: true })
   verificationCode: string;
+
+  @Column({ nullable: true })
+  pdfUrl?: string;
+
+  @Column({ nullable: true })
+  qrCodeUrl?: string;
 
   @Column({ default: false })
   isDuplicate: boolean;

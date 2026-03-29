@@ -12,15 +12,17 @@ import { AuthResponseDto } from './dto/auth-response.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { LogoutResponseDto } from './dto/logout-response.dto';
 import { JwtManagementService } from './services/jwt.service';
+import { TwoFactorService } from './services/two-factor.service';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private usersService: UsersService,
-    private jwtService: JwtService,
-    private jwtManagementService: JwtManagementService,
-    private userRepository: UserRepository,
+    private readonly usersService: UsersService,
+    private readonly jwtService: JwtService,
+    private readonly jwtManagementService: JwtManagementService,
+    private readonly twoFactorService: TwoFactorService,
+    private readonly userRepository: UserRepository,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<any> {
@@ -40,19 +42,69 @@ export class AuthService {
     return null;
   }
 
-  async login(loginDto: LoginDto): Promise<AuthResponseDto> {
+  async login(
+    loginDto: LoginDto,
+  ): Promise<AuthResponseDto & { requires2FA?: boolean; preAuthToken?: string }> {
     const user = await this.validateUser(loginDto.email, loginDto.password);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Check if account is active
     if (!user.isActive) {
       throw new ForbiddenException('Account is deactivated');
     }
 
+    // If 2FA is enabled, issue a short-lived pre-auth token instead of a full access token
+    if (user.twoFactorEnabled) {
+      const preAuthToken = this.jwtService.sign(
+        { sub: user.id, type: 'pre-auth' },
+        { expiresIn: '5m' },
+      );
+      return { requires2FA: true, preAuthToken } as any;
+    }
+
     const payload = { email: user.email, sub: user.id, role: user.role };
     const accessToken = this.jwtService.sign(payload);
+
+    return {
+      accessToken,
+      expiresIn: 3600,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
+    };
+  }
+
+  async verifyTwoFactor(
+    preAuthToken: string,
+    token: string,
+  ): Promise<AuthResponseDto> {
+    let payload: any;
+    try {
+      payload = this.jwtService.verify(preAuthToken);
+    } catch {
+      throw new UnauthorizedException('Invalid or expired pre-auth token');
+    }
+
+    if (payload.type !== 'pre-auth') {
+      throw new UnauthorizedException('Invalid token type');
+    }
+
+    await this.twoFactorService.validateLogin(payload.sub, token);
+
+    const user = await this.usersService.findOneById(payload.sub);
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('User not found or inactive');
+    }
+
+    const accessToken = this.jwtService.sign({
+      email: user.email,
+      sub: user.id,
+      role: user.role,
+    });
 
     return {
       accessToken,
@@ -135,23 +187,23 @@ export class AuthService {
       }
 
       // Verify that the refresh token in the DB matches the one provided
-      if (user.refreshToken !== refreshToken) {
+      if (!user.refreshToken) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      const matches = await bcrypt.compare(refreshToken, user.refreshToken);
+      if (!matches) {
         throw new UnauthorizedException('Invalid refresh token');
       }
 
       // Generate new tokens
-      const newPayload = {
-        email: user.email,
-        sub: user.id,
-        role: user.role,
-      };
-
       const tokens =
         await this.jwtManagementService.refreshAccessToken(refreshToken);
 
       // Update the refresh token in the database
-      await this.usersService['userRepository'].update(user.id, {
-        refreshToken: tokens.refreshToken,
+      const hashedRefreshToken = await bcrypt.hash(tokens.refreshToken, 12);
+      await this.userRepository.update(user.id, {
+        refreshToken: hashedRefreshToken,
       });
 
       return {

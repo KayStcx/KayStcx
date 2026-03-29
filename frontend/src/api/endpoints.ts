@@ -24,8 +24,11 @@ import {
 } from "./types";
 import { tokenStorage } from "./tokens";
 
-// Configuration flag - set to true to use dummy data
-let USE_DUMMY_DATA = true;
+// Configuration flag - can be enabled via Vite env `VITE_USE_DUMMY_DATA` ("true"/"false").
+const VITE_USE_DUMMY = (
+  import.meta as unknown as { env: Record<string, string> }
+).env?.VITE_USE_DUMMY_DATA;
+let USE_DUMMY_DATA = VITE_USE_DUMMY ? VITE_USE_DUMMY === "true" : false;
 const API_URL_BASE =
   (import.meta as unknown as { env: Record<string, string> }).env
     ?.VITE_API_URL || "http://localhost:3000/api/v1";
@@ -195,6 +198,12 @@ export const userApi = {
   getProfile: async (): Promise<User> => {
     return apiClient<User>("/users/profile");
   },
+  updateProfile: async (data: ProfileUpdateData): Promise<User> => {
+    return apiClient<User>("/users/profile", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
   getByEmail: fetchUserByEmail,
   listAll: async (
     params?: Record<string, string | number | boolean>,
@@ -209,6 +218,27 @@ export const userApi = {
       `/users?${searchParams.toString()}`,
     );
   },
+  getAll: async (params?: Record<string, string | number | boolean>) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        searchParams.set(key, String(value));
+      });
+    }
+    return apiClient<PaginatedResponse<User>>(`/users?${searchParams.toString()}`);
+  },
+  getById: async (id: string) => apiClient<User>(`/users/${id}`),
+  updateRole: async (id: string, role: string) =>
+    apiClient<User>(`/users/${id}/role`, {
+      method: "PATCH",
+      body: JSON.stringify({ role }),
+    }),
+  toggleStatus: async (id: string, isActive: boolean) =>
+    apiClient<User>(`/users/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ isActive }),
+    }),
+  delete: async (id: string) => apiClient<void>(`/users/${id}`, { method: "DELETE" }),
 };
 
 // ==================== TEMPLATE MANAGEMENT ====================
@@ -230,6 +260,10 @@ export const fetchDefaultTemplate = async (): Promise<CertificateTemplate> => {
 
 export const templateApi = {
   list: async (): Promise<CertificateTemplate[]> => {
+    if (USE_DUMMY_DATA) {
+      await simulateDelay();
+      return dummyData.templates;
+    }
     return apiClient<CertificateTemplate[]>("/templates");
   },
   getDefaultTemplate: fetchDefaultTemplate,
@@ -403,7 +437,7 @@ export const getCertificateQR = async (
 ): Promise<string> => {
   if (USE_DUMMY_DATA) {
     await simulateDelay();
-    // Return a dummy QR code URL (in real implementation, this would be actual QR code image)
+    // Return a dummy QR code URL
     return `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzMzMyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkJJIENvZGU6ICR7Y2VydGlmaWNhdGVJZH08L3RleHQ+Cjwvc3ZnPg==`;
   }
 
@@ -446,6 +480,32 @@ export const certificateApi = {
   getById: async (id: string): Promise<Certificate> => {
     return apiClient<Certificate>(`/certificates/${id}`);
   },
+  getAll: async (
+    params?: Record<string, string | number | boolean>,
+  ): Promise<PaginatedResponse<Certificate> | Certificate[]> => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        searchParams.set(key, String(value));
+      });
+    }
+
+    if (USE_DUMMY_DATA) {
+      await simulateDelay();
+      return {
+        data: dummyData.certificates,
+        certificates: dummyData.certificates,
+        total: dummyData.certificates.length,
+        page: 1,
+        limit: dummyData.certificates.length,
+        totalPages: 1,
+      } as PaginatedResponse<Certificate> & { certificates: Certificate[] };
+    }
+
+    return apiClient<PaginatedResponse<Certificate>>(
+      `/certificates?${searchParams.toString()}`,
+    );
+  },
   getUserCertificates,
   bulkExport: async (
     certificateIds: string[],
@@ -453,7 +513,6 @@ export const certificateApi = {
   ): Promise<Blob> => {
     if (USE_DUMMY_DATA) {
       await simulateDelay();
-      // Create a dummy CSV blob
       const headers = [
         "ID",
         "Recipient Name",
@@ -465,7 +524,6 @@ export const certificateApi = {
       const normalizedSearch = filters?.search?.trim().toLowerCase();
       const startDate = filters?.startDate ? new Date(filters.startDate) : null;
       const endDate = filters?.endDate ? new Date(filters.endDate) : null;
-
       const certs = dummyData.certificates.filter((certificate) => {
         const matchesIds =
           certificateIds.length === 0 ||
@@ -513,15 +571,12 @@ export const certificateApi = {
       },
       body: JSON.stringify({ certificateIds, filters }),
     });
-    if (!response.ok) {
-      throw new Error("Export failed");
-    }
+    if (!response.ok) throw new Error("Export failed");
     return response.blob();
   },
   bulkExportAll: async (filters?: CertificateExportFilters): Promise<Blob> => {
     if (USE_DUMMY_DATA) {
       await simulateDelay();
-      // Create a dummy CSV blob for all filtered results
       const headers = [
         "ID",
         "Recipient Name",
@@ -533,7 +588,6 @@ export const certificateApi = {
       const normalizedSearch = filters?.search?.trim().toLowerCase();
       const startDate = filters?.startDate ? new Date(filters.startDate) : null;
       const endDate = filters?.endDate ? new Date(filters.endDate) : null;
-
       const certs = dummyData.certificates.filter((certificate) => {
         const matchesSearch =
           !normalizedSearch ||
@@ -566,6 +620,7 @@ export const certificateApi = {
       const csv = [headers, ...rows].map((row) => row.join(",")).join("\n");
       return new Blob([csv], { type: "text/csv" });
     }
+
     const response = await fetch(`${API_URL}/certificates/export/all`, {
       method: "POST",
       headers: {
@@ -587,7 +642,7 @@ export const certificateApi = {
       await simulateDelay();
       const updatedCerts: Certificate[] = [];
       for (const id of certificateIds) {
-        const cert = dummyData.certificates.find((c) => c.id === id);
+        const cert = dummyData.certificates.find((certificate) => certificate.id === id);
         if (cert) {
           cert.status = "revoked";
           updatedCerts.push(cert);
@@ -595,6 +650,7 @@ export const certificateApi = {
       }
       return updatedCerts;
     }
+
     return apiClient<Certificate[]>("/certificates/bulk-revoke", {
       method: "POST",
       body: JSON.stringify({ certificateIds, reason }),
@@ -607,18 +663,20 @@ export const certificateApi = {
   ): Promise<Certificate> => {
     if (USE_DUMMY_DATA) {
       await simulateDelay();
-      const cert = dummyData.certificates.find((c) => c.id === certificateId);
-      if (cert) {
-        cert.status = "frozen";
-        cert.freezeReason = reason;
-        cert.frozenAt = new Date().toISOString();
-        const unfreezeDate = new Date();
-        unfreezeDate.setDate(unfreezeDate.getDate() + durationDays);
-        cert.unfreezeAt = unfreezeDate.toISOString();
-        return cert;
+      const cert = dummyData.certificates.find((certificate) => certificate.id === certificateId);
+      if (!cert) {
+        throw new Error("Certificate not found");
       }
-      throw new Error("Certificate not found");
+
+      cert.status = "frozen";
+      cert.freezeReason = reason;
+      cert.frozenAt = new Date().toISOString();
+      const unfreezeDate = new Date();
+      unfreezeDate.setDate(unfreezeDate.getDate() + durationDays);
+      cert.unfreezeAt = unfreezeDate.toISOString();
+      return cert;
     }
+
     return apiClient<Certificate>(`/certificates/${certificateId}/freeze`, {
       method: "POST",
       body: JSON.stringify({ reason, durationDays }),
@@ -627,21 +685,48 @@ export const certificateApi = {
   unfreeze: async (certificateId: string): Promise<Certificate> => {
     if (USE_DUMMY_DATA) {
       await simulateDelay();
-      const cert = dummyData.certificates.find((c) => c.id === certificateId);
-      if (cert) {
-        cert.status = "active";
-        cert.freezeReason = undefined;
-        cert.frozenAt = undefined;
-        cert.unfreezeAt = undefined;
-        return cert;
+      const cert = dummyData.certificates.find((certificate) => certificate.id === certificateId);
+      if (!cert) {
+        throw new Error("Certificate not found");
       }
-      throw new Error("Certificate not found");
+
+      cert.status = "active";
+      cert.freezeReason = undefined;
+      cert.frozenAt = undefined;
+      cert.unfreezeAt = undefined;
+      return cert;
     }
+
     return apiClient<Certificate>(`/certificates/${certificateId}/unfreeze`, {
       method: "POST",
     });
   },
   getQR: getCertificateQR,
+  
+  // Certificate Transfer API (#286)
+  transfer: {
+    initiate: async (data: any): Promise<any> => {
+      return apiClient("/certificates/transfers/initiate", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+    approve: async (data: any): Promise<any> => {
+      return apiClient("/certificates/transfers/approve", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+    reject: async (data: any): Promise<any> => {
+      return apiClient("/certificates/transfers/reject", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+    getPending: async (): Promise<any[]> => {
+      return apiClient("/certificates/transfers/pending");
+    },
+  }
 };
 
 // ==================== AUTHENTICATION ====================
@@ -725,13 +810,22 @@ export const authApi = {
       tokenStorage.clearTokens();
     }
   },
+  forgotPassword: async (data: any): Promise<{ message: string }> => {
+    return apiClient("/users/forgot-password", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+  resetPassword: async (data: any): Promise<{ message: string }> => {
+    return apiClient("/users/reset-password", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
 };
 
-// Standalone exports for backward compatibility
 export const login = loginApi;
 export const register = registerApi;
-
-// ==================== ANALYTICS & STATS ====================
 
 type CertificateStatsResponse = {
   totalCertificates: number;
@@ -772,37 +866,30 @@ const buildStatusDistributionFromCertificates = (
 
 const buildIssuanceTrendFromCertificates = (
   certificates: Certificate[],
-): IssuanceTrendPoint[] => {
-  const map = new Map<string, number>();
-
-  for (const cert of certificates) {
-    const dateKey = cert.issueDate.slice(0, 10);
-    const current = map.get(dateKey) ?? 0;
-    map.set(dateKey, current + 1);
-  }
-
-  return Array.from(map.entries())
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+): IssuanceTrendPoint[] =>
+  Array.from(
+    certificates.reduce((map, cert) => {
+      const dateKey = cert.issueDate.slice(0, 10);
+      map.set(dateKey, (map.get(dateKey) ?? 0) + 1);
+      return map;
+    }, new Map<string, number>()),
+  )
+    .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, count]) => ({ date, count }));
-};
 
 const buildRecentActivityFromCertificates = (
   certificates: Certificate[],
-): ActivityItem[] => {
-  const items: ActivityItem[] = certificates.map((cert) => {
-    const type = cert.status === "revoked" ? "revoke" : "issue";
-    return {
-      type,
+): ActivityItem[] =>
+  certificates
+    .map((cert) => ({
+      type: (cert.status === "revoked" ? "revoke" : "issue") as ActivityItem["type"],
       date: cert.issueDate,
       description:
-        type === "issue"
-          ? `Issued ${cert.title} to ${cert.recipientName}`
-          : `Revoked ${cert.title} for ${cert.recipientName}`,
-    };
-  });
-
-  return items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-};
+        cert.status === "revoked"
+          ? `Revoked ${cert.title} for ${cert.recipientName}`
+          : `Issued ${cert.title} to ${cert.recipientName}`,
+    }))
+    .sort((a, b) => b.date.localeCompare(a.date));
 
 export const dailyCertificateVerification =
   async (): Promise<DailyVerificationStats> => {
@@ -841,7 +928,6 @@ export const analyticsApi = {
       await simulateDelay();
 
       let certificates = dummyData.certificates;
-
       if (params?.startDate && params?.endDate) {
         const start = new Date(params.startDate);
         const end = new Date(params.endDate);
@@ -853,24 +939,18 @@ export const analyticsApi = {
 
       const statusDistribution =
         buildStatusDistributionFromCertificates(certificates);
-      const issuanceTrend = buildIssuanceTrendFromCertificates(certificates);
-      const recentActivity = buildRecentActivityFromCertificates(certificates);
-
-      const totalCertificatesCount = certificates.length;
-      const totalVerifications = 1250;
-      const verifications24h = 45;
 
       return {
-        totalCertificates: totalCertificatesCount,
+        totalCertificates: certificates.length,
         activeCertificates: statusDistribution.active,
         revokedCertificates: statusDistribution.revoked,
         expiredCertificates: statusDistribution.expired,
-        totalVerifications,
-        verifications24h,
+        totalVerifications: 1250,
+        verifications24h: 45,
         totalUsers: dummyData.users.length,
-        issuanceTrend,
+        issuanceTrend: buildIssuanceTrendFromCertificates(certificates),
         statusDistribution,
-        recentActivity,
+        recentActivity: buildRecentActivityFromCertificates(certificates),
       };
     }
 
@@ -878,20 +958,13 @@ export const analyticsApi = {
     if (params?.startDate) searchParams.set("startDate", params.startDate);
     if (params?.endDate) searchParams.set("endDate", params.endDate);
     if (params?.issuerId) searchParams.set("issuerId", params.issuerId);
-
     const query = searchParams.toString();
 
     const data = await apiClient<CertificateStatsResponse>(
       `/certificates/stats${query ? `?${query}` : ""}`,
     );
 
-    const statusDistribution: StatusDistribution = {
-      active: data.activeCertificates,
-      revoked: data.revokedCertificates,
-      expired: data.expiredCertificates,
-    };
-
-    const dashboardStats: DashboardStats = {
+    return {
       totalCertificates: data.totalCertificates,
       activeCertificates: data.activeCertificates,
       revokedCertificates: data.revokedCertificates,
@@ -900,21 +973,79 @@ export const analyticsApi = {
       verifications24h: data.verificationStats.dailyVerifications,
       totalUsers: 0,
       issuanceTrend: data.issuanceTrend,
-      statusDistribution,
+      statusDistribution: {
+        active: data.activeCertificates,
+        revoked: data.revokedCertificates,
+        expired: data.expiredCertificates,
+      },
       recentActivity: [],
     };
-
-    return dashboardStats;
   },
 };
 
-// Toggle dummy data
-export const toggleDummyData = (useDummy: boolean) => {
-  USE_DUMMY_DATA = useDummy;
-  console.log(`Using ${useDummy ? "dummy" : "real"} data`);
+export const adminAnalyticsApi = {
+  getAnalytics: async (params?: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<import("./types").AdminAnalytics> => {
+    if (USE_DUMMY_DATA) {
+      await simulateDelay();
+      return {
+        usersByRole: {
+          users: 42,
+          issuers: 12,
+          admins: 3,
+          total: dummyData.users.length,
+        },
+        usersByStatus: {
+          active: dummyData.users.length,
+          inactive: 0,
+          suspended: 0,
+          pendingVerification: 0,
+        },
+        certificatesByStatus: {
+          active: dummyData.certificates.filter((cert) => cert.status === "active").length,
+          revoked: dummyData.certificates.filter((cert) => cert.status === "revoked").length,
+          expired: dummyData.certificates.filter((cert) => cert.status === "expired").length,
+          total: dummyData.certificates.length,
+        },
+        topIssuers: [
+          {
+            issuerId: "issuer-1",
+            issuerName: "Kaystcx Academy",
+            certificateCount: dummyData.certificates.length,
+            percentage: 100,
+          },
+        ],
+        verificationTrends: {
+          total: 1200,
+          successful: 1140,
+          failed: 60,
+          successRate: 95,
+          last24Hours: 45,
+          last7Days: 210,
+          last30Days: 830,
+        },
+        userRegistrationTrend: [
+          { date: params?.startDate ?? new Date().toISOString().slice(0, 10), count: 2 },
+        ],
+        certificateIssuanceTrend: buildIssuanceTrendFromCertificates(
+          dummyData.certificates,
+        ),
+        totalIssuers: 12,
+      };
+    }
+
+    const searchParams = new URLSearchParams();
+    if (params?.startDate) searchParams.set("startDate", params.startDate);
+    if (params?.endDate) searchParams.set("endDate", params.endDate);
+    return apiClient(`/admin/analytics?${searchParams.toString()}`);
+  },
 };
 
-// ==================== ISSUER PROFILE MANAGEMENT ====================
+export const toggleDummyData = (useDummy: boolean) => {
+  USE_DUMMY_DATA = useDummy;
+};
 
 export const issuerProfileApi = {
   getStats: async (): Promise<IssuerStats> => {
@@ -931,61 +1062,29 @@ export const issuerProfileApi = {
     }
     return apiClient<IssuerStats>("/users/profile/stats");
   },
-
   getActivity: async (
     page: number = 1,
     limit: number = 10,
   ): Promise<PaginatedActivityLog> => {
     if (USE_DUMMY_DATA) {
       await simulateDelay();
-      const mockActivities = [
+      const activities = [
         {
           id: "1",
           action: "ISSUE_CERTIFICATE",
-          description:
-            'Issued "Blockchain Fundamentals" certificate to Alice Johnson',
+          description: 'Issued "Blockchain Fundamentals" certificate to Alice Johnson',
           ipAddress: "192.168.1.100",
-          userAgent:
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        },
-        {
-          id: "2",
-          action: "REVOKE_CERTIFICATE",
-          description: "Revoked certificate #CERT-2024-045",
-          ipAddress: "192.168.1.100",
-          userAgent:
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          timestamp: new Date(
-            Date.now() - 1 * 24 * 60 * 60 * 1000,
-          ).toISOString(),
-        },
-        {
-          id: "3",
-          action: "UPDATE_PROFILE",
-          description: "Updated organization details",
-          ipAddress: "192.168.1.100",
-          userAgent:
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          timestamp: new Date(
-            Date.now() - 2 * 24 * 60 * 60 * 1000,
-          ).toISOString(),
+          userAgent: "Mozilla/5.0",
+          timestamp: new Date().toISOString(),
         },
       ];
-
-      const total = mockActivities.length;
-      const totalPages = Math.ceil(total / limit);
-      const startIndex = (page - 1) * limit;
-      const endIndex = startIndex + limit;
-      const activities = mockActivities.slice(startIndex, endIndex);
-
       return {
         activities,
         meta: {
-          total,
+          total: activities.length,
           page,
           limit,
-          totalPages,
+          totalPages: 1,
         },
       };
     }
@@ -993,19 +1092,16 @@ export const issuerProfileApi = {
       `/users/profile/activity?page=${page}&limit=${limit}`,
     );
   },
-
   updateProfile: async (data: ProfileUpdateData): Promise<User> => {
     if (USE_DUMMY_DATA) {
       await simulateDelay();
-      // In a real implementation, this would update the user data
-      return dummyData.users[0]; // Return first user as example
+      return dummyData.users[0];
     }
     return apiClient<User>("/users/profile/issuer", {
       method: "PUT",
       body: JSON.stringify(data),
     });
   },
-
   uploadProfilePicture: async (
     file: File,
   ): Promise<{ profilePicture: string; message: string }> => {
@@ -1033,10 +1129,145 @@ export const issuerProfileApi = {
         message: response.statusText || "Profile picture upload failed",
         statusCode: response.status,
       }));
-
       throw errorData;
     }
 
     return response.json();
+  },
+};
+
+// ==================== DASHBOARD & ANALYTICS ====================
+
+export const dashboardApi = {
+  getStats: async (): Promise<DashboardStats> => {
+    if (USE_DUMMY_DATA) {
+      await simulateDelay();
+      return {
+        totalCertificates: 1250,
+        activeCertificates: 1200,
+        revokedCertificates: 30,
+        expiredCertificates: 20,
+        issuanceTrend: [
+          { date: "2023-01", count: 100 },
+          { date: "2023-02", count: 120 },
+          { date: "2023-03", count: 150 },
+        ],
+        totalVerifications: 450,
+        verifications24h: 15,
+        totalUsers: 1150,
+        statusDistribution: {
+          active: 1200,
+          revoked: 30,
+          expired: 20
+        },
+        recentActivity: [
+          {
+            type: "issue",
+            date: new Date().toISOString(),
+            description: "Issued certificate 'Blockchain Expert' to John Doe",
+          },
+        ],
+      };
+    }
+    return apiClient<DashboardStats>("/admin/analytics/dashboard");
+  },
+
+  getRecentActivity: async (limit = 10): Promise<ActivityItem[]> => {
+    if (USE_DUMMY_DATA) {
+      await simulateDelay();
+      return [
+        {
+          type: "issue",
+          date: new Date().toISOString(),
+          description: "Issued certificate 'Blockchain Expert' to John Doe",
+        },
+      ];
+    }
+    return apiClient<ActivityItem[]>(`/admin/analytics/activity?limit=${limit}`);
+  },
+};
+
+// ==================== AUDIT LOGS (#283) ====================
+
+export const auditApi = {
+  getLogs: async (params?: any): Promise<PaginatedActivityLog> => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value) searchParams.append(key, String(value));
+      });
+    }
+    return apiClient<PaginatedActivityLog>(`/audit?${searchParams.toString()}`);
+  },
+  getCertificateHistory: async (certificateId: string): Promise<ActivityItem[]> => {
+    return apiClient<ActivityItem[]>(`/audit/resource/CERTIFICATE/${certificateId}`);
+  },
+  searchLogs: async (
+    params?: Record<string, string | number | boolean | undefined>,
+  ): Promise<import("./types").AuditLogSearchResponse> => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== "") {
+          searchParams.set(key, String(value));
+        }
+      });
+    }
+
+    if (USE_DUMMY_DATA) {
+      await simulateDelay();
+      return {
+        data: [
+          {
+            id: "audit-1",
+            action: "ISSUE_CERTIFICATE",
+            description: "Issued Blockchain Fundamentals to Alice Johnson",
+            timestamp: new Date().toISOString(),
+            ipAddress: "127.0.0.1",
+          },
+        ],
+        total: 1,
+      };
+    }
+
+    return apiClient(`/audit/search?${searchParams.toString()}`);
+  },
+  getStatistics: async (
+    params?: Record<string, string | number | boolean | undefined>,
+  ): Promise<import("./types").AuditStatistics> => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== "") {
+          searchParams.set(key, String(value));
+        }
+      });
+    }
+
+    if (USE_DUMMY_DATA) {
+      await simulateDelay();
+      return {
+        total: 1,
+        byAction: {
+          ISSUE_CERTIFICATE: 1,
+        },
+      };
+    }
+
+    return apiClient(`/audit/statistics?${searchParams.toString()}`);
+  },
+  exportCsvUrl: (
+    params?: Record<string, string | number | boolean | undefined>,
+  ) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== "") {
+          searchParams.set(key, String(value));
+        }
+      });
+    }
+    const query = searchParams.toString();
+    return `${API_URL}/audit/export${query ? `?${query}` : ""}`;
   },
 };
