@@ -2,8 +2,12 @@ import { useState, useEffect } from 'react';
 import { Award, Upload, XCircle, Layout } from 'lucide-react';
 import { createCertificate, fetchDefaultTemplate, fetchUserByEmail, templateApi, CertificateTemplate } from '../api';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+const GRADE_OPTIONS = ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D', 'F', 'Pass', 'Distinction', 'Merit'];
 
 const IssueCertificate = () => {
+  const { user } = useAuth();
   const [error, setError] = useState("");
   const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
   const [formData, setFormData] = useState({
@@ -11,15 +15,23 @@ const IssueCertificate = () => {
     recipientEmail: '',
     courseName: '',
     issuerName: '',
-    issuerEmail: '',
+    grade: '',
     issueDate: '',
     expiryDate: '',
-    issuerId: '',
     recipientId: '',
     templateId: ''
   });
 
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user) {
+      const fullName = ('firstName' in user && 'lastName' in user)
+        ? `${(user as { firstName: string }).firstName} ${(user as { lastName: string }).lastName}`.trim()
+        : ('name' in user ? (user as { name: string }).name : '');
+      setFormData(prev => ({ ...prev, issuerName: fullName }));
+    }
+  }, [user]);
 
   useEffect(() => {
     const loadTemplates = async () => {
@@ -42,9 +54,13 @@ const IssueCertificate = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // Fetch recipient and issuer details
+      if (!user) {
+        setError("You must be logged in to issue a certificate.");
+        return;
+      }
+
+      // Fetch recipient details
       const recipient = await fetchUserByEmail(formData.recipientEmail);
-      const issuer = await fetchUserByEmail(formData.issuerEmail);
       // Use selected templateId if available, otherwise fetch default as fallback
       const templateId = formData.templateId || (await fetchDefaultTemplate())?.id;
 
@@ -53,24 +69,12 @@ const IssueCertificate = () => {
         return;
       }
 
-      if (!issuer) {
-        setError("Failed to fetch Issuer details. Please Recheck Email");
-        return;
-      }
-
       if (!templateId) {
         setError("Please select a template.");
         return;
       }
 
-
-      // Set recipientId and issuerId
-      setFormData((prev) => ({
-        ...prev,
-        recipientId: recipient.id,
-        issuerId: issuer.id,
-        templateId: templateId
-      }));
+      const issuerId = user.id;
 
       const certificateData = {
         title: `${formData.courseName} Certificate`,
@@ -81,11 +85,11 @@ const IssueCertificate = () => {
         recipientEmail: formData.recipientEmail,
         issueDate: formData.issueDate,
         expiryDate: formData.expiryDate || undefined,
-        issuerId: issuer.id,
+        issuerId,
         recipientId: recipient.id,
         templateId: templateId,
         metadata: {
-          grade: 'A',
+          grade: formData.grade,
           courseName: formData.courseName
         }
       };
@@ -147,17 +151,6 @@ const IssueCertificate = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Issuer Email</label>
-            <input
-              type="email"
-              value={formData.issuerEmail}
-              onChange={(e) => setFormData({ ...formData, issuerEmail: e.target.value })}
-              className="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
-              required
-            />
-          </div>
-
-          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Course Name</label>
             <input
               type="text"
@@ -166,6 +159,21 @@ const IssueCertificate = () => {
               className="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
               required
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Grade / Achievement Level</label>
+            <select
+              value={formData.grade}
+              onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
+              className="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white"
+              required
+            >
+              <option value="" disabled>Select a grade</option>
+              {GRADE_OPTIONS.map((g) => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
           </div>
 
           <div>
