@@ -105,10 +105,10 @@ export class User {
   twoFactorEnabled: boolean;
 
   @Column({ nullable: true, select: false })
-  twoFactorSecret: string;
+  twoFactorSecret: string | null;
 
   @Column({ type: 'simple-array', nullable: true, select: false })
-  twoFactorBackupCodes: string[];
+  twoFactorBackupCodes: string[] | null;
 
   @CreateDateColumn()
   createdAt: Date;

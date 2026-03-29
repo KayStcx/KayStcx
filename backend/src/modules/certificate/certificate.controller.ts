@@ -25,6 +25,7 @@ import { UserRole } from '../../common/constants/roles';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { CertificateQrResponseDto } from './dto/certificate-qr-response.dto';
+import { ExportFiltersDto, BulkExportDto } from './dto/export-filters.dto';
 
 @ApiTags('Certificates')
 @Controller('certificates')
@@ -44,8 +45,23 @@ export class CertificateController {
     @Query('limit') limit = 10,
     @Query('issuerId') issuerId?: string,
     @Query('status') status?: string,
+    @Query('search') search?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ) {
-    return this.certificateService.findAll(page, limit, issuerId, status);
+    return this.certificateService.findAll(
+      page,
+      limit,
+      issuerId,
+      status,
+      search,
+      sortBy,
+      sortOrder,
+      startDate,
+      endDate,
+    );
   }
 
   @Get('stats/summary')
@@ -140,5 +156,38 @@ export class CertificateController {
     @Query('status') status?: string,
   ) {
     return this.certificateService.exportCertificates(issuerId, status);
+  }
+
+  @Post('export')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ISSUER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Bulk export certificates with filters' })
+  async bulkExport(@Body() bulkExportDto: BulkExportDto, @Res() res: any) {
+    const csvData = await this.certificateService.bulkExport(
+      bulkExportDto.certificateIds || [],
+      bulkExportDto.filters,
+    );
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="certificates-export-${new Date().toISOString().split('T')[0]}.csv"`,
+    );
+    res.send(csvData);
+  }
+
+  @Post('export/all')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ISSUER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Export all certificates matching filters' })
+  async exportAllFiltered(@Body() filters: ExportFiltersDto, @Res() res: any) {
+    const csvData = await this.certificateService.exportAllFiltered(filters);
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="certificates-export-all-${new Date().toISOString().split('T')[0]}.csv"`,
+    );
+    res.send(csvData);
   }
 }

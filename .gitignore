@@ -8,6 +8,9 @@ pnpm-lock.yaml
 dist/
 build/
 target/
+**/target/
+test_snapshots/
+**/test_snapshots/
 coverage/
 
 # IDE

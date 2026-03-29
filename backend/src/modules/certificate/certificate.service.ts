@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Brackets, Repository, SelectQueryBuilder } from 'typeorm';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { UpdateCertificateDto } from './dto/update-certificate.dto';
 import { Certificate } from './entities/certificate.entity';
@@ -19,6 +19,7 @@ import { WebhookEvent } from '../webhooks/entities/webhook-subscription.entity';
 import { MetadataSchemaService } from '../metadata-schema/services/metadata-schema.service';
 import { FilesService } from '../files/services/files.service';
 import { CertificateQrResponseDto } from './dto/certificate-qr-response.dto';
+import { ExportFiltersDto } from './dto/export-filters.dto';
 import { AuditService } from '../audit/services/audit.service';
 import { AuditAction, AuditResourceType } from '../audit/constants';
 
@@ -180,27 +181,46 @@ export class CertificateService {
     limit = 10,
     issuerId?: string,
     status?: string,
-  ): Promise<{ certificates: Certificate[]; total: number }> {
-    const queryBuilder = this.certificateRepository
-      .createQueryBuilder('certificate')
-      .leftJoinAndSelect('certificate.issuer', 'issuer')
-      .orderBy('certificate.issuedAt', 'DESC');
+    search?: string,
+    sortBy = 'issueDate',
+    sortOrder = 'desc',
+    startDate?: string,
+    endDate?: string,
+  ): Promise<{
+    data: Array<Record<string, unknown>>;
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const normalizedPage = Math.max(Number(page) || 1, 1);
+    const normalizedLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
+    const queryBuilder = this.createCertificateQueryBuilder();
 
-    if (issuerId) {
-      queryBuilder.andWhere('certificate.issuerId = :issuerId', { issuerId });
-    }
-
-    if (status) {
-      queryBuilder.andWhere('certificate.status = :status', { status });
-    }
+    this.applyCertificateFilters(queryBuilder, {
+      issuerId,
+      status,
+      search,
+      startDate,
+      endDate,
+    });
+    this.applyCertificateSorting(queryBuilder, sortBy, sortOrder);
 
     const total = await queryBuilder.getCount();
     const certificates = await queryBuilder
-      .skip((page - 1) * limit)
-      .take(limit)
+      .skip((normalizedPage - 1) * normalizedLimit)
+      .take(normalizedLimit)
       .getMany();
 
-    return { certificates, total };
+    return {
+      data: certificates.map((certificate) =>
+        this.serializeCertificateForFrontend(certificate),
+      ),
+      total,
+      page: normalizedPage,
+      limit: normalizedLimit,
+      totalPages: Math.max(1, Math.ceil(total / normalizedLimit)),
+    };
   }
 
   async findOne(id: string): Promise<Certificate> {
@@ -491,24 +511,180 @@ export class CertificateService {
     return { revoked, failed };
   }
 
+  private createCertificateQueryBuilder(): SelectQueryBuilder<Certificate> {
+    return this.certificateRepository
+      .createQueryBuilder('certificate')
+      .leftJoinAndSelect('certificate.issuer', 'issuer');
+  }
+
+  private applyCertificateFilters(
+    queryBuilder: SelectQueryBuilder<Certificate>,
+    filters: {
+      issuerId?: string;
+      status?: string;
+      search?: string;
+      startDate?: string;
+      endDate?: string;
+    },
+  ): void {
+    if (filters.issuerId) {
+      queryBuilder.andWhere('certificate.issuerId = :issuerId', {
+        issuerId: filters.issuerId,
+      });
+    }
+
+    if (filters.status) {
+      queryBuilder.andWhere('certificate.status = :status', {
+        status: filters.status,
+      });
+    }
+
+    if (filters.search?.trim()) {
+      const search = `%${filters.search.trim()}%`;
+      queryBuilder.andWhere(
+        new Brackets((builder) => {
+          builder
+            .where('CAST(certificate.id AS text) ILIKE :search', { search })
+            .orWhere('certificate.recipientName ILIKE :search', { search })
+            .orWhere('certificate.recipientEmail ILIKE :search', { search })
+            .orWhere('certificate.title ILIKE :search', { search })
+            .orWhere('certificate.courseName ILIKE :search', { search })
+            .orWhere('certificate.verificationCode ILIKE :search', { search })
+            .orWhere('issuer.name ILIKE :search', { search });
+        }),
+      );
+    }
+
+    if (filters.startDate) {
+      queryBuilder.andWhere('certificate.issuedAt >= :startDate', {
+        startDate: new Date(filters.startDate),
+      });
+    }
+
+    if (filters.endDate) {
+      const end = new Date(filters.endDate);
+      end.setHours(23, 59, 59, 999);
+      queryBuilder.andWhere('certificate.issuedAt <= :endDate', {
+        endDate: end,
+      });
+    }
+  }
+
+  private applyCertificateSorting(
+    queryBuilder: SelectQueryBuilder<Certificate>,
+    sortBy?: string,
+    sortOrder?: string,
+  ): void {
+    const order = sortOrder?.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+    const sortColumnMap: Record<string, string> = {
+      serialNumber: 'certificate.id',
+      recipientName: 'certificate.recipientName',
+      title: 'certificate.title',
+      issuerName: 'issuer.name',
+      issueDate: 'certificate.issuedAt',
+      status: 'certificate.status',
+    };
+
+    queryBuilder.orderBy(
+      sortColumnMap[sortBy || 'issueDate'] || 'certificate.issuedAt',
+      order,
+    );
+  }
+
+  private serializeCertificateForFrontend(certificate: Certificate) {
+    const metadata = certificate.metadata ?? {};
+
+    return {
+      id: certificate.id,
+      serialNumber: certificate.verificationCode || certificate.id,
+      recipientName: certificate.recipientName,
+      recipientEmail: certificate.recipientEmail,
+      title: certificate.title,
+      courseName: certificate.courseName,
+      issuerName: certificate.issuer?.name || 'Unknown Issuer',
+      issueDate: certificate.issuedAt.toISOString(),
+      expiryDate: certificate.expiresAt?.toISOString(),
+      status: certificate.status,
+      pdfUrl: certificate.pdfUrl,
+      metadata: certificate.metadata,
+      frozenAt: metadata.frozenAt,
+      freezeReason: metadata.freezeReason,
+      unfreezeAt: metadata.unfrozenAt,
+    };
+  }
+
   async exportCertificates(
     issuerId?: string,
     status?: string,
   ): Promise<Certificate[]> {
-    const queryBuilder = this.certificateRepository
-      .createQueryBuilder('certificate')
-      .leftJoinAndSelect('certificate.issuer', 'issuer')
-      .orderBy('certificate.issuedAt', 'DESC');
-
-    if (issuerId) {
-      queryBuilder.andWhere('certificate.issuerId = :issuerId', { issuerId });
-    }
-
-    if (status) {
-      queryBuilder.andWhere('certificate.status = :status', { status });
-    }
+    const queryBuilder = this.createCertificateQueryBuilder();
+    this.applyCertificateFilters(queryBuilder, { issuerId, status });
+    this.applyCertificateSorting(queryBuilder, 'issueDate', 'desc');
 
     return queryBuilder.getMany();
+  }
+
+  async bulkExport(
+    certificateIds: string[],
+    filters?: ExportFiltersDto,
+  ): Promise<string> {
+    const queryBuilder = this.createCertificateQueryBuilder();
+
+    if (certificateIds && certificateIds.length > 0) {
+      queryBuilder.andWhere('certificate.id IN (:...certificateIds)', {
+        certificateIds,
+      });
+    }
+
+    this.applyCertificateFilters(queryBuilder, filters ?? {});
+    this.applyCertificateSorting(queryBuilder, 'issueDate', 'desc');
+
+    const certificates = await queryBuilder.getMany();
+    return this.convertToCSV(certificates);
+  }
+
+  async exportAllFiltered(filters?: ExportFiltersDto): Promise<string> {
+    const queryBuilder = this.createCertificateQueryBuilder();
+    this.applyCertificateFilters(queryBuilder, filters ?? {});
+    this.applyCertificateSorting(queryBuilder, 'issueDate', 'desc');
+
+    const certificates = await queryBuilder.getMany();
+    return this.convertToCSV(certificates);
+  }
+
+  private convertToCSV(certificates: Certificate[]): string {
+    const headers = [
+      'ID',
+      'Serial Number',
+      'Recipient Name',
+      'Recipient Email',
+      'Title',
+      'Course Name',
+      'Issuer Name',
+      'Issue Date',
+      'Status',
+      'Expiry Date',
+    ];
+
+    const rows = certificates.map((cert) => [
+      cert.id,
+      cert.verificationCode || cert.id,
+      cert.recipientName,
+      cert.recipientEmail,
+      cert.title,
+      cert.courseName,
+      cert.issuer?.name || 'Unknown',
+      cert.issuedAt.toISOString().split('T')[0],
+      cert.status,
+      cert.expiresAt ? cert.expiresAt.toISOString().split('T')[0] : '',
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
+    ].join('\n');
+
+    return csvContent;
   }
 
   async remove(id: string): Promise<void> {

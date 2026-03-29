@@ -49,6 +49,10 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [selectAll, setSelectAll] = useState(false);
 
+    // State for filtered export
+    const [exportingFiltered, setExportingFiltered] = useState(false);
+    const [filteredCount, setFilteredCount] = useState(0);
+
     // Freeze modal state
     const [showFreezeModal, setShowFreezeModal] = useState(false);
     const [freezeReason, setFreezeReason] = useState('');
@@ -94,6 +98,9 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
             setCertificates(response.data);
             setTotal(response.total);
             setTotalPages(response.totalPages);
+
+            // Set filtered count for export all functionality
+            setFilteredCount(response.total);
         } catch (err) {
             console.error('Failed to fetch certificates:', err);
             onError?.('Failed to fetch certificates');
@@ -162,6 +169,34 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
         } catch (err) {
             console.error('Export failed:', err);
             onError?.('Failed to export certificates');
+        }
+    };
+
+    // Handle bulk export of all filtered results
+    const handleBulkExportAll = async () => {
+        setExportingFiltered(true);
+        try {
+            const filters: CertificateExportFilters = {
+                search: search || undefined,
+                status: statusFilter || undefined,
+                startDate: startDate || undefined,
+                endDate: endDate || undefined,
+            };
+            const blob = await certificateApi.bulkExportAll(filters);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `certificates-export-all-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            onSuccess?.(`Successfully exported ${filteredCount} certificates`);
+        } catch (err) {
+            console.error('Export failed:', err);
+            onError?.('Failed to export certificates');
+        } finally {
+            setExportingFiltered(false);
         }
     };
 
@@ -303,6 +338,18 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
         </button>
     );
 
+    // Export all filtered button
+    const ExportAllButton = () => (
+        <button
+            onClick={handleBulkExportAll}
+            disabled={exportingFiltered || filteredCount === 0}
+            className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-300 rounded-md hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-600 dark:hover:bg-blue-900/30"
+        >
+            <Download className="w-4 h-4 mr-2" />
+            {exportingFiltered ? 'Exporting...' : `Export All (${filteredCount})`}
+        </button>
+    );
+
     // Revoke button
     const RevokeButton = () => (
         <button
@@ -378,6 +425,7 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
                 {/* Bulk Actions */}
                 <div className="flex gap-2 mt-4">
                     <ExportButton />
+                    <ExportAllButton />
                     <RevokeButton />
                 </div>
             </div>

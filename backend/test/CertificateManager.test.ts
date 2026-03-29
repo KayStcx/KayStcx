@@ -329,9 +329,9 @@ describe('CertificateManager Integration Tests', () => {
     it('should find certificates by issuer ID', async () => {
       const result = await certificateService.findAll(1, 10, TEST_ISSUER_ID);
 
-      expect(result).toHaveProperty('certificates');
+      expect(result).toHaveProperty('data');
       expect(result).toHaveProperty('total');
-      expect(Array.isArray(result.certificates)).toBe(true);
+      expect(Array.isArray(result.data)).toBe(true);
     });
 
     it('should find certificates by recipient email', async () => {

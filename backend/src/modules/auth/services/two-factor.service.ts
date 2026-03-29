@@ -75,7 +75,7 @@ export class TwoFactorService {
       .where('user.id = :id', { id: userId })
       .getOne();
 
-    if (!user?.twoFactorEnabled) {
+    if (!user?.twoFactorEnabled || !user.twoFactorSecret) {
       throw new BadRequestException('2FA is not enabled');
     }
 
@@ -143,7 +143,7 @@ export class TwoFactorService {
       .where('user.id = :id', { id: userId })
       .getOne();
 
-    if (!user?.twoFactorEnabled) {
+    if (!user?.twoFactorEnabled || !user.twoFactorSecret) {
       throw new BadRequestException('2FA is not enabled');
     }
 

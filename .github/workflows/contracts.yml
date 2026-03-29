@@ -1,0 +1,43 @@
+name: Contracts CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - feature/**
+    paths:
+      - stellar-contracts/**
+      - .github/workflows/contracts.yml
+  pull_request:
+    paths:
+      - stellar-contracts/**
+      - .github/workflows/contracts.yml
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: stellar-contracts
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: stellar-contracts
+
+      - name: Test
+        run: cargo test
+
+      - name: Build
+        run: cargo build --release

@@ -23,11 +23,11 @@ const UserManagement: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const params: Record<string, unknown> = {};
+      const params: Record<string, string | number | boolean> = {};
       if (search) params.search = search;
       if (roleFilter !== 'all') params.role = roleFilter;
       const data = await userApi.getAll(params);
-      setUsers(data.users || data);
+      setUsers(data.data as unknown as User[]);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to fetch users');
     } finally {
