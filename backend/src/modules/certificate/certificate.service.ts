@@ -36,8 +36,6 @@ import { WebhookEvent } from '../webhooks/entities/webhook-subscription.entity';
 import { MetadataSchemaService } from '../metadata-schema/services/metadata-schema.service';
 import { FilesService } from '../files/services/files.service';
 import { CertificateQrResponseDto } from './dto/certificate-qr-response.dto';
-import { AuditService } from '../audit/services/audit.service';
-import { AuditAction, AuditResourceType } from '../audit/constants';
 
 @Injectable()
 export class CertificateService {
@@ -57,12 +55,20 @@ export class CertificateService {
     private readonly mapper: CertificateMapper,
     private readonly filesService: FilesService,
     private readonly configService: ConfigService,
-    private readonly auditService: AuditService,
   ) {}
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Certificate Issuance
   // ─────────────────────────────────────────────────────────────────────────────
+
+  /** Alias for `issue()` used by legacy tests and tooling. */
+  async create(
+    dto: CreateCertificateDto,
+    ipAddress = 'unknown',
+    userAgent = 'unknown',
+  ): Promise<Certificate> {
+    return this.issue(dto as unknown as IssueCertificateDto, dto.issuerId, ipAddress, userAgent);
+  }
 
   async issue(
     dto: IssueCertificateDto,
@@ -641,18 +647,24 @@ export class CertificateService {
   async freeze(id: string, reason?: string): Promise<Certificate> {
     const certificate = await this.findOne(id);
 
-    if (certificate.status !== 'active') {
+    if (certificate.status !== CertificateStatus.ACTIVE) {
       throw new ConflictException(
         `Certificate must be active to freeze. Current status: ${certificate.status}`,
       );
     }
 
-    certificate.status = 'frozen';
+    certificate.status = CertificateStatus.FROZEN;
     if (reason) {
       certificate.metadata = {
         ...certificate.metadata,
-        freezeReason: reason,
-        frozenAt: new Date(),
+        additionalFields: {
+          ...((certificate.metadata?.additionalFields as Record<
+            string,
+            unknown
+          >) ?? {}),
+          freezeReason: reason,
+          frozenAt: new Date(),
+        },
       };
     }
 
@@ -688,18 +700,24 @@ export class CertificateService {
   async unfreeze(id: string, reason?: string): Promise<Certificate> {
     const certificate = await this.findOne(id);
 
-    if (certificate.status !== 'frozen') {
+    if (certificate.status !== CertificateStatus.FROZEN) {
       throw new ConflictException(
         `Certificate must be frozen to unfreeze. Current status: ${certificate.status}`,
       );
     }
 
-    certificate.status = 'active';
+    certificate.status = CertificateStatus.ACTIVE;
     if (reason) {
       certificate.metadata = {
         ...certificate.metadata,
-        unfreezeReason: reason,
-        unfrozenAt: new Date(),
+        additionalFields: {
+          ...((certificate.metadata?.additionalFields as Record<
+            string,
+            unknown
+          >) ?? {}),
+          unfreezeReason: reason,
+          unfrozenAt: new Date(),
+        },
       };
     }
 

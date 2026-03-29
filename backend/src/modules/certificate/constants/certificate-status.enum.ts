@@ -3,4 +3,5 @@ export enum CertificateStatus {
   REVOKED = 'revoked',
   EXPIRED = 'expired',
   PENDING = 'pending',
+  FROZEN = 'frozen',
 }

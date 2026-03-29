@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import type { JSX } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { certificateApi, VerificationResult } from '../api';

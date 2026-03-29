@@ -221,6 +221,7 @@ export class CertificateRepository {
       [CertificateStatus.REVOKED]: 0,
       [CertificateStatus.EXPIRED]: 0,
       [CertificateStatus.PENDING]: 0,
+      [CertificateStatus.FROZEN]: 0,
     };
 
     for (const row of rows) {

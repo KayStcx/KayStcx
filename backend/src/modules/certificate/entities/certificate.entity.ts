@@ -121,9 +121,6 @@ export class Certificate {
   pdfUrl?: string;
 
   @Column({ nullable: true })
-  pdfUrl?: string;
-
-  @Column({ nullable: true })
   qrCodeUrl?: string;
 
   @Column({ default: false })

@@ -7,6 +7,7 @@ import {
   Post,
   Body,
   Patch,
+  Delete,
   ParseUUIDPipe,
   Req,
   HttpCode,
@@ -35,14 +36,13 @@ import { IssueCertificateDto } from './dto/issue-certificate.dto';
 import { RevokeCertificateDto } from './dto/revoke-certificate.dto';
 import { SearchCertificatesDto } from './dto/search-certificates.dto';
 import { UpdateCertificateDto } from './dto/update-certificate.dto';
+import { CreateCertificateDto } from './dto/create-certificate.dto';
 
 interface AuthenticatedUser {
   id: string;
   email: string;
   role: UserRole;
 }
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { CertificateQrResponseDto } from './dto/certificate-qr-response.dto';
 
 @ApiTags('Certificates')
