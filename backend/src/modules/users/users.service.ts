@@ -36,6 +36,7 @@ import { IPaginatedResult } from './interfaces';
 import { IAuthTokens, IUserPublic } from './interfaces/user.interface';
 import { CertificateStatsService } from '../certificate/services/stats.service';
 import { AuditService } from '../audit/services/audit.service';
+import { EmailQueueService } from '../email/email-queue.service';
 
 @Injectable()
 export class UsersService {
@@ -52,6 +53,7 @@ export class UsersService {
     private readonly configService: ConfigService,
     private readonly certificateStatsService: CertificateStatsService,
     private readonly auditService: AuditService,
+    private readonly emailQueueService: EmailQueueService,
   ) {}
 
   // ==================== Authentication ====================
@@ -105,8 +107,7 @@ export class UsersService {
     // Generate tokens
     const tokens = await this.generateTokens(user);
 
-    // TODO: Send verification email
-    // await this.emailService.sendVerificationEmail(user.email, emailVerificationToken);
+    await this.queueVerificationEmail(user, emailVerificationToken);
 
     return {
       user: this.toPublicUser(user),
@@ -189,10 +190,35 @@ export class UsersService {
   async refreshTokens(refreshTokenDto: RefreshTokenDto): Promise<IAuthTokens> {
     const { refreshToken } = refreshTokenDto;
 
-    // Find user by refresh token
-    const user = await this.userRepository.findByRefreshToken(refreshToken);
+    // Verify refresh token signature and extract payload
+    let payload: { sub: string } | null = null;
+    try {
+      const decoded = this.jwtService.verify(refreshToken, {
+        secret: this.configService.get<string>('JWT_SECRET'),
+      }) as Record<string, unknown>;
 
-    if (!user) {
+      if (!decoded || !decoded.sub || typeof decoded.sub !== 'string') {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      payload = { sub: decoded.sub };
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const userId = payload?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    // Load user and validate stored refresh token hash
+    const user = await this.userRepository.findById(userId);
+    if (!user || !user.refreshToken) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const matches = await bcrypt.compare(refreshToken, user.refreshToken);
+    if (!matches) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
@@ -265,8 +291,7 @@ export class UsersService {
       emailVerificationExpires,
     });
 
-    // TODO: Send verification email
-    // await this.emailService.sendVerificationEmail(user.email, emailVerificationToken);
+    await this.queueVerificationEmail(user, emailVerificationToken);
 
     return {
       message: 'If the email exists, a verification link has been sent',
@@ -337,8 +362,7 @@ export class UsersService {
       passwordResetExpires,
     });
 
-    // TODO: Send password reset email
-    // await this.emailService.sendPasswordResetEmail(user.email, passwordResetToken);
+    await this.queuePasswordResetEmail(user, passwordResetToken);
 
     this.logger.log(`Password reset requested for: ${email}`);
 
@@ -812,7 +836,8 @@ export class UsersService {
         this.userRepository.countByStatus(UserStatus.PENDING_VERIFICATION),
       ]);
 
-    const certificateIssuanceCounts = await this.userRepository.getPerUserCertificateCounts();
+    const certificateIssuanceCounts =
+      await this.userRepository.getPerUserCertificateCounts();
 
     return {
       total,
@@ -876,8 +901,13 @@ export class UsersService {
     const refreshTokenExpires = new Date();
     refreshTokenExpires.setDate(refreshTokenExpires.getDate() + 7);
 
-    await this.userRepository.update(user.id, {
+    const hashedRefreshToken = await bcrypt.hash(
       refreshToken,
+      this.SALT_ROUNDS,
+    );
+
+    await this.userRepository.update(user.id, {
+      refreshToken: hashedRefreshToken,
       refreshTokenExpires,
     });
 
@@ -890,6 +920,68 @@ export class UsersService {
 
   private generateToken(): string {
     return crypto.randomBytes(32).toString('hex');
+  }
+
+  private async queueVerificationEmail(
+    user: User,
+    emailVerificationToken: string,
+  ): Promise<void> {
+    try {
+      await this.emailQueueService.queueVerificationEmail({
+        to: user.email,
+        userName: this.getUserDisplayName(user),
+        verificationLink: this.buildVerificationLink(emailVerificationToken),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to queue verification email for ${user.email}: ${message}`,
+      );
+    }
+  }
+
+  private async queuePasswordResetEmail(
+    user: User,
+    passwordResetToken: string,
+  ): Promise<void> {
+    try {
+      await this.emailQueueService.queuePasswordReset({
+        to: user.email,
+        userName: this.getUserDisplayName(user),
+        resetLink: this.buildPasswordResetLink(passwordResetToken),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to queue password reset email for ${user.email}: ${message}`,
+      );
+    }
+  }
+
+  private buildVerificationLink(token: string): string {
+    return this.buildAppLink('/verify-email', token);
+  }
+
+  private buildPasswordResetLink(token: string): string {
+    return this.buildAppLink('/reset-password', token);
+  }
+
+  private buildAppLink(path: string, token: string): string {
+    const appUrl =
+      this.configService.get<string>('APP_URL') ||
+      this.configService.get<string>('ALLOWED_ORIGINS')?.split(',')[0] ||
+      'http://localhost:5173';
+
+    const normalizedBaseUrl = appUrl.replace(/\/+$/, '');
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+    return `${normalizedBaseUrl}${normalizedPath}?token=${encodeURIComponent(token)}`;
+  }
+
+  private getUserDisplayName(user: User): string {
+    return (
+      `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email
+    );
   }
 
   private toPublicUser(user: User): IUserPublic {

@@ -31,6 +31,8 @@ pub enum DataKey {
     MultisigConfig(Address),
     IssuerAdmin(Address),
     PendingRequest(String),
+    IssuerRequestIds(Address),
+    SignerRequestIds(Address),
 }
 
 #[contracttype]
@@ -112,4 +114,23 @@ pub struct PaginatedResult {
     pub page: u32,
     pub limit: u32,
     pub has_next: bool,
+}
+
+// Batch Verification Types
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VerificationResult {
+    pub id: String,
+    pub exists: bool,
+    pub revoked: bool,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VerificationReport {
+    pub total: u32,
+    pub successful: u32,
+    pub failed: u32,
+    pub total_cost: u64,
+    pub results: Vec<VerificationResult>,
 }

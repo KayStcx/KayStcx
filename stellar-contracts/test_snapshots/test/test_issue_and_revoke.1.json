@@ -24,7 +24,8 @@
                 },
                 {
                   "string": "ipfs://Qm..."
-                }
+                },
+                "void"
               ]
             }
           },
@@ -139,35 +140,17 @@
                             },
                             {
                               "key": {
-                                "symbol": "revocation_reason"
+                                "symbol": "status"
                               },
                               "val": {
-                                "string": "Violation of terms"
+                                "symbol": "Revoked"
                               }
                             },
                             {
                               "key": {
-                                "symbol": "revoked"
+                                "symbol": "expires_at"
                               },
-                              "val": {
-                                "bool": true
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "revoked_at"
-                              },
-                              "val": {
-                                "u64": 0
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "revoked_by"
-                              },
-                              "val": {
-                                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
-                              }
+                              "val": "void"
                             }
                           ]
                         }
@@ -303,7 +286,8 @@
                 },
                 {
                   "string": "ipfs://Qm..."
-                }
+                },
+                "void"
               ]
             }
           }
@@ -417,27 +401,15 @@
                 },
                 {
                   "key": {
-                    "symbol": "revocation_reason"
-                  },
-                  "val": "void"
-                },
-                {
-                  "key": {
-                    "symbol": "revoked"
+                    "symbol": "status"
                   },
                   "val": {
-                    "bool": false
+                    "symbol": "Active"
                   }
                 },
                 {
                   "key": {
-                    "symbol": "revoked_at"
-                  },
-                  "val": "void"
-                },
-                {
-                  "key": {
-                    "symbol": "revoked_by"
+                    "symbol": "expires_at"
                   },
                   "val": "void"
                 }
@@ -636,35 +608,17 @@
                 },
                 {
                   "key": {
-                    "symbol": "revocation_reason"
+                    "symbol": "status"
                   },
                   "val": {
-                    "string": "Violation of terms"
+                    "symbol": "Revoked"
                   }
                 },
                 {
                   "key": {
-                    "symbol": "revoked"
+                    "symbol": "expires_at"
                   },
-                  "val": {
-                    "bool": true
-                  }
-                },
-                {
-                  "key": {
-                    "symbol": "revoked_at"
-                  },
-                  "val": {
-                    "u64": 0
-                  }
-                },
-                {
-                  "key": {
-                    "symbol": "revoked_by"
-                  },
-                  "val": {
-                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
-                  }
+                  "val": "void"
                 }
               ]
             }

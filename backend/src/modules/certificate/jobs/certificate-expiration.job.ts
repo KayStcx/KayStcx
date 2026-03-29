@@ -153,5 +153,7 @@ export class CertificateExpirationJob {
       metadata: { job: 'CertificateExpirationJob', markedExpired },
       status: 'success',
     });
+      `Marked ${expiredCertificates.length} certificates as expired.`,
+    );
   }
 }

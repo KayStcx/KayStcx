@@ -1,6 +1,7 @@
 import {
   Injectable,
   ConflictException,
+  ForbiddenException,
   Logger,
   NotFoundException,
   BadRequestException,
@@ -35,6 +36,8 @@ import { WebhookEvent } from '../webhooks/entities/webhook-subscription.entity';
 import { MetadataSchemaService } from '../metadata-schema/services/metadata-schema.service';
 import { FilesService } from '../files/services/files.service';
 import { CertificateQrResponseDto } from './dto/certificate-qr-response.dto';
+import { AuditService } from '../audit/services/audit.service';
+import { AuditAction, AuditResourceType } from '../audit/constants';
 
 @Injectable()
 export class CertificateService {
@@ -54,6 +57,7 @@ export class CertificateService {
     private readonly mapper: CertificateMapper,
     private readonly filesService: FilesService,
     private readonly configService: ConfigService,
+    private readonly auditService: AuditService,
   ) {}
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -666,6 +670,18 @@ export class CertificateService {
       },
     );
 
+    // Audit logging
+    await this.auditService.log({
+      action: AuditAction.CERTIFICATE_FREEZE,
+      resourceType: AuditResourceType.CERTIFICATE,
+      resourceId: savedCertificate.id,
+      status: 'success',
+      metadata: {
+        reason,
+        status: savedCertificate.status,
+      },
+    });
+
     return savedCertificate;
   }
 
@@ -701,12 +717,26 @@ export class CertificateService {
       },
     );
 
+    // Audit logging
+    await this.auditService.log({
+      action: AuditAction.CERTIFICATE_UNFREEZE,
+      resourceType: AuditResourceType.CERTIFICATE,
+      resourceId: savedCertificate.id,
+      status: 'success',
+      metadata: {
+        reason,
+        status: savedCertificate.status,
+      },
+    });
+
     return savedCertificate;
   }
 
   async bulkRevoke(
     certificateIds: string[],
     reason?: string,
+    issuerId?: string,
+    userRole?: string,
   ): Promise<{
     revoked: Certificate[];
     failed: { id: string; error: string }[];
@@ -716,7 +746,7 @@ export class CertificateService {
 
     for (const id of certificateIds) {
       try {
-        const certificate = await this.revoke(id, reason);
+        const certificate = await this.revoke(id, reason, issuerId, userRole);
         revoked.push(certificate);
       } catch (error) {
         failed.push({
