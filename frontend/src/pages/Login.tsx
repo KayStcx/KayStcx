@@ -4,11 +4,19 @@ import { LogIn, UserPlus, Shield, Eye, EyeOff } from "lucide-react";
 import { authApi, UserRole } from "../api";
 import { tokenStorage } from "../api";
 
+// FIX #267 — Two distinct loading states so the user sees exactly which phase
+// is in progress: "Creating account…" during registration, then
+// "Signing in…" during the automatic login that follows.
+type LoadingPhase = "idle" | "registering" | "logging-in";
+
 const Login = () => {
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+
+  // Replaces the single boolean `loading` with a granular phase value.
+  const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>("idle");
+
   const [error, setError] = useState<string | null>(null);
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
@@ -63,12 +71,12 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
 
     try {
       if (!isLogin) {
-        // Register first if in sign-up mode
+        // Phase 1 — Registration
+        setLoadingPhase("registering");
         await authApi.register({
           firstName: formData.firstName,
           lastName: formData.lastName,
@@ -76,11 +84,10 @@ const Login = () => {
           email: formData.email,
           password: formData.password,
         });
-
-        // registration was successful, now let's login
       }
 
-      // Login after registration or if user is just logging in
+      // Phase 2 — Login (always reached, whether registering or just logging in)
+      setLoadingPhase("logging-in");
       const res = await authApi.login({
         email: formData.email,
         password: formData.password,
@@ -97,8 +104,40 @@ const Login = () => {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Authentication failed.");
     } finally {
-      setLoading(false);
+      setLoadingPhase("idle");
     }
+  };
+
+  /** Label shown inside the submit button depending on current phase. */
+  const buttonLabel = () => {
+    if (loadingPhase === "registering") {
+      return (
+        <>
+          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+          Creating account…
+        </>
+      );
+    }
+    if (loadingPhase === "logging-in") {
+      return (
+        <>
+          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+          Signing in…
+        </>
+      );
+    }
+    // idle
+    return isLogin ? (
+      <>
+        <LogIn className="w-4 h-4" />
+        Sign In
+      </>
+    ) : (
+      <>
+        <UserPlus className="w-4 h-4" />
+        Create Account
+      </>
+    );
   };
 
   return (
@@ -115,6 +154,15 @@ const Login = () => {
         {error && (
           <p className="text-red-600 dark:text-red-400 text-center mb-4">
             {error}
+          </p>
+        )}
+
+        {/* Phase status banner shown during multi-step registration flow */}
+        {!isLogin && loadingPhase !== "idle" && (
+          <p className="text-sm text-blue-600 dark:text-blue-400 text-center mb-4">
+            {loadingPhase === "registering"
+              ? "Step 1 of 2 — Creating your account…"
+              : "Step 2 of 2 — Signing you in…"}
           </p>
         )}
 
@@ -181,11 +229,11 @@ const Login = () => {
             />
           </div>
 
+          {/* Password */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
               Password
             </label>
-
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
@@ -194,13 +242,12 @@ const Login = () => {
                   setFormData({ ...formData, password: e.target.value })
                 }
                 className="w-full px-4 py-2 border rounded-md 
-      bg-white dark:bg-slate-800
-      text-gray-900 dark:text-white
-      border-gray-300 dark:border-slate-700
-      focus:ring-blue-500 focus:border-blue-500 pr-10"
+                bg-white dark:bg-slate-800
+                text-gray-900 dark:text-white
+                border-gray-300 dark:border-slate-700
+                focus:ring-blue-500 focus:border-blue-500 pr-10"
                 required
               />
-
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
@@ -247,7 +294,7 @@ const Login = () => {
             )}
           </div>
 
-          {/* Role */}
+          {/* Role (sign-up only) */}
           {!isLogin && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
@@ -256,10 +303,7 @@ const Login = () => {
               <select
                 value={formData.role}
                 onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    role: e.target.value as UserRole,
-                  })
+                  setFormData({ ...formData, role: e.target.value as UserRole })
                 }
                 className="w-full px-4 py-2 border rounded-md 
                 bg-white dark:bg-slate-800
@@ -275,29 +319,17 @@ const Login = () => {
             </div>
           )}
 
-          {/* Button */}
+          {/* Submit button */}
           <button
             type="submit"
-            disabled={loading}
+            disabled={isLoading}
             className="w-full py-2 px-4 
-            bg-blue-600 hover:bg-blue-700 
+            bg-blue-600 hover:bg-blue-700 disabled:opacity-60
             text-white rounded-md 
             flex items-center justify-center gap-2 
             transition-colors duration-200"
           >
-            {loading ? (
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-            ) : isLogin ? (
-              <>
-                <LogIn className="w-4 h-4" />
-                Sign In
-              </>
-            ) : (
-              <>
-                <UserPlus className="w-4 h-4" />
-                Create Account
-              </>
-            )}
+            {buttonLabel()}
           </button>
         </form>
 
@@ -350,7 +382,7 @@ const Login = () => {
                       disabled={forgotLoading}
                       className="px-3 py-2 bg-blue-600 text-white rounded-md"
                     >
-                      {forgotLoading ? "Sending..." : "Send"}
+                      {forgotLoading ? "Sending…" : "Send"}
                     </button>
                   </div>
                 )}
@@ -366,10 +398,14 @@ const Login = () => {
             )}
           </div>
         )}
-        {/* Toggle */}
+
+        {/* Toggle login / register */}
         <div className="mt-6 text-center">
           <button
-            onClick={() => setIsLogin(!isLogin)}
+            onClick={() => {
+              setIsLogin(!isLogin);
+              setError(null);
+            }}
             className="text-blue-600 dark:text-blue-400 hover:underline"
           >
             {isLogin
