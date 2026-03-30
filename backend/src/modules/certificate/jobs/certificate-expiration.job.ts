@@ -1,186 +1,157 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual, MoreThan, In } from 'typeorm';
+import { Repository } from 'typeorm';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { Certificate } from '../entities/certificate.entity';
-import { NotificationsService } from '../../notifications/notifications.service';
-import { NotificationType } from '../../notifications/entities/notification.entity';
-import { EmailService } from '../../email/email.service';
+import { CertificateStatus } from '../constants/certificate-status.enum';
+import { AuditService } from '../../audit/services/audit.service';
+import { AuditAction } from '../../audit/constants/audit-action.enum';
+import { AuditResourceType } from '../../audit/constants/audit-resource-type.enum';
+import { StellarService } from '../../stellar/services/stellar.service';
+import { ConfigService } from '@nestjs/config';
 
-/**
- * Scheduled job that checks for certificates approaching expiration
- * and sends notifications at 30, 14, and 7 days before expiry.
- * Resolves Issue #278 – Certificate Expiration Notifications
- */
 @Injectable()
 export class CertificateExpirationJob {
   private readonly logger = new Logger(CertificateExpirationJob.name);
 
-  // Days before expiration to send notifications
-  private readonly notificationDays = [30, 14, 7];
-
   constructor(
     @InjectRepository(Certificate)
     private readonly certificateRepository: Repository<Certificate>,
-    private readonly notificationsService: NotificationsService,
-    private readonly emailService: EmailService,
+    private readonly stellarService: StellarService,
+    private readonly auditService: AuditService,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
-   * Runs daily at 8:00 AM to check for certificates
-   * approaching expiration.
+   * Runs every hour to mark active certificates as expired.
+   * Two expiration criteria are checked:
+   *  1. Date-based: expiresAt <= now
+   *  2. Stellar sequence-based: if stellarSequenceNumber is set and the issuer
+   *     account's current sequence number exceeds it, the certificate is expired.
    */
-  @Cron(CronExpression.EVERY_DAY_AT_8AM)
-  async handleExpirationNotifications(): Promise<void> {
-    this.logger.log('Running certificate expiration notification check...');
+  @Cron(CronExpression.EVERY_HOUR)
+  async checkExpiredCertificates(): Promise<void> {
+    this.logger.log('Starting certificate expiration check');
 
-    for (const daysBeforeExpiry of this.notificationDays) {
-      await this.sendNotificationsForDay(daysBeforeExpiry);
-    }
+    void this.auditService.log({
+      action: AuditAction.BACKGROUND_JOB_START,
+      resourceType: AuditResourceType.SYSTEM,
+      userId: 'system',
+      ipAddress: 'system',
+      metadata: { job: 'CertificateExpirationJob' },
+      status: 'success',
+    });
 
-    // Also mark expired certificates
-    await this.markExpiredCertificates();
-
-    this.logger.log('Certificate expiration notification check complete.');
-  }
-
-  /**
-   * Find certificates expiring in exactly `daysBeforeExpiry` days
-   * and send in-app + email notifications.
-   */
-  private async sendNotificationsForDay(
-    daysBeforeExpiry: number,
-  ): Promise<void> {
-    const targetDate = new Date();
-    targetDate.setDate(targetDate.getDate() + daysBeforeExpiry);
-
-    // Find certificates expiring on the target date (within a 24-hour window)
-    const startOfDay = new Date(targetDate);
-    startOfDay.setHours(0, 0, 0, 0);
-
-    const endOfDay = new Date(targetDate);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    const expiringCertificates = await this.certificateRepository
-      .createQueryBuilder('certificate')
-      .leftJoinAndSelect('certificate.issuer', 'issuer')
-      .where('certificate.status = :status', { status: 'active' })
-      .andWhere('certificate.expiresAt >= :startOfDay', { startOfDay })
-      .andWhere('certificate.expiresAt <= :endOfDay', { endOfDay })
+    // ── 1. Date-based expiration ──────────────────────────────────────────────
+    const expiredByDate = await this.certificateRepository
+      .createQueryBuilder('cert')
+      .where('cert.status = :status', { status: CertificateStatus.ACTIVE })
+      .andWhere('cert.expiresAt IS NOT NULL')
+      .andWhere('cert.expiresAt <= :now', { now: new Date() })
       .getMany();
 
-    if (expiringCertificates.length === 0) {
-      this.logger.debug(
-        `No certificates expiring in ${daysBeforeExpiry} days.`,
-      );
-      return;
-    }
+    let markedExpired = 0;
 
-    this.logger.log(
-      `Found ${expiringCertificates.length} certificates expiring in ${daysBeforeExpiry} days.`,
-    );
-
-    for (const certificate of expiringCertificates) {
+    for (const certificate of expiredByDate) {
       try {
-        // Skip if already notified for this period
-        const notificationKey = `expiry_${daysBeforeExpiry}d`;
-        if (certificate.metadata?.notifications?.[notificationKey]) {
-          continue;
-        }
-
-        // Send in-app notification
-        if (certificate.issuerId) {
-          await this.notificationsService.createNotification(
-            certificate.issuerId,
-            NotificationType.INFO,
-            `Certificate Expiring in ${daysBeforeExpiry} Days`,
-            `Certificate "${certificate.title}" for ${certificate.recipientName} (${certificate.recipientEmail}) will expire on ${certificate.expiresAt.toLocaleDateString()}.`,
-          );
-        }
-
-        // Send email notification
-        try {
-          await this.emailService.sendEmail({
-            to: certificate.recipientEmail,
-            subject: `Certificate Expiring in ${daysBeforeExpiry} Days: ${certificate.title}`,
-            template: 'certificate-issued', // Reuse existing template as fallback
-            data: {
-              recipientName: certificate.recipientName,
-              certificateName: certificate.title,
-              issuerName: certificate.issuer?.name || 'Kaystcx',
-              certificateId: certificate.id,
-              issuedDate: certificate.issuedAt?.toLocaleDateString() || 'N/A',
-              expiryDate: certificate.expiresAt?.toLocaleDateString() || 'N/A',
-              daysRemaining: daysBeforeExpiry,
-              certificateLink: `${process.env.APP_URL || 'https://kaystcx.com'}/certificates/${certificate.id}`,
-            },
-          });
-        } catch (emailError) {
-          this.logger.error(
-            `Failed to send expiration email for certificate ${certificate.id}: ${emailError.message}`,
-          );
-        }
-
-        // Mark certificate as notified for this period
-        certificate.metadata = {
-          ...certificate.metadata,
-          notifications: {
-            ...(certificate.metadata?.notifications || {}),
-            [notificationKey]: new Date().toISOString(),
-          },
-        };
+        certificate.status = CertificateStatus.EXPIRED;
         await this.certificateRepository.save(certificate);
 
-        this.logger.debug(
-          `Sent ${daysBeforeExpiry}-day expiration notification for certificate ${certificate.id}`,
+        void this.auditService.log({
+          action: AuditAction.CERTIFICATE_EXPIRE,
+          resourceType: AuditResourceType.CERTIFICATE,
+          resourceId: certificate.id,
+          userId: 'system',
+          ipAddress: 'system',
+          metadata: {
+            certificateId: certificate.certificateId,
+            expirationDate: certificate.expiresAt,
+            reason: 'date_based',
+          },
+          status: 'success',
+        });
+
+        markedExpired++;
+        this.logger.log(
+          `Certificate ${certificate.certificateId} marked as expired (date-based)`,
         );
-      } catch (error) {
+      } catch (error: unknown) {
         this.logger.error(
-          `Failed to send expiration notification for certificate ${certificate.id}: ${error.message}`,
+          `Failed to expire certificate ${certificate.certificateId}: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
     }
-  }
 
-  /**
-   * Mark certificates that have already expired
-   * (past their expiresAt date) as 'expired'.
-   */
-  private async markExpiredCertificates(): Promise<void> {
-    const now = new Date();
+    // ── 2. Stellar sequence-based expiration ──────────────────────────────────
+    const issuerPublicKey = this.configService.get<string>(
+      'STELLAR_ISSUER_PUBLIC_KEY',
+    );
 
-    const expiredCertificates = await this.certificateRepository
-      .createQueryBuilder('certificate')
-      .where('certificate.status = :status', { status: 'active' })
-      .andWhere('certificate.expiresAt <= :now', { now })
-      .getMany();
+    if (issuerPublicKey) {
+      try {
+        const accountInfo =
+          await this.stellarService.getAccountInfo(issuerPublicKey);
+        const currentSequence = BigInt(accountInfo.sequence);
 
-    if (expiredCertificates.length === 0) {
-      return;
-    }
+        const candidatesBySequence = await this.certificateRepository
+          .createQueryBuilder('cert')
+          .where('cert.status = :status', { status: CertificateStatus.ACTIVE })
+          .andWhere('cert.stellarSequenceNumber IS NOT NULL')
+          .getMany();
 
-    for (const certificate of expiredCertificates) {
-      certificate.status = 'expired';
-      certificate.metadata = {
-        ...certificate.metadata,
-        expiredAt: new Date().toISOString(),
-        autoExpired: true,
-      };
-      await this.certificateRepository.save(certificate);
+        for (const certificate of candidatesBySequence) {
+          if (!certificate.stellarSequenceNumber) continue;
 
-      // Notify the issuer
-      if (certificate.issuerId) {
-        await this.notificationsService.createNotification(
-          certificate.issuerId,
-          NotificationType.INFO,
-          'Certificate Expired',
-          `Certificate "${certificate.title}" for ${certificate.recipientName} has expired.`,
+          try {
+            const certSequence = BigInt(certificate.stellarSequenceNumber);
+            if (currentSequence > certSequence) {
+              certificate.status = CertificateStatus.EXPIRED;
+              await this.certificateRepository.save(certificate);
+
+              void this.auditService.log({
+                action: AuditAction.CERTIFICATE_EXPIRE,
+                resourceType: AuditResourceType.CERTIFICATE,
+                resourceId: certificate.id,
+                userId: 'system',
+                ipAddress: 'system',
+                metadata: {
+                  certificateId: certificate.certificateId,
+                  stellarSequence: certificate.stellarSequenceNumber,
+                  currentSequence: currentSequence.toString(),
+                  reason: 'stellar_sequence',
+                },
+                status: 'success',
+              });
+
+              markedExpired++;
+              this.logger.log(
+                `Certificate ${certificate.certificateId} marked as expired (Stellar sequence)`,
+              );
+            }
+          } catch (error: unknown) {
+            this.logger.error(
+              `Failed to check sequence expiration for certificate ${certificate.certificateId}: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        }
+      } catch (error: unknown) {
+        this.logger.warn(
+          `Could not fetch Stellar account info for sequence check: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
     }
 
     this.logger.log(
-      `Marked ${expiredCertificates.length} certificates as expired.`,
+      `Certificate expiration check complete. Marked ${markedExpired} certificates as expired.`,
     );
+
+    void this.auditService.log({
+      action: AuditAction.BACKGROUND_JOB_COMPLETE,
+      resourceType: AuditResourceType.SYSTEM,
+      userId: 'system',
+      ipAddress: 'system',
+      metadata: { job: 'CertificateExpirationJob', markedExpired },
+      status: 'success',
+    });
   }
 }
