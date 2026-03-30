@@ -29,9 +29,7 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 @ApiBearerAuth()
 @Controller('certificates/transfers')
 export class CertificateTransferController {
-  constructor(
-    private readonly transferService: CertificateTransferService,
-  ) {}
+  constructor(private readonly transferService: CertificateTransferService) {}
 
   @Post('initiate')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -45,11 +43,7 @@ export class CertificateTransferController {
     @CurrentUser('sub') userId: string,
     @Req() req: any,
   ) {
-    return this.transferService.initiateTransfer(
-      dto,
-      userId,
-      req.ip,
-    );
+    return this.transferService.initiateTransfer(dto, userId, req.ip);
   }
 
   @Post('approve')

@@ -12,7 +12,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
-export class CreateCertificateDto {
+export class DuplicateCertificateDataDto {
   @IsUUID()
   issuerId: string;
 

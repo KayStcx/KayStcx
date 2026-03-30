@@ -98,7 +98,13 @@ const IssuerProfile = () => {
       try {
         const activityResponse = await issuerProfileApi.getActivity();
         setActivities(
-          activityResponse.activities.map((activity) => ({
+          activityResponse.activities.map((activity: {
+            id: string;
+            action: string;
+            description: string;
+            timestamp: string;
+            ipAddress?: string;
+          }) => ({
             id: activity.id,
             action: activity.action,
             description: activity.description,

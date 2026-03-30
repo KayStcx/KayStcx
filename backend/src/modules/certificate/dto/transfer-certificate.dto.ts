@@ -29,7 +29,9 @@ export class ApproveTransferDto {
   @IsNotEmpty()
   transferId: string;
 
-  @ApiPropertyOptional({ description: 'Confirmation code sent to the new owner' })
+  @ApiPropertyOptional({
+    description: 'Confirmation code sent to the new owner',
+  })
   @IsString()
   @IsOptional()
   confirmationCode?: string;
