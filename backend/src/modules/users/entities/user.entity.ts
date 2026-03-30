@@ -96,19 +96,19 @@ export class User {
   lockedUntil: Date;
 
   @Column({ nullable: true })
-  refreshToken: string;
+  refreshToken: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
-  refreshTokenExpires: Date;
+  refreshTokenExpires: Date | null;
 
   @Column({ default: false })
   twoFactorEnabled: boolean;
 
   @Column({ nullable: true, select: false })
-  twoFactorSecret: string;
+  twoFactorSecret: string | null;
 
   @Column({ type: 'simple-array', nullable: true, select: false })
-  twoFactorBackupCodes: string[];
+  twoFactorBackupCodes: string[] | null;
 
   @CreateDateColumn()
   createdAt: Date;

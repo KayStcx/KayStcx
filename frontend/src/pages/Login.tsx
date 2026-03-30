@@ -90,10 +90,6 @@ const Login = () => {
         tokenStorage.setAccessToken(res.accessToken);
         tokenStorage.setRefreshToken(res.refreshToken);
         localStorage.setItem("user", JSON.stringify(res.user));
-<<<<<<< HEAD
-=======
-
->>>>>>> origin/main
 
         // Redirect to dashboard or home page
         navigate("/");
