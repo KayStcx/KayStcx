@@ -167,17 +167,22 @@ export class CertificateTransferService {
     certificate.recipientName = transfer.toName;
     certificate.metadata = {
       ...certificate.metadata,
-      transferHistory: [
-        ...(certificate.metadata?.transferHistory || []),
-        {
-          fromEmail: previousEmail,
-          fromName: previousName,
-          toEmail: transfer.toEmail,
-          toName: transfer.toName,
-          transferDate: new Date().toISOString(),
-          reason: transfer.reason,
-        },
-      ],
+      additionalFields: {
+        ...(certificate.metadata?.additionalFields ?? {}),
+        transferHistory: [
+          ...((certificate.metadata?.additionalFields?.[
+            'transferHistory'
+          ] as unknown[]) || []),
+          {
+            fromEmail: previousEmail,
+            fromName: previousName,
+            toEmail: transfer.toEmail,
+            toName: transfer.toName,
+            transferDate: new Date().toISOString(),
+            reason: transfer.reason,
+          },
+        ],
+      },
     };
 
     await this.certificateRepository.save(certificate);

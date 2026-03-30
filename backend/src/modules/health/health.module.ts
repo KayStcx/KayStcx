@@ -9,6 +9,7 @@ import { MetricsService } from '../../common/monitoring/metrics.service';
 import { CommonModule } from '../../common/common.module';
 import { ConfigModule } from '@nestjs/config';
 import { StellarService } from '../../common/services/stellar.service';
+import { IpRateLimitGuard } from '../../common/guards/ip-rate-limit.guard';
 
 @Module({
   imports: [TerminusModule, CommonModule, ConfigModule],
@@ -18,6 +19,7 @@ import { StellarService } from '../../common/services/stellar.service';
     StellarHealthIndicator,
     MetricsService,
     StellarService,
+    IpRateLimitGuard,
   ],
   exports: [MetricsService],
 })

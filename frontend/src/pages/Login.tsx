@@ -37,7 +37,37 @@ const Login = () => {
     role: UserRole.RECIPIENT,
   });
 
-  const isLoading = loadingPhase !== "idle";
+  // Password strength evaluation
+  const evaluatePasswordStrength = (password: string) => {
+    let score = 0;
+    const commonPasswords = [
+      'password', '123456', '123456789', 'qwerty', 'abc123', 'password123',
+      'admin', 'letmein', 'welcome', 'monkey', '1234567890', 'iloveyou',
+      'princess', 'rockyou', '1234567', '12345678', 'password1', '123123'
+    ];
+
+    // Check for common passwords
+    if (commonPasswords.includes(password.toLowerCase())) {
+      return { strength: 'weak', score: 0 };
+    }
+
+    // Length check
+    if (password.length >= 8) score += 1;
+    if (password.length >= 12) score += 1;
+
+    // Character variety
+    if (/[a-z]/.test(password)) score += 1; // lowercase
+    if (/[A-Z]/.test(password)) score += 1; // uppercase
+    if (/\d/.test(password)) score += 1; // numbers
+    if (/[^a-zA-Z\d]/.test(password)) score += 1; // special characters
+
+    // Determine strength
+    if (score < 3) return { strength: 'weak', score };
+    if (score < 5) return { strength: 'medium', score };
+    return { strength: 'strong', score };
+  };
+
+  const passwordStrength = evaluatePasswordStrength(formData.password);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -230,6 +260,38 @@ const Login = () => {
                 )}
               </button>
             </div>
+
+            {/* Password Strength Indicator - only show during registration */}
+            {!isLogin && formData.password && (
+              <div className="mt-2">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-gray-600 dark:text-slate-400">
+                    Password Strength:
+                  </span>
+                  <span className={`text-xs font-medium ${
+                    passwordStrength.strength === 'weak' ? 'text-red-600 dark:text-red-400' :
+                    passwordStrength.strength === 'medium' ? 'text-yellow-600 dark:text-yellow-400' :
+                    'text-green-600 dark:text-green-400'
+                  }`}>
+                    {passwordStrength.strength.charAt(0).toUpperCase() + passwordStrength.strength.slice(1)}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
+                  <div
+                    className={`h-2 rounded-full transition-all duration-300 ${
+                      passwordStrength.strength === 'weak' ? 'bg-red-500 w-1/3' :
+                      passwordStrength.strength === 'medium' ? 'bg-yellow-500 w-2/3' :
+                      'bg-green-500 w-full'
+                    }`}
+                  ></div>
+                </div>
+                <div className="mt-1 text-xs text-gray-500 dark:text-slate-500">
+                  {passwordStrength.strength === 'weak' && 'Use at least 8 characters with mixed case, numbers, and symbols'}
+                  {passwordStrength.strength === 'medium' && 'Add more complexity for better security'}
+                  {passwordStrength.strength === 'strong' && 'Great! Your password is secure'}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Role (sign-up only) */}

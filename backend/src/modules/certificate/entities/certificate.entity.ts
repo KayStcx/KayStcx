@@ -3,16 +3,39 @@ import {
   Column,
   PrimaryGeneratedColumn,
   CreateDateColumn,
+  UpdateDateColumn,
   ManyToOne,
   Index,
 } from 'typeorm';
 
 import { Issuer } from '../../issuers/entities/issuer.entity';
+import { CertificateStatus } from '../constants/certificate-status.enum';
+
+export interface VerificationHistoryRecord {
+  verifiedAt: Date;
+  verifiedBy: string;
+  ipAddress: string;
+  userAgent: string;
+}
+
+export interface CertificateMetadata {
+  program?: string;
+  course?: string;
+  skills?: string[];
+  grade?: string;
+  hours?: number;
+  issuedByOrganization?: string;
+  additionalFields?: Record<string, unknown>;
+}
 
 @Entity('certificates')
 export class Certificate {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ unique: true })
+  @Index()
+  certificateId: string; // Human-readable unique ID, e.g. CERT-2024-AB12CD34
 
   @Column()
   @Index()
@@ -25,6 +48,15 @@ export class Certificate {
   @Column()
   @Index()
   recipientName: string;
+
+  @Column({ nullable: true })
+  recipientStellarAddress?: string;
+
+  @Column({ nullable: true })
+  issuerName?: string;
+
+  @Column({ nullable: true })
+  issuerStellarAddress?: string;
 
   @Column()
   @Index()
@@ -41,17 +73,49 @@ export class Certificate {
   @Column({ type: 'text', nullable: true })
   description?: string;
 
-  @Column({ type: 'enum', enum: ['active', 'revoked', 'expired', 'frozen'] })
-  status: string;
+  @Column({ type: 'jsonb', nullable: true })
+  metadata?: CertificateMetadata;
+
+  @Column({
+    type: 'enum',
+    enum: CertificateStatus,
+    default: CertificateStatus.ACTIVE,
+  })
+  status: CertificateStatus;
+
+  @Column({ nullable: true })
+  revocationReason?: string;
+
+  @Column({ nullable: true })
+  revokedAt?: Date;
+
+  @Column({ nullable: true })
+  revokedBy?: string;
+
+  // Legacy field kept for backward compatibility
+  @Column({ nullable: true })
+  stellarTransactionId?: string;
+
+  @Column({ nullable: true, unique: true })
+  stellarTransactionHash?: string;
+
+  @Column({ type: 'text', nullable: true })
+  stellarMemo?: string;
+
+  @Column({ type: 'bigint', nullable: true })
+  stellarSequenceNumber?: string;
+
+  @Column({ nullable: true })
+  verificationCode?: string;
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata: Record<string, any>;
+  verificationHistory?: VerificationHistoryRecord[];
 
-  @Column({ nullable: true })
-  stellarTransactionId: string;
+  @Column({ default: 0 })
+  verificationCount: number;
 
-  @Column({ nullable: true })
-  verificationCode: string;
+  @Column({ nullable: true, type: 'text' })
+  qrCodeData?: string;
 
   @Column({ nullable: true })
   pdfUrl?: string;
@@ -63,20 +127,58 @@ export class Certificate {
   isDuplicate: boolean;
 
   @Column({ nullable: true })
-  duplicateOfId: string;
+  duplicateOfId?: string;
 
   @Column({ nullable: true })
-  overrideReason: string;
+  overrideReason?: string;
 
   @Column({ nullable: true })
-  overriddenBy: string;
+  overriddenBy?: string;
+
+  @Column({ nullable: true })
+  metadataSchemaId?: string;
 
   @CreateDateColumn()
   issuedAt: Date;
 
-  @Column({ type: 'timestamp' })
-  expiresAt: Date;
+  @Column({ type: 'timestamp', nullable: true })
+  expiresAt?: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 
   @ManyToOne(() => Issuer)
   issuer: Issuer;
+
+  // ─── Business logic helpers ──────────────────────────────────────────────────
+
+  isActive(): boolean {
+    return this.status === CertificateStatus.ACTIVE;
+  }
+
+  isExpired(): boolean {
+    if (!this.expiresAt) return false;
+    return new Date() > this.expiresAt;
+  }
+
+  canBeRevoked(): boolean {
+    return this.status === CertificateStatus.ACTIVE;
+  }
+
+  addVerificationRecord(
+    verifiedBy: string,
+    ipAddress: string,
+    userAgent: string,
+  ): void {
+    if (!this.verificationHistory) {
+      this.verificationHistory = [];
+    }
+    this.verificationHistory.push({
+      verifiedAt: new Date(),
+      verifiedBy,
+      ipAddress,
+      userAgent,
+    });
+    this.verificationCount = (this.verificationCount ?? 0) + 1;
+  }
 }

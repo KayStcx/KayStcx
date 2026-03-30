@@ -218,6 +218,12 @@ const IssueCertificate = () => {
               className="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
+            {error && (
+            <div className="flex items-center gap-2 text-red-600 mb-4">
+              <XCircle className="w-5 h-5" />
+              <p>{error}</p>
+            </div>
+          )}
 
           <div className="flex items-center justify-between pt-4">
             <button
@@ -229,12 +235,6 @@ const IssueCertificate = () => {
             </button>
           </div>
         </form>
-        {error && (
-          <div className="flex items-center gap-2 text-red-600 mb-4">
-            <XCircle className="w-5 h-5" />
-            <p>{error}</p>
-          </div>
-        )}
       </div>
     </div>
   );

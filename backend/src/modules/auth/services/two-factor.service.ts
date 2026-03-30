@@ -79,14 +79,14 @@ export class TwoFactorService {
       throw new BadRequestException('2FA is not enabled');
     }
 
-    if (!this.verifyToken(token, user.twoFactorSecret)) {
+    if (!user.twoFactorSecret || !this.verifyToken(token, user.twoFactorSecret)) {
       throw new UnauthorizedException('Invalid TOTP token');
     }
 
     await this.userRepository.update(userId, {
       twoFactorEnabled: false,
-      twoFactorSecret: null,
-      twoFactorBackupCodes: null,
+      twoFactorSecret: null as unknown as string,
+      twoFactorBackupCodes: null as unknown as string[],
     });
   }
 
@@ -147,7 +147,7 @@ export class TwoFactorService {
       throw new BadRequestException('2FA is not enabled');
     }
 
-    if (!this.verifyToken(token, user.twoFactorSecret)) {
+    if (!user.twoFactorSecret || !this.verifyToken(token, user.twoFactorSecret)) {
       throw new UnauthorizedException('Invalid TOTP token');
     }
 

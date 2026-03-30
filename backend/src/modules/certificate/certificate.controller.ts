@@ -7,25 +7,46 @@ import {
   Post,
   Body,
   Patch,
-  Res,
+  Delete,
+  ParseUUIDPipe,
+  Req,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { CertificateService } from './certificate.service';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiQuery,
   ApiParam,
 } from '@nestjs/swagger';
-import { CertificateStatsDto } from './dto/stats.dto';
+import type { CertificateStatsDto } from './dto/stats.dto';
+import { StatsQueryDto } from './dto/stats.dto';
 import { CertificateStatsService } from './services/stats.service';
 import { JwtAuthGuard } from 'src/common';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { UserRole } from '../../common/constants/roles';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
+import { UserRole } from '../../common/constants/roles';
+import { IssueCertificateDto } from './dto/issue-certificate.dto';
+import { RevokeCertificateDto } from './dto/revoke-certificate.dto';
+import { SearchCertificatesDto } from './dto/search-certificates.dto';
+import { UpdateCertificateDto } from './dto/update-certificate.dto';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
+
+interface AuthenticatedUser {
+  id: string;
+  email: string;
+  role: UserRole;
+}
 import { CertificateQrResponseDto } from './dto/certificate-qr-response.dto';
+import { ExportFiltersDto, BulkExportDto } from './dto/export-filters.dto';
+import { Public } from '../../common/decorators/public.decorator';
+import { IpRateLimitGuard } from '../../common/guards/ip-rate-limit.guard';
 
 @ApiTags('Certificates')
 @Controller('certificates')
@@ -36,44 +57,138 @@ export class CertificateController {
     private readonly statsService: CertificateStatsService,
   ) {}
 
+  // ─── List / Search ──────────────────────────────────────────────────────────
+
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.ISSUER)
-  @ApiOperation({ summary: 'List certificates' })
+  @ApiOperation({ summary: 'List certificates with optional filters' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'issuerId', required: false })
+  @ApiQuery({ name: 'status', required: false })
   async findAll(
     @Query('page') page = 1,
     @Query('limit') limit = 10,
     @Query('issuerId') issuerId?: string,
     @Query('status') status?: string,
   ) {
-    return this.certificateService.findAll(page, limit, issuerId, status);
+    return this.certificateService.findAll(+page, +limit, issuerId, status);
   }
 
+  @Get('search')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.ISSUER)
+  @ApiOperation({
+    summary: 'Advanced certificate search with filters and pagination',
+  })
+  async search(@Query() dto: SearchCertificatesDto) {
+    return this.certificateService.search(dto);
+  }
+
+  // ─── Statistics ──────────────────────────────────────────────────────────────
+
   @Get('stats/summary')
-  @ApiOperation({ summary: 'Get public certificate summary statistics' })
+  @Public()
+  @ApiOperation({ summary: 'Public certificate summary statistics' })
   async getPublicSummary(): Promise<Partial<CertificateStatsDto>> {
     return this.statsService.getPublicSummary();
   }
 
-  // FIX #270 — Public verify endpoint: GET /certificates/:serialNumber/verify
-  // No JwtAuthGuard so any caller (frontend, third-party verifier) can check
-  // a certificate without being authenticated.
-  // Placed BEFORE /:id so the literal segment "verify" is matched first and
-  // NestJS does not confuse it with a dynamic :id segment.
-  @Get(':serialNumber/verify')
-  @ApiOperation({ summary: 'Verify a certificate by serial number (public)' })
-  @ApiParam({
-    name: 'serialNumber',
-    description: 'Certificate serial number',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Certificate verification result',
-  })
-  @ApiResponse({ status: 404, description: 'Certificate not found' })
-  async verifyCertificate(@Param('serialNumber') serialNumber: string) {
-    return this.certificateService.verifyCertificate(serialNumber);
+  @Get('stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.ISSUER, UserRole.AUDITOR)
+  @ApiOperation({ summary: 'Detailed certificate statistics' })
+  async getStatistics(
+    @Query() query: StatsQueryDto,
+  ): Promise<CertificateStatsDto> {
+    return this.statsService.getStatistics(query);
   }
+
+  // ─── Verification (public) ───────────────────────────────────────────────────
+
+  @Get('verify/:code')
+  @Public()
+  @ApiOperation({ summary: 'Verify a certificate by its verification code' })
+  @ApiParam({
+    name: 'code',
+    description: 'Alphanumeric certificate verification code',
+  })
+  @ApiResponse({ status: 200, description: 'Verification result' })
+  async verifyByCode(
+    @Param('code') code: string,
+    @Req() req: Request,
+    @Query('verifiedBy') verifiedBy?: string,
+  ): Promise<unknown> {
+    const ipAddress =
+      (req.headers['x-forwarded-for'] as string) ?? req.ip ?? 'unknown';
+    const userAgent = req.headers['user-agent'] ?? 'unknown';
+    return this.certificateService.verifyByCode(
+      code,
+      verifiedBy ?? 'public',
+      ipAddress,
+      userAgent,
+    );
+  }
+
+  @Get('verify/stellar/:hash')
+  @Public()
+  @ApiOperation({
+    summary: 'Verify a certificate using its Stellar transaction hash',
+  })
+  @ApiParam({
+    name: 'hash',
+    description: 'Stellar blockchain transaction hash',
+  })
+  async verifyByStellarHash(
+    @Param('hash') hash: string,
+    @Req() req: Request,
+  ): Promise<unknown> {
+    const ipAddress =
+      (req.headers['x-forwarded-for'] as string) ?? req.ip ?? 'unknown';
+    const userAgent = req.headers['user-agent'] ?? 'unknown';
+    return this.certificateService.verifyByStellarHash(
+      hash,
+      ipAddress,
+      userAgent,
+    );
+  }
+
+  // ─── Recipient & Issuer scoped ───────────────────────────────────────────────
+
+  @Get('recipient/:email')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.ISSUER)
+  @ApiOperation({ summary: 'List all certificates for a recipient email' })
+  async getByRecipient(
+    @Param('email') email: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+  ) {
+    return this.certificateService.getCertificatesByRecipient(
+      email,
+      +page,
+      +limit,
+    );
+  }
+
+  @Get('issuer/:issuerId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.ISSUER)
+  @ApiOperation({ summary: 'List all certificates issued by an issuer' })
+  async getByIssuer(
+    @Param('issuerId', ParseUUIDPipe) issuerId: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+  ) {
+    return this.certificateService.getCertificatesByIssuer(
+      issuerId,
+      +page,
+      +limit,
+    );
+  }
+
+  // ─── Single Certificate ───────────────────────────────────────────────────────
 
   @Get(':id/qr')
   @ApiOperation({ summary: 'Get QR code URL for a certificate' })
@@ -88,34 +203,106 @@ export class CertificateController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get certificate by ID' })
-  async findOne(@Param('id') id: string) {
+  @Public()
+  @ApiOperation({ summary: 'Get certificate details by ID' })
+  @ApiParam({ name: 'id', description: 'Certificate UUID' })
+  async findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.certificateService.findOne(id);
   }
+
+  @Get(':id/stellar')
+  @Public()
+  @ApiOperation({
+    summary: 'Get the Stellar blockchain record for a certificate',
+  })
+  async getStellarData(@Param('id', ParseUUIDPipe) id: string) {
+    return this.certificateService.getStellarTransactionData(id);
+  }
+
+  @Get(':id/verification-history')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.ISSUER, UserRole.AUDITOR)
+  @ApiOperation({ summary: 'Get verification history for a certificate' })
+  async getVerificationHistory(@Param('id', ParseUUIDPipe) id: string) {
+    return this.certificateService.getVerificationHistory(id);
+  }
+
+  @Get(':id/export')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.ISSUER)
+  @ApiOperation({ summary: 'Export certificate data for backup or audit' })
+  async exportCertificate(@Param('id', ParseUUIDPipe) id: string) {
+    return this.certificateService.exportCertificate(id);
+  }
+
+  // ─── Issue ───────────────────────────────────────────────────────────────────
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ISSUER, UserRole.ADMIN)
-  @ApiOperation({ summary: 'Create new certificate' })
-  async create(
-    @Body() dto: CreateCertificateDto,
-    @CurrentUser('sub') issuerId: string,
-  ) {
-    dto.issuerId = issuerId;
-    return this.certificateService.create(dto);
+  @ApiOperation({
+    summary: 'Issue a new certificate with optional Stellar blockchain record',
+  })
+  @ApiResponse({ status: 201, description: 'Certificate issued successfully' })
+  async issue(
+    @Body() dto: IssueCertificateDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() req: Request,
+  ): Promise<unknown> {
+    const ipAddress =
+      (req.headers['x-forwarded-for'] as string) ?? req.ip ?? 'unknown';
+    const userAgent = req.headers['user-agent'] ?? 'unknown';
+    return this.certificateService.issue(dto, user.id, ipAddress, userAgent);
   }
+
+  // ─── Update ───────────────────────────────────────────────────────────────────
+
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ISSUER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Update non-immutable certificate fields' })
+  async update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateCertificateDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.certificateService.update(id, dto, user.id);
+  }
+
+  // ─── Revoke ───────────────────────────────────────────────────────────────────
 
   @Patch(':id/revoke')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ISSUER, UserRole.ADMIN)
-  @ApiOperation({ summary: 'Revoke certificate' })
+  @ApiOperation({ summary: 'Revoke a certificate' })
+  @ApiResponse({ status: 200, description: 'Certificate revoked' })
   async revoke(
-    @Param('id') id: string,
-    @Body('reason') reason?: string,
-    @CurrentUser('sub') issuerId?: string,
-    @CurrentUser('role') userRole?: string,
-  ) {
-    return this.certificateService.revoke(id, reason, issuerId, userRole);
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RevokeCertificateDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() req: Request,
+  ): Promise<unknown> {
+    const ipAddress =
+      (req.headers['x-forwarded-for'] as string) ?? req.ip ?? 'unknown';
+    const userAgent = req.headers['user-agent'] ?? 'unknown';
+    return this.certificateService.revoke(
+      id,
+      dto,
+      user.id,
+      ipAddress,
+      userAgent,
+    );
+  }
+
+  // ─── Delete ───────────────────────────────────────────────────────────────────
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete a certificate (admin only)' })
+  async remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.certificateService.remove(id);
   }
 
   @Patch(':id/freeze')
@@ -161,5 +348,38 @@ export class CertificateController {
     @Query('status') status?: string,
   ) {
     return this.certificateService.exportCertificates(issuerId, status);
+  }
+
+  @Post('export')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ISSUER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Bulk export certificates with filters' })
+  async bulkExport(@Body() bulkExportDto: BulkExportDto, @Res() res: any) {
+    const csvData = await this.certificateService.bulkExport(
+      bulkExportDto.certificateIds || [],
+      bulkExportDto.filters,
+    );
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="certificates-export-${new Date().toISOString().split('T')[0]}.csv"`,
+    );
+    res.send(csvData);
+  }
+
+  @Post('export/all')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ISSUER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Export all certificates matching filters' })
+  async exportAllFiltered(@Body() filters: ExportFiltersDto, @Res() res: any) {
+    const csvData = await this.certificateService.exportAllFiltered(filters);
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="certificates-export-all-${new Date().toISOString().split('T')[0]}.csv"`,
+    );
+    res.send(csvData);
   }
 }

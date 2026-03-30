@@ -58,6 +58,10 @@ export class UsersService {
 
   // ==================== Authentication ====================
 
+  async findByEmailWithPassword(email: string): Promise<User | null> {
+    return await this.userRepository.findByEmailWithPassword(email);
+  }
+
   async register(
     createUserDto: CreateUserDto,
   ): Promise<{ user: IUserPublic; tokens: IAuthTokens }> {
@@ -195,7 +199,7 @@ export class UsersService {
     try {
       const decoded = this.jwtService.verify(refreshToken, {
         secret: this.configService.get<string>('JWT_SECRET'),
-      }) as Record<string, unknown>;
+      });
 
       if (!decoded || !decoded.sub || typeof decoded.sub !== 'string') {
         throw new UnauthorizedException('Invalid refresh token');
