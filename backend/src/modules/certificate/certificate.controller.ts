@@ -44,6 +44,8 @@ interface AuthenticatedUser {
   role: UserRole;
 }
 import { CertificateQrResponseDto } from './dto/certificate-qr-response.dto';
+import { Public } from '../../common/decorators/public.decorator';
+import { IpRateLimitGuard } from '../../common/guards/ip-rate-limit.guard';
 
 @ApiTags('Certificates')
 @Controller('certificates')

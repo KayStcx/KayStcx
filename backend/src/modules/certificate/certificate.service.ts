@@ -40,6 +40,7 @@ import { CertificateQrResponseDto } from './dto/certificate-qr-response.dto';
 @Injectable()
 export class CertificateService {
   private readonly logger = new Logger(CertificateService.name);
+  private readonly enableSoroban = this.configService.get<boolean>('ENABLE_SOROBAN_INTEGRATION', false);
 
   constructor(
     @InjectRepository(Certificate)
