@@ -119,40 +119,26 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
-    // Check if user already exists
-    const existingUser = await this.usersService.findOneByEmail(
-      registerDto.email,
-    );
-    if (existingUser) {
-      throw new UnauthorizedException('Registration failed');
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(registerDto.password, 12);
-
-    // Create user
-    const newUser = await this.usersService.create({
+    // Delegate to UsersService for proper registration logic
+    const registrationResult = await this.usersService.register({
       email: registerDto.email,
+      password: registerDto.password,
       firstName: registerDto.firstName,
       lastName: registerDto.lastName,
-      password: hashedPassword,
     });
 
-    const payload = {
-      email: newUser.email,
-      sub: newUser.id,
-      role: newUser.role,
-    };
-    const accessToken = this.jwtService.sign(payload);
+    const { user, tokens } = registrationResult;
 
+    // Return in the format expected by AuthResponseDto
     return {
-      accessToken,
-      expiresIn: 3600,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn,
       user: {
-        id: newUser.id,
-        email: newUser.email,
-        firstName: newUser.firstName,
-        lastName: newUser.lastName,
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
       },
     };
   }
