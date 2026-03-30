@@ -21,10 +21,12 @@ import { FilesService } from '../files/services/files.service';
 import { CertificateQrResponseDto } from './dto/certificate-qr-response.dto';
 import { AuditService } from '../audit/services/audit.service';
 import { AuditAction, AuditResourceType } from '../audit/constants';
+import { SorobanService } from '../stellar/services/soroban.service';
 
 @Injectable()
 export class CertificateService {
   private readonly logger = new Logger(CertificateService.name);
+  private readonly enableSoroban = this.configService.get<boolean>('ENABLE_SOROBAN_INTEGRATION', false);
 
   constructor(
     @InjectRepository(Certificate)
@@ -37,6 +39,7 @@ export class CertificateService {
     private readonly filesService: FilesService,
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
+    private readonly sorobanService: SorobanService,
   ) {}
 
   async create(
@@ -95,6 +98,7 @@ export class CertificateService {
         createCertificateDto.verificationCode ||
         this.generateVerificationCode(),
       isDuplicate: false,
+      metadataUri: createCertificateDto.metadataUri || `certificate://${createCertificateDto.id}`,
     });
 
     const savedCertificate = await this.certificateRepository.save(certificate);
@@ -104,6 +108,30 @@ export class CertificateService {
       savedCertificate.isDuplicate = true;
       savedCertificate.overrideReason = overrideReason;
       await this.certificateRepository.save(savedCertificate);
+    }
+
+    // Issue certificate on-chain if Soroban integration is enabled
+    if (this.enableSoroban && this.sorobanService.isConfigured()) {
+      try {
+        const onChainSuccess = await this.sorobanService.issueCertificate(
+          savedCertificate.id,
+          savedCertificate.issuer.stellarPublicKey || savedCertificate.issuerId, // Fallback to issuer ID if no Stellar address
+          savedCertificate.recipientEmail, // This should ideally be a Stellar address
+          savedCertificate.metadataUri || `ipfs://certificate/${savedCertificate.id}`,
+          savedCertificate.expiresAt ? Math.floor(savedCertificate.expiresAt.getTime() / 1000) : undefined,
+        );
+
+        if (onChainSuccess) {
+          this.logger.log(`Certificate ${savedCertificate.id} issued on-chain successfully`);
+          savedCertificate.onChainId = savedCertificate.id; // Store reference to on-chain certificate
+          await this.certificateRepository.save(savedCertificate);
+        } else {
+          this.logger.warn(`Failed to issue certificate ${savedCertificate.id} on-chain`);
+        }
+      } catch (sorobanError) {
+        this.logger.error(`Soroban integration error for certificate ${savedCertificate.id}: ${sorobanError.message}`);
+        // Continue with certificate creation even if on-chain issuance fails
+      }
     }
 
     // Generate PDF and QR code for the certificate
@@ -341,6 +369,26 @@ export class CertificateService {
     }
 
     const savedCertificate = await this.certificateRepository.save(certificate);
+
+    // Revoke certificate on-chain if Soroban integration is enabled
+    if (this.enableSoroban && this.sorobanService.isConfigured() && savedCertificate.onChainId) {
+      try {
+        const onChainSuccess = await this.sorobanService.revokeCertificate(
+          savedCertificate.id,
+          savedCertificate.issuer.stellarPublicKey || savedCertificate.issuerId,
+          reason || 'Revoked by issuer',
+        );
+
+        if (onChainSuccess) {
+          this.logger.log(`Certificate ${savedCertificate.id} revoked on-chain successfully`);
+        } else {
+          this.logger.warn(`Failed to revoke certificate ${savedCertificate.id} on-chain`);
+        }
+      } catch (sorobanError) {
+        this.logger.error(`Soroban revocation error for certificate ${savedCertificate.id}: ${sorobanError.message}`);
+        // Continue with database revocation even if on-chain revocation fails
+      }
+    }
 
     // Trigger webhook event
     await this.webhooksService.triggerEvent(
