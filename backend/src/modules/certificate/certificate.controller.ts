@@ -26,6 +26,8 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { CertificateQrResponseDto } from './dto/certificate-qr-response.dto';
 import { ExportFiltersDto, BulkExportDto } from './dto/export-filters.dto';
+import { Public } from '../../common/decorators/public.decorator';
+import { IpRateLimitGuard } from '../../common/guards/ip-rate-limit.guard';
 
 @ApiTags('Certificates')
 @Controller('certificates')
@@ -53,6 +55,40 @@ export class CertificateController {
   @ApiOperation({ summary: 'Get public certificate summary statistics' })
   async getPublicSummary(): Promise<Partial<CertificateStatsDto>> {
     return this.statsService.getPublicSummary();
+  }
+
+  @Get('verify')
+  @Public()
+  @UseGuards(IpRateLimitGuard)
+  @ApiOperation({ summary: 'Public certificate verification endpoint' })
+  @ApiResponse({
+    status: 200,
+    description: 'Certificate verification successful',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Certificate not found',
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Rate limit exceeded',
+  })
+  async verifyCertificate(@Query('serial') verificationCode: string) {
+    const certificate = await this.certificateService.verifyCertificate(verificationCode);
+    return {
+      id: certificate.id,
+      title: certificate.title,
+      recipientName: certificate.recipientName,
+      recipientEmail: certificate.recipientEmail,
+      status: certificate.status,
+      issuedAt: certificate.issuedAt,
+      expiresAt: certificate.expiresAt,
+      issuer: {
+        name: certificate.issuer?.name,
+        website: certificate.issuer?.website,
+      },
+      verificationCode: certificate.verificationCode,
+    };
   }
 
   @Get(':id/qr')
