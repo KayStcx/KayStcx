@@ -1,13 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { userApi } from '../../../api/endpoints';
+import type { User as ApiUser } from '../../../api/types';
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: 'admin' | 'issuer' | 'recipient';
-  isActive: boolean;
-  createdAt: string;
+interface User extends ApiUser {
+  name?: string;
+  isActive?: boolean;
   lastLogin?: string;
 }
 
@@ -23,11 +20,16 @@ const UserManagement: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const params: Record<string, unknown> = {};
+      const params: Record<string, string | number | boolean> = {};
       if (search) params.search = search;
       if (roleFilter !== 'all') params.role = roleFilter;
       const data = await userApi.getAll(params);
-      setUsers(data.users || data);
+      const nextUsers = Array.isArray(data)
+        ? data
+        : ('users' in data && Array.isArray((data as { users?: User[] }).users))
+          ? (data as { users: User[] }).users
+          : data.data;
+      setUsers(nextUsers);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to fetch users');
     } finally {
@@ -102,7 +104,9 @@ const UserManagement: React.FC = () => {
                 {users.map((user) => (
                   <tr key={user.id} className={updatingId === user.id ? 'opacity-50 pointer-events-none' : ''}>
                     <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900 text-sm">{user.name}</div>
+                      <div className="font-medium text-gray-900 text-sm">
+                        {user.name || `${user.firstName} ${user.lastName}`.trim()}
+                      </div>
                       <div className="text-gray-500 text-xs">{user.email}</div>
                     </td>
                     <td className="px-6 py-4">
@@ -114,7 +118,7 @@ const UserManagement: React.FC = () => {
                       </select>
                     </td>
                     <td className="px-6 py-4">
-                      <button onClick={() => handleToggleStatus(user.id, user.isActive)}
+                      <button onClick={() => handleToggleStatus(user.id, !!user.isActive)}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${user.isActive ? 'bg-green-500' : 'bg-gray-300'}`}>
                         <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${user.isActive ? 'translate-x-6' : 'translate-x-1'}`} />
                       </button>

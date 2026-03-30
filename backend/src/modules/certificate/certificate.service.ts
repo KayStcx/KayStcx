@@ -559,6 +559,124 @@ export class CertificateService {
     return queryBuilder.getMany();
   }
 
+  async bulkExport(certificateIds: string[], filters?: any): Promise<string> {
+    const queryBuilder = this.certificateRepository
+      .createQueryBuilder('certificate')
+      .leftJoinAndSelect('certificate.issuer', 'issuer')
+      .orderBy('certificate.issuedAt', 'DESC');
+
+    // Apply certificate ID filter if provided
+    if (certificateIds && certificateIds.length > 0) {
+      queryBuilder.andWhere('certificate.id IN (:...certificateIds)', {
+        certificateIds,
+      });
+    }
+
+    // Apply additional filters
+    if (filters) {
+      if (filters.search) {
+        queryBuilder.andWhere(
+          '(certificate.serialNumber ILIKE :search OR certificate.recipientName ILIKE :search OR certificate.recipientEmail ILIKE :search OR certificate.title ILIKE :search)',
+          { search: `%${filters.search}%` },
+        );
+      }
+
+      if (filters.status) {
+        queryBuilder.andWhere('certificate.status = :status', {
+          status: filters.status,
+        });
+      }
+
+      if (filters.startDate) {
+        queryBuilder.andWhere('certificate.issuedAt >= :startDate', {
+          startDate: new Date(filters.startDate),
+        });
+      }
+
+      if (filters.endDate) {
+        queryBuilder.andWhere('certificate.issuedAt <= :endDate', {
+          endDate: new Date(filters.endDate),
+        });
+      }
+    }
+
+    const certificates = await queryBuilder.getMany();
+    return this.convertToCSV(certificates);
+  }
+
+  async exportAllFiltered(filters?: any): Promise<string> {
+    const queryBuilder = this.certificateRepository
+      .createQueryBuilder('certificate')
+      .leftJoinAndSelect('certificate.issuer', 'issuer')
+      .orderBy('certificate.issuedAt', 'DESC');
+
+    // Apply filters
+    if (filters) {
+      if (filters.search) {
+        queryBuilder.andWhere(
+          '(certificate.serialNumber ILIKE :search OR certificate.recipientName ILIKE :search OR certificate.recipientEmail ILIKE :search OR certificate.title ILIKE :search)',
+          { search: `%${filters.search}%` },
+        );
+      }
+
+      if (filters.status) {
+        queryBuilder.andWhere('certificate.status = :status', {
+          status: filters.status,
+        });
+      }
+
+      if (filters.startDate) {
+        queryBuilder.andWhere('certificate.issuedAt >= :startDate', {
+          startDate: new Date(filters.startDate),
+        });
+      }
+
+      if (filters.endDate) {
+        queryBuilder.andWhere('certificate.issuedAt <= :endDate', {
+          endDate: new Date(filters.endDate),
+        });
+      }
+    }
+
+    const certificates = await queryBuilder.getMany();
+    return this.convertToCSV(certificates);
+  }
+
+  private convertToCSV(certificates: Certificate[]): string {
+    const headers = [
+      'ID',
+      'Serial Number',
+      'Recipient Name',
+      'Recipient Email',
+      'Title',
+      'Course Name',
+      'Issuer Name',
+      'Issue Date',
+      'Status',
+      'Expiry Date',
+    ];
+
+    const rows = certificates.map((cert) => [
+      cert.id,
+      cert.verificationCode || cert.id,
+      cert.recipientName,
+      cert.recipientEmail,
+      cert.title,
+      cert.courseName,
+      cert.issuer?.name || 'Unknown',
+      cert.issuedAt.toISOString().split('T')[0],
+      cert.status,
+      cert.expiresAt ? cert.expiresAt.toISOString().split('T')[0] : '',
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
+    ].join('\n');
+
+    return csvContent;
+  }
+
   async remove(id: string): Promise<void> {
     const certificate = await this.findOne(id);
     await this.certificateRepository.remove(certificate);

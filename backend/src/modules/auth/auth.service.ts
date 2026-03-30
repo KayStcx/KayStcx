@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
+import { UserRepository } from '../users/repositories/user.repository';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
@@ -17,10 +18,11 @@ import * as bcrypt from 'bcryptjs';
 @Injectable()
 export class AuthService {
   constructor(
-    private usersService: UsersService,
-    private jwtService: JwtService,
-    private jwtManagementService: JwtManagementService,
-    private twoFactorService: TwoFactorService,
+    private readonly usersService: UsersService,
+    private readonly jwtService: JwtService,
+    private readonly jwtManagementService: JwtManagementService,
+    private readonly twoFactorService: TwoFactorService,
+    private readonly userRepository: UserRepository,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<any> {
@@ -28,9 +30,7 @@ export class AuthService {
     if (user) {
       // Need to get user with password for comparison
       const userWithPassword =
-        await this.usersService['userRepository'].findByEmailWithPassword(
-          email,
-        );
+        await this.userRepository.findByEmailWithPassword(email);
       if (
         userWithPassword &&
         (await bcrypt.compare(pass, userWithPassword.password))
@@ -42,7 +42,9 @@ export class AuthService {
     return null;
   }
 
-  async login(loginDto: LoginDto): Promise<AuthResponseDto & { requires2FA?: boolean; preAuthToken?: string }> {
+  async login(
+    loginDto: LoginDto,
+  ): Promise<AuthResponseDto & { requires2FA?: boolean; preAuthToken?: string }> {
     const user = await this.validateUser(loginDto.email, loginDto.password);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -156,13 +158,13 @@ export class AuthService {
   }
 
   async logout(user: any, logoutDto: LogoutDto): Promise<LogoutResponseDto> {
-    // Blacklist the access token
+    // Blacklist access token
     if (logoutDto.accessToken) {
       await this.jwtManagementService.blacklistToken(logoutDto.accessToken);
     }
 
-    // Optionally invalidate the refresh token stored in the database
-    await this.usersService['userRepository'].update(user.id, {
+    // Optionally invalidate refresh token stored in database
+    await this.userRepository.update(user.id, {
       refreshToken: undefined,
     });
 
@@ -195,18 +197,12 @@ export class AuthService {
       }
 
       // Generate new tokens
-      const newPayload = {
-        email: user.email,
-        sub: user.id,
-        role: user.role,
-      };
-
       const tokens =
         await this.jwtManagementService.refreshAccessToken(refreshToken);
 
       // Update the refresh token in the database
       const hashedRefreshToken = await bcrypt.hash(tokens.refreshToken, 12);
-      await this.usersService['userRepository'].update(user.id, {
+      await this.userRepository.update(user.id, {
         refreshToken: hashedRefreshToken,
       });
 

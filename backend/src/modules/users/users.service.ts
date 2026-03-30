@@ -58,6 +58,10 @@ export class UsersService {
 
   // ==================== Authentication ====================
 
+  async findByEmailWithPassword(email: string): Promise<User | null> {
+    return await this.userRepository.findByEmailWithPassword(email);
+  }
+
   async register(
     createUserDto: CreateUserDto,
   ): Promise<{ user: IUserPublic; tokens: IAuthTokens }> {

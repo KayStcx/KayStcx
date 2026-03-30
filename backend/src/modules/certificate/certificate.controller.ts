@@ -25,6 +25,7 @@ import { UserRole } from '../../common/constants/roles';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { CertificateQrResponseDto } from './dto/certificate-qr-response.dto';
+import { ExportFiltersDto, BulkExportDto } from './dto/export-filters.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { IpRateLimitGuard } from '../../common/guards/ip-rate-limit.guard';
 
@@ -176,5 +177,38 @@ export class CertificateController {
     @Query('status') status?: string,
   ) {
     return this.certificateService.exportCertificates(issuerId, status);
+  }
+
+  @Post('export')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ISSUER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Bulk export certificates with filters' })
+  async bulkExport(@Body() bulkExportDto: BulkExportDto, @Res() res: any) {
+    const csvData = await this.certificateService.bulkExport(
+      bulkExportDto.certificateIds || [],
+      bulkExportDto.filters,
+    );
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="certificates-export-${new Date().toISOString().split('T')[0]}.csv"`,
+    );
+    res.send(csvData);
+  }
+
+  @Post('export/all')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ISSUER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Export all certificates matching filters' })
+  async exportAllFiltered(@Body() filters: ExportFiltersDto, @Res() res: any) {
+    const csvData = await this.certificateService.exportAllFiltered(filters);
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="certificates-export-all-${new Date().toISOString().split('T')[0]}.csv"`,
+    );
+    res.send(csvData);
   }
 }
