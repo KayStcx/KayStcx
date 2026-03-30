@@ -8,7 +8,6 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
-  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -21,7 +20,6 @@ import { CreateWebhookSubscriptionDto } from './dto/create-webhook-subscription.
 import { WebhookEvent } from './entities/webhook-subscription.entity';
 import { JwtAuthGuard } from 'src/common';
 import { CurrentUser } from '../users/decorators/current-user.decorator';
-// import { User } from '../users/entities/user.entity';
 
 @ApiTags('Webhooks')
 @Controller('webhooks')
@@ -50,7 +48,7 @@ export class WebhooksController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Remove a webhook subscription' })
   async remove(@CurrentUser('id') issuerId: string, @Param('id') id: string) {
-    return this.webhooksService.remove(id, issuerId);
+    await this.webhooksService.remove(id, issuerId);
   }
 
   @Get(':id/logs')
@@ -70,23 +68,13 @@ export class WebhooksController {
       issuerId,
     );
 
-    const testPayload = {
-      event: WebhookEvent.WEBHOOK_TEST,
-      timestamp: new Date().toISOString(),
-      message: 'This is a test webhook from StellarCert',
-      data: {
-        issuerId,
-        subscriptionId: subscription.id,
-        test: true,
-      },
-    };
-
-    // Use triggerEvent which now handles sending to a specific subscription if needed
-    // or just deliver directly to this sub.
     await this.webhooksService.triggerEventForSubscription(
       subscription,
       WebhookEvent.WEBHOOK_TEST,
-      testPayload,
+      {
+        message: 'Test webhook from StellarCert',
+        test: true,
+      },
     );
 
     return { message: 'Test event queued successfully' };

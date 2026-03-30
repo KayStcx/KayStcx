@@ -153,6 +153,14 @@ class EnvironmentVariables {
   AUTH_BRUTE_FORCE_MAX_ATTEMPTS?: number;
 
   @IsOptional()
+  @IsNumber()
+  VERIFICATION_RATE_LIMIT_WINDOW_MS?: number;
+
+  @IsOptional()
+  @IsNumber()
+  VERIFICATION_RATE_LIMIT_MAX_REQUESTS?: number;
+
+  @IsOptional()
   @IsString()
   SECURITY_CSP?: string;
 
@@ -216,6 +224,12 @@ export function validateEnv(): EnvironmentVariables {
       AUTH_BRUTE_FORCE_MAX_ATTEMPTS: process.env.AUTH_BRUTE_FORCE_MAX_ATTEMPTS
         ? parseInt(process.env.AUTH_BRUTE_FORCE_MAX_ATTEMPTS, 10)
         : undefined,
+      VERIFICATION_RATE_LIMIT_WINDOW_MS: process.env.VERIFICATION_RATE_LIMIT_WINDOW_MS
+        ? parseInt(process.env.VERIFICATION_RATE_LIMIT_WINDOW_MS, 10)
+        : 60 * 1000, // 1 minute default
+      VERIFICATION_RATE_LIMIT_MAX_REQUESTS: process.env.VERIFICATION_RATE_LIMIT_MAX_REQUESTS
+        ? parseInt(process.env.VERIFICATION_RATE_LIMIT_MAX_REQUESTS, 10)
+        : 100, // 100 requests per minute default
       SECURITY_CSP: process.env.SECURITY_CSP,
       SECURITY_FORCE_HSTS: process.env.SECURITY_FORCE_HSTS,
     },

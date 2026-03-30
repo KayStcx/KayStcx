@@ -15,12 +15,20 @@ Expiry Management: Automatic expiration of certificates based on Stellar sequenc
 
 Statistics Dashboard: Track total certificates, active certificates, and issuer activity
 
+**Soroban Smart Contract Integration**: On-chain certificate operations with multi-signature support
+
+**Rate Limiting**: IP-based rate limiting on public verification endpoints for security
+
 Technical Features
 React Frontend: Modern, responsive UI with real-time updates
 
 NestJS Backend: Scalable API with JWT authentication
 
+**Soroban Smart Contracts**: Decentralized certificate management on Stellar blockchain
+
 Stellar Integration: Smart contract-like functionality using Stellar transactions
+
+**Security Features**: Rate limiting, authentication, and authorization
 
 QR Code Generation: Easy certificate sharing and verification
 
@@ -77,13 +85,14 @@ stellarcert/
 │ ├── nest-cli.json
 │ └── tsconfig.json
 │
-├── stellar-contracts/ # Stellar Soroban Contracts
+├── stellar-contracts/ # Stellar Soroban Smart Contracts
 │ ├── src/
-│ │ ├── lib.rs # Main contract
-│ │ ├── cert_issuance.rs
-│ │ ├── cert_verification.rs
-│ │ └── types.rs
-│ ├── tests/
+│ │ ├── lib.rs # Main certificate contract
+│ │ ├── multisig.rs # Multi-signature operations
+│ │ ├── crl.rs # Certificate revocation lists
+│ │ ├── types.rs # Shared types and data structures
+│ │ └── admin_multisig.rs # Admin multisig functionality
+│ ├── tests/ # Contract tests
 │ └── Cargo.toml
 │
 ├── shared/ # Shared code between frontend/backend

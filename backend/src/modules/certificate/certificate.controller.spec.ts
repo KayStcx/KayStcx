@@ -7,6 +7,7 @@ describe('CertificateController', () => {
   let controller: CertificateController;
   const certificateService = {
     getCertificateQrCode: jest.fn(),
+    verifyCertificate: jest.fn(),
   };
   const statsService = {
     getPublicSummary: jest.fn(),
@@ -48,5 +49,39 @@ describe('CertificateController', () => {
     expect(certificateService.getCertificateQrCode).toHaveBeenCalledWith(
       'cert-123',
     );
+  });
+
+  it('should verify certificate with verification code', async () => {
+    const mockCertificate = {
+      id: 'cert-123',
+      title: 'Test Certificate',
+      recipientName: 'John Doe',
+      recipientEmail: 'john@example.com',
+      status: 'active',
+      issuedAt: new Date('2024-01-01'),
+      expiresAt: new Date('2025-01-01'),
+      issuer: {
+        name: 'Test Issuer',
+        website: 'https://issuer.com',
+      },
+      verificationCode: 'AB12CD34',
+    };
+
+    const expectedResponse = {
+      id: mockCertificate.id,
+      title: mockCertificate.title,
+      recipientName: mockCertificate.recipientName,
+      recipientEmail: mockCertificate.recipientEmail,
+      status: mockCertificate.status,
+      issuedAt: mockCertificate.issuedAt,
+      expiresAt: mockCertificate.expiresAt,
+      issuer: mockCertificate.issuer,
+      verificationCode: mockCertificate.verificationCode,
+    };
+
+    certificateService.verifyCertificate.mockResolvedValue(mockCertificate);
+
+    await expect(controller.verifyCertificate('AB12CD34')).resolves.toEqual(expectedResponse);
+    expect(certificateService.verifyCertificate).toHaveBeenCalledWith('AB12CD34');
   });
 });
