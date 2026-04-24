@@ -2,6 +2,8 @@ import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { BullModule } from '@nestjs/bull';
+import { BullBoardModule } from '@bull-board/nestjs';
+import { BullAdapter } from '@bull-board/api/bullAdapter';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { LoggingService } from './logging/logging.service';
 import { CorrelationIdMiddleware } from './logging/correlation-id.middleware';
@@ -58,6 +60,10 @@ import { Issuer } from '../modules/issuers/entities/issuer.entity';
         removeOnComplete: true,
         removeOnFail: false,
       },
+    }),
+    BullBoardModule.forFeature({
+      name: RATE_LIMIT_QUEUE_NAME,
+      adapter: BullAdapter,
     }),
   ],
   providers: [

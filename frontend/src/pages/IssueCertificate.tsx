@@ -296,14 +296,6 @@ const IssueCertificate = () => {
             </button>
           </div>
         </form>
-<<<<<<< feat/certificate-preview
-        {error && (
-          <div className="flex items-center gap-2 text-red-600 mb-4">
-            <XCircle className="w-5 h-5" />
-            <p>{error}</p>
-          </div>
-        )}
-
         <div className="mt-6 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
           <p className="font-medium">Preview before issuance</p>
           <p className="mt-1 text-blue-800">
@@ -315,8 +307,6 @@ const IssueCertificate = () => {
             </p>
           )}
         </div>
-=======
->>>>>>> main
       </div>
 
       <CertificatePreviewModal

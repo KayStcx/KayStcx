@@ -81,7 +81,6 @@ export class AuthController {
   async refresh(@Body() refreshDto: RefreshDto): Promise<AuthResponseDto> {
     return this.authService.refreshTokens(refreshDto.refreshToken);
   }
-}
 
   // ──────────────────────────── 2FA endpoints ────────────────────────────
 
