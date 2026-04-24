@@ -352,7 +352,7 @@ export class UsersController {
   @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
   @ApiResponse({ status: 404, description: 'User not found' })
   async findByEmail(@Param('email') email: string) {
-    return this.usersService.findUserByEmail(email);
+    return this.usersService.findOneByEmail(email);
   }
 
   @Get(':id')

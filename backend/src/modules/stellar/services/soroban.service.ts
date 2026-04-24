@@ -2,7 +2,6 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   Contract,
-  SorobanRpc,
   TransactionBuilder,
   Networks,
   Keypair,
@@ -45,7 +44,7 @@ export interface MultisigRequest {
 @Injectable()
 export class SorobanService implements OnModuleInit {
   private readonly logger = new Logger(SorobanService.name);
-  private server: SorobanRpc.Server;
+  private server: any;
   private networkPassphrase: string;
   private adminKeypair: Keypair;
   private certificateContractId: string;
@@ -62,9 +61,9 @@ export class SorobanService implements OnModuleInit {
     const rpcUrl = this.configService.get<string>('SOROBAN_RPC_URL');
     const network = this.configService.get<string>('STELLAR_NETWORK');
     const adminSecret = this.configService.get<string>('SOROBAN_ADMIN_SECRET');
-    this.certificateContractId = this.configService.get<string>('CERTIFICATE_CONTRACT_ID');
-    this.multisigContractId = this.configService.get<string>('MULTISIG_CONTRACT_ID');
-    this.crlContractId = this.configService.get<string>('CRL_CONTRACT_ID');
+    this.certificateContractId = this.configService.get<string>('CERTIFICATE_CONTRACT_ID') || '';
+    this.multisigContractId = this.configService.get<string>('MULTISIG_CONTRACT_ID') || '';
+    this.crlContractId = this.configService.get<string>('CRL_CONTRACT_ID') || '';
 
     if (!rpcUrl || !network || !adminSecret) {
       this.logger.warn(
@@ -73,7 +72,8 @@ export class SorobanService implements OnModuleInit {
       return;
     }
 
-    this.server = new SorobanRpc.Server(rpcUrl, {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    this.server = new (require('@stellar/stellar-sdk') as any).rpc.Server(rpcUrl, {
       allowHttp: rpcUrl.includes('localhost'),
     });
     this.networkPassphrase =
@@ -105,7 +105,7 @@ export class SorobanService implements OnModuleInit {
         fee: '100',
         networkPassphrase: this.networkPassphrase,
       })
-        .addOperation(contract.deploy({
+        .addOperation((contract as any).deploy({
           wasmHash: Buffer.from(wasmHash, 'hex'),
         }))
         .setTimeout(30)

@@ -84,13 +84,13 @@ describe('AuthService - Registration', () => {
     }).compile();
 
     authService = module.get<AuthService>(AuthService);
-    usersService = module.get<UsersService>(UsersService);
-    jwtService = module.get<JwtService>(JwtService);
+    usersService = module.get(UsersService) as any;
+    jwtService = module.get(JwtService) as any;
   });
 
   describe('register', () => {
     it('should successfully register a user by delegating to UsersService', async () => {
-      usersService.register.mockResolvedValue(mockRegistrationResult);
+      usersService.register.mockResolvedValue(mockRegistrationResult as any);
 
       const result = await authService.register(mockRegisterDto);
 
@@ -138,7 +138,7 @@ describe('AuthService - Registration', () => {
         },
       };
 
-      usersService.register.mockResolvedValue(registrationResult);
+      usersService.register.mockResolvedValue(registrationResult as any);
 
       const result = await authService.register(mockRegisterDto);
 
@@ -165,7 +165,7 @@ describe('AuthService - Registration', () => {
     });
 
     it('should pass all required fields from RegisterDto to CreateUserDto', async () => {
-      usersService.register.mockResolvedValue(mockRegistrationResult);
+      usersService.register.mockResolvedValue(mockRegistrationResult as any);
 
       await authService.register(mockRegisterDto);
 
@@ -180,7 +180,7 @@ describe('AuthService - Registration', () => {
     });
 
     it('should not include optional fields in CreateUserDto when not provided', async () => {
-      usersService.register.mockResolvedValue(mockRegistrationResult);
+      usersService.register.mockResolvedValue(mockRegistrationResult as any);
 
       await authService.register(mockRegisterDto);
 
@@ -197,7 +197,7 @@ describe('AuthService - Registration', () => {
       // This test verifies that AuthService no longer implements its own
       // user creation logic and properly delegates to UsersService
       
-      usersService.register.mockResolvedValue(mockRegistrationResult);
+      usersService.register.mockResolvedValue(mockRegistrationResult as any);
 
       await authService.register(mockRegisterDto);
 
@@ -211,7 +211,7 @@ describe('AuthService - Registration', () => {
       // Ensure backward compatibility - the method signature and return type
       // should remain the same for existing clients
       
-      usersService.register.mockResolvedValue(mockRegistrationResult);
+      usersService.register.mockResolvedValue(mockRegistrationResult as any);
 
       const result = await authService.register(mockRegisterDto);
 
