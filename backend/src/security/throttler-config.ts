@@ -7,7 +7,7 @@ export const authThrottlerConfig: ThrottlerModuleOptions = [
     limit: 5,
   },
   {
-    name: 'registration',
+    name: 'registrations',
     ttl: 3600000,
     limit: 3,
   },
