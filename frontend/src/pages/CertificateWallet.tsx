@@ -1,12 +1,29 @@
-import { useEffect, useState } from 'react';
-import { Wallet, Download, Eye, Clock, QrCode, X, AlertCircle, Share2, Check } from 'lucide-react';
-import { Certificate, getUserCertificates, certificateApi, getCertificatePdfUrl } from '../api';
+import { useEffect, useState } from "react";
+import {
+  Wallet,
+  Download,
+  Eye,
+  Clock,
+  QrCode,
+  X,
+  AlertCircle,
+  Share2,
+  Check,
+} from "lucide-react";
+import {
+  Certificate,
+  getUserCertificates,
+  certificateApi,
+  getCertificatePdfUrl,
+} from "../api";
+import { useAuth } from "../context/AuthContext";
 
 const CertificateWallet = () => {
+  const { user } = useAuth();
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ QR states
+  // QR states
   const [qrCodes, setQrCodes] = useState<Record<string, string>>({});
   const [selectedQR, setSelectedQR] = useState<string | null>(null);
   const [loadingQR, setLoadingQR] = useState<Record<string, boolean>>({});
@@ -16,44 +33,40 @@ const CertificateWallet = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
-    const user = localStorage.getItem('user');
-
     if (!user) {
       setLoading(false);
       return;
     }
 
-    const parsedUser = JSON.parse(user);
-
     const fetchCertificates = async () => {
       try {
-        const data = await getUserCertificates(parsedUser.id);
+        const data = await getUserCertificates(user.id);
         if (data) setCertificates(data);
       } catch (error) {
-        console.error('Error fetching certificates:', error);
+        console.error("Error fetching certificates:", error);
       } finally {
         setLoading(false);
       }
     };
 
     fetchCertificates();
-  }, []);
+  }, [user]);
 
-  // ✅ QR CODE LOGIC
+  // QR CODE LOGIC
   const fetchQRCode = async (certificateId: string) => {
     if (qrCodes[certificateId]) return qrCodes[certificateId];
 
-    setLoadingQR(prev => ({ ...prev, [certificateId]: true }));
+    setLoadingQR((prev) => ({ ...prev, [certificateId]: true }));
 
     try {
       const qrCode = await certificateApi.getQR(certificateId);
-      setQrCodes(prev => ({ ...prev, [certificateId]: qrCode }));
+      setQrCodes((prev) => ({ ...prev, [certificateId]: qrCode }));
       return qrCode;
     } catch (error) {
-      console.error('Error fetching QR code:', error);
+      console.error("Error fetching QR code:", error);
       return null;
     } finally {
-      setLoadingQR(prev => ({ ...prev, [certificateId]: false }));
+      setLoadingQR((prev) => ({ ...prev, [certificateId]: false }));
     }
   };
 
@@ -81,7 +94,7 @@ const CertificateWallet = () => {
           url,
         });
       } catch (err) {
-        if (err instanceof Error && err.name !== 'AbortError') {
+        if (err instanceof Error && err.name !== "AbortError") {
           await copyToClipboard();
         }
       }
@@ -91,7 +104,10 @@ const CertificateWallet = () => {
   };
 
   // ✅ PDF VIEW/DOWNLOAD LOGIC
-  const handlePdfAction = async (cert: Certificate, action: 'view' | 'download') => {
+  const handlePdfAction = async (
+    cert: Certificate,
+    action: "view" | "download",
+  ) => {
     setError(null);
     setActionLoadingId(cert.id);
 
@@ -103,28 +119,30 @@ const CertificateWallet = () => {
       }
 
       // Validate URL before proceeding
-      if (!url || url.trim() === '') {
-        throw new Error('PDF URL not available');
+      if (!url || url.trim() === "") {
+        throw new Error("PDF URL not available");
       }
 
       // Check for placeholder/dummy URLs
-      if (url.includes('/api/dummy-pdf/') || url.includes('/dummy-pdf/')) {
-        throw new Error('PDF not yet available - certificate is being processed');
+      if (url.includes("/api/dummy-pdf/") || url.includes("/dummy-pdf/")) {
+        throw new Error(
+          "PDF not yet available - certificate is being processed",
+        );
       }
 
       // Additional URL validation
       try {
         new URL(url); // Validate URL format
       } catch {
-        throw new Error('Invalid PDF URL format');
+        throw new Error("Invalid PDF URL format");
       }
 
-      if (action === 'view') {
+      if (action === "view") {
         // Try to open in new tab with error handling
-        const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
+        const newWindow = window.open(url, "_blank", "noopener,noreferrer");
         if (!newWindow) {
           // Fallback: try to download instead
-          console.warn('Popup blocked, falling back to download');
+          console.warn("Popup blocked, falling back to download");
           await handlePdfDownload(url, cert);
         }
       } else {
@@ -132,32 +150,42 @@ const CertificateWallet = () => {
       }
     } catch (err: unknown) {
       console.error(err);
-      const message = err instanceof Error ? err.message : 'Unknown error';
+      const message = err instanceof Error ? err.message : "Unknown error";
 
       // Provide more helpful error messages
       let userFriendlyMessage = message;
-      if (message.includes('PDF not found')) {
-        userFriendlyMessage = 'Certificate PDF is not available yet. Please try again later.';
-      } else if (message.includes('not yet available')) {
-        userFriendlyMessage = 'Certificate is still being processed. PDF will be available soon.';
+      if (message.includes("PDF not found")) {
+        userFriendlyMessage =
+          "Certificate PDF is not available yet. Please try again later.";
+      } else if (message.includes("not yet available")) {
+        userFriendlyMessage =
+          "Certificate is still being processed. PDF will be available soon.";
       }
 
-      setError(`Failed to ${action} certificate "${cert.title}". ${userFriendlyMessage}`);
+      setError(
+        `Failed to ${action} certificate "${cert.title}". ${userFriendlyMessage}`,
+      );
     } finally {
       setActionLoadingId(null);
     }
   };
 
   // Helper function for PDF download with retry logic
-  const handlePdfDownload = async (url: string, cert: Certificate, retryCount = 0): Promise<void> => {
+  const handlePdfDownload = async (
+    url: string,
+    cert: Certificate,
+    retryCount = 0,
+  ): Promise<void> => {
     const maxRetries = 2;
 
     try {
       const res = await fetch(url);
       if (!res.ok) {
         if (res.status === 404 && retryCount < maxRetries) {
-          console.warn(`PDF not found, retrying... (${retryCount + 1}/${maxRetries})`);
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+          console.warn(
+            `PDF not found, retrying... (${retryCount + 1}/${maxRetries})`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second before retry
           return handlePdfDownload(url, cert, retryCount + 1);
         }
         throw new Error(`PDF unavailable (${res.status})`);
@@ -166,7 +194,7 @@ const CertificateWallet = () => {
       const blob = await res.blob();
       const objectUrl = window.URL.createObjectURL(blob);
 
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = objectUrl;
       a.download = `Certificate-${cert.serialNumber || cert.id}.pdf`;
       document.body.appendChild(a);
@@ -204,19 +232,26 @@ const CertificateWallet = () => {
       ) : certificates.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-lg shadow-md">
           <Wallet className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-600">No Certificates Yet</h2>
-          <p className="text-gray-500 mt-2">Your earned certificates will appear here</p>
+          <h2 className="text-xl font-semibold text-gray-600">
+            No Certificates Yet
+          </h2>
+          <p className="text-gray-500 mt-2">
+            Your earned certificates will appear here
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {certificates.map(cert => (
+          {certificates.map((cert) => (
             <div key={cert.id} className="bg-white rounded-lg shadow-md p-6">
               <div className="flex justify-between mb-4">
                 <h3 className="text-xl font-semibold">{cert.title}</h3>
-                <span className={`px-2 py-1 text-sm rounded ${cert.status === 'active'
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-red-100 text-red-800'
-                  }`}>
+                <span
+                  className={`px-2 py-1 text-sm rounded ${
+                    cert.status === "active"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800"
+                  }`}
+                >
                   {cert.status}
                 </span>
               </div>
@@ -231,7 +266,7 @@ const CertificateWallet = () => {
 
               <div className="flex justify-between">
                 <button
-                  onClick={() => handlePdfAction(cert, 'view')}
+                  onClick={() => handlePdfAction(cert, "view")}
                   disabled={actionLoadingId === cert.id}
                   className="flex items-center gap-2 text-blue-600 disabled:opacity-50"
                 >
@@ -253,7 +288,7 @@ const CertificateWallet = () => {
                 </button>
 
                 <button
-                  onClick={() => handlePdfAction(cert, 'download')}
+                  onClick={() => handlePdfAction(cert, "download")}
                   disabled={actionLoadingId === cert.id}
                   className="flex items-center gap-2 text-green-600 disabled:opacity-50"
                 >
@@ -270,7 +305,7 @@ const CertificateWallet = () => {
                   ) : (
                     <Share2 className="w-4 h-4" />
                   )}
-                  {copiedId === cert.id ? 'Copied!' : 'Share'}
+                  {copiedId === cert.id ? "Copied!" : "Share"}
                 </button>
               </div>
             </div>
