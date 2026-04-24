@@ -75,11 +75,3 @@ export interface Certificate {
     updatedAt: string;
   };
 }
-
-
-export interface User {
-  id: string;
-  email: string;
-  role: 'admin' | 'issuer' | 'holder';
-  created_at: string;
-}

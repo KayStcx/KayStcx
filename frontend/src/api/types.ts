@@ -9,7 +9,10 @@ export enum UserRole {
 }
 
 /**
- * Basic User profile information
+ * Primary User interface definition used throughout the application.
+ * This is the canonical user type - all components should use this type.
+ * Note: The admin dashboard has a separate admin-specific User type (src/components/admin/users/types.ts)
+ * for dashboard-specific schema requirements. Do not mix the two types.
  */
 export interface User {
   id: string;
