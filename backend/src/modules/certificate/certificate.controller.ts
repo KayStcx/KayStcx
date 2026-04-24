@@ -10,6 +10,7 @@ import {
   Delete,
   ParseUUIDPipe,
   Req,
+  Res,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -45,7 +46,6 @@ interface AuthenticatedUser {
 }
 import { CertificateQrResponseDto } from './dto/certificate-qr-response.dto';
 import { ExportFiltersDto, BulkExportDto } from './dto/export-filters.dto';
-import { Public } from '../../common/decorators/public.decorator';
 import { IpRateLimitGuard } from '../../common/guards/ip-rate-limit.guard';
 
 @ApiTags('Certificates')

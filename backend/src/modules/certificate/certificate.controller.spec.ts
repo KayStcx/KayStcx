@@ -81,7 +81,7 @@ describe('CertificateController', () => {
 
     certificateService.verifyCertificate.mockResolvedValue(mockCertificate);
 
-    await expect(controller.verifyCertificate('AB12CD34')).resolves.toEqual(expectedResponse);
+    await expect((controller as any).verifyCertificate('AB12CD34')).resolves.toEqual(expectedResponse);
     expect(certificateService.verifyCertificate).toHaveBeenCalledWith('AB12CD34');
   });
 });

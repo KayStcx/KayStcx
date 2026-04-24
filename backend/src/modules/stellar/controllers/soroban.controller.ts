@@ -9,10 +9,10 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { SorobanService } from '../services/soroban.service';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
-import { UserRole } from '../../auth/constants';
+import { JwtAuthGuard } from 'src/common';
+import { RolesGuard } from '../../users/guards/roles.guard';
+import { Roles } from '../../users/decorators/roles.decorator';
+import { UserRole } from '../../users/entities/user.entity';
 
 @ApiTags('Soroban')
 @Controller('soroban')
