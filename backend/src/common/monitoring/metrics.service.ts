@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Counter, Histogram, Registry } from 'prom-client';
+import { Counter, Histogram, Registry, Gauge } from 'prom-client';
+import { DataSource } from 'typeorm';
+import { Optional } from '@nestjs/common';
 
 @Injectable()
 export class MetricsService {
@@ -14,13 +16,16 @@ export class MetricsService {
   // Database metrics
   private dbQueryDuration: Histogram;
   private dbConnectionStatus: Counter;
+  private dbPoolActiveConnections: Gauge;
+  private dbPoolIdleConnections: Gauge;
+  private dbPoolWaitingQueries: Gauge;
 
   // Application metrics
   private certificateIssued: Counter;
   private certificateVerified: Counter;
   private authenticationAttempts: Counter;
 
-  constructor() {
+  constructor(@Optional() private readonly dataSource?: DataSource) {
     this.registry = new Registry();
 
     // Initialize HTTP metrics
@@ -58,6 +63,46 @@ export class MetricsService {
       help: 'Database connection status (1 = connected, 0 = disconnected)',
       labelNames: ['status'],
       registers: [this.registry],
+    });
+
+    this.dbPoolActiveConnections = new Gauge({
+      name: 'db_pool_active_connections',
+      help: 'Number of active database connections in the pool',
+      registers: [this.registry],
+      collect: () => {
+        const pool = (this.dataSource?.driver as any)?.master;
+        if (
+          pool &&
+          typeof pool.totalCount === 'number' &&
+          typeof pool.idleCount === 'number'
+        ) {
+          this.dbPoolActiveConnections.set(pool.totalCount - pool.idleCount);
+        }
+      },
+    });
+
+    this.dbPoolIdleConnections = new Gauge({
+      name: 'db_pool_idle_connections',
+      help: 'Number of idle database connections in the pool',
+      registers: [this.registry],
+      collect: () => {
+        const pool = (this.dataSource?.driver as any)?.master;
+        if (pool && typeof pool.idleCount === 'number') {
+          this.dbPoolIdleConnections.set(pool.idleCount);
+        }
+      },
+    });
+
+    this.dbPoolWaitingQueries = new Gauge({
+      name: 'db_pool_waiting_queries',
+      help: 'Number of queued queries waiting for a database connection',
+      registers: [this.registry],
+      collect: () => {
+        const pool = (this.dataSource?.driver as any)?.master;
+        if (pool && typeof pool.waitingCount === 'number') {
+          this.dbPoolWaitingQueries.set(pool.waitingCount);
+        }
+      },
     });
 
     // Initialize Application metrics
