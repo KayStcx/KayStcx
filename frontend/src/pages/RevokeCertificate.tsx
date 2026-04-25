@@ -2,17 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { findCertBySerialNumber, revokeCertificate } from '../api';
 import { AlertTriangle, Search, ShieldAlert, CheckCircle, XCircle, Loader2 } from 'lucide-react';
-
-interface Certificate {
-  id: string;
-  serialNumber: string;
-  recipientName: string;
-  courseName: string;
-  issuerName: string;
-  issuedAt: string;
-  status: string;
-}
-
+import type { Certificate } from '../api';
 interface Message {
   type: 'success' | 'error' | 'warning' | '';
   text: string;
@@ -82,7 +72,6 @@ const RevokeCertificate = () => {
           recipientName: result.recipientName,
           courseName: result.courseName,
           issuerName: result.issuerName,
-          issuedAt: result.issueDate,
           status: result.status
         });
       } else {
@@ -199,7 +188,7 @@ const RevokeCertificate = () => {
               ['Course / Certificate', certificate.courseName],
               ['Issuer', certificate.issuerName],
               ['Serial Number', certificate.serialNumber],
-              ['Issued On', new Date(certificate.issuedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })],
+              ['Issued On', new Date(certificate.issueDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })],
             ].map(([label, value]) => (
               <div key={label}>
                 <dt className="text-gray-500 dark:text-slate-400 font-medium">{label}</dt>
@@ -306,4 +295,3 @@ const MessageBanner = ({ type, text }: { type: Message['type']; text: string }) 
   );
 };
 
-export default RevokeCertificate;
