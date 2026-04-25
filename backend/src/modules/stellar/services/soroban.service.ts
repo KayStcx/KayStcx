@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   Contract,
@@ -11,6 +11,7 @@ import {
   scValToNative,
   StrKey,
 } from '@stellar/stellar-sdk';
+import { LoggingService } from "../../../common/logging/logging.service";
 
 export interface ContractDeploymentResult {
   contractId: string;
@@ -43,7 +44,6 @@ export interface MultisigRequest {
 
 @Injectable()
 export class SorobanService implements OnModuleInit {
-  private readonly logger = new Logger(SorobanService.name);
   private server: any;
   private networkPassphrase: string;
   private adminKeypair: Keypair;
@@ -51,7 +51,7 @@ export class SorobanService implements OnModuleInit {
   private multisigContractId: string;
   private crlContractId: string;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService, private readonly logger: LoggingService) {}
 
   onModuleInit() {
     this.initializeSoroban();

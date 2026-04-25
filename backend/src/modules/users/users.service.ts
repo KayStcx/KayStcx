@@ -4,8 +4,7 @@ import {
   ConflictException,
   BadRequestException,
   UnauthorizedException,
-  ForbiddenException,
-  Logger,
+  ForbiddenException
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -37,10 +36,10 @@ import { IAuthTokens, IUserPublic } from './interfaces/user.interface';
 import { CertificateStatsService } from '../certificate/services/stats.service';
 import { AuditService } from '../audit/services/audit.service';
 import { EmailQueueService } from '../email/email-queue.service';
+import { LoggingService } from "../../common/logging/logging.service";
 
 @Injectable()
 export class UsersService {
-  private readonly logger = new Logger(UsersService.name);
   private readonly SALT_ROUNDS = 12;
   private readonly MAX_LOGIN_ATTEMPTS = 5;
   private readonly LOCK_TIME_MINUTES = 30;
@@ -53,7 +52,7 @@ export class UsersService {
     private readonly configService: ConfigService,
     private readonly certificateStatsService: CertificateStatsService,
     private readonly auditService: AuditService,
-    private readonly emailQueueService: EmailQueueService,
+    private readonly emailQueueService: EmailQueueService, private readonly logger: LoggingService
   ) {}
 
   // ==================== Authentication ====================

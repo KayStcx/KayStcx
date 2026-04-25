@@ -2,7 +2,6 @@ import {
   Injectable,
   ConflictException,
   ForbiddenException,
-  Logger,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
@@ -36,10 +35,10 @@ import { WebhookEvent } from '../webhooks/entities/webhook-subscription.entity';
 import { MetadataSchemaService } from '../metadata-schema/services/metadata-schema.service';
 import { FilesService } from '../files/services/files.service';
 import { CertificateQrResponseDto } from './dto/certificate-qr-response.dto';
+import { LoggingService } from "../../common/logging/logging.service";
 
 @Injectable()
 export class CertificateService {
-  private readonly logger = new Logger(CertificateService.name);
   private readonly enableSoroban: boolean;
 
   constructor(
@@ -55,7 +54,7 @@ export class CertificateService {
     private readonly auditService: AuditService,
     private readonly mapper: CertificateMapper,
     private readonly filesService: FilesService,
-    private readonly configService: ConfigService,
+    private readonly configService: ConfigService, private readonly logger: LoggingService
   ) {
     this.enableSoroban = this.configService.get<boolean>('ENABLE_SOROBAN_INTEGRATION', false) || false;
   }

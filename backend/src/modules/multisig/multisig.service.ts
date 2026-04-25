@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   rpc,
@@ -11,6 +11,7 @@ import {
   scValToNative,
 } from '@stellar/stellar-sdk';
 import { StellarService } from '../stellar/services/stellar.service';
+import { LoggingService } from "../../common/logging/logging.service";
 
 // Enums and interfaces matching the smart contract
 export enum RequestStatus {
@@ -73,14 +74,13 @@ export interface PaginatedResult {
 
 @Injectable()
 export class MultisigService {
-  private readonly logger = new Logger(MultisigService.name);
   private contractId: string;
   private server: rpc.Server;
   private networkPassphrase: string;
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly stellarService: StellarService,
+    private readonly stellarService: StellarService, private readonly logger: LoggingService
   ) {
     this.initializeMultisig();
   }

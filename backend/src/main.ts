@@ -15,15 +15,14 @@ async function bootstrap() {
   const expressApp = app.getHttpAdapter().getInstance();
   expressApp.set('trust proxy', true);
 
-  console.log('🚀 Starting application...');
-  console.log(
-    '📧 Email queue name:',
-    process.env.EMAIL_QUEUE_NAME || 'email-queue',
-  );
-
   const sentryService = app.get(SentryService);
   const loggingService = app.get(LoggingService);
   const metricsService = app.get(MetricsService);
+
+  loggingService.log('🚀 Starting application...');
+  loggingService.log(
+    '📧 Email queue name: ' + (process.env.EMAIL_QUEUE_NAME || 'email-queue')
+  );
 
   const requestLimit = process.env.REQUEST_SIZE_LIMIT || '1mb';
   app.use(express.json({ limit: requestLimit }));

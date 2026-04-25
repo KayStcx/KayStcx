@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -9,17 +9,16 @@ import { AuditAction } from '../../audit/constants/audit-action.enum';
 import { AuditResourceType } from '../../audit/constants/audit-resource-type.enum';
 import { StellarService } from '../../stellar/services/stellar.service';
 import { ConfigService } from '@nestjs/config';
+import { LoggingService } from "../../../common/logging/logging.service";
 
 @Injectable()
 export class CertificateExpirationJob {
-  private readonly logger = new Logger(CertificateExpirationJob.name);
-
   constructor(
     @InjectRepository(Certificate)
     private readonly certificateRepository: Repository<Certificate>,
     private readonly stellarService: StellarService,
     private readonly auditService: AuditService,
-    private readonly configService: ConfigService,
+    private readonly configService: ConfigService, private readonly logger: LoggingService
   ) {}
 
   /**

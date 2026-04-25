@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bull';
@@ -11,11 +11,10 @@ import {
 } from './entities/webhook-subscription.entity';
 import { WebhookLog } from './entities/webhook-log.entity';
 import { CreateWebhookSubscriptionDto } from './dto/create-webhook-subscription.dto';
+import { LoggingService } from "../../common/logging/logging.service";
 
 @Injectable()
 export class WebhooksService {
-  private readonly logger = new Logger(WebhooksService.name);
-
   constructor(
     @InjectRepository(WebhookSubscription)
     private readonly subscriptionRepository: Repository<WebhookSubscription>,
@@ -24,7 +23,7 @@ export class WebhooksService {
     private readonly logRepository: Repository<WebhookLog>,
 
     @InjectQueue('webhooks')
-    private readonly webhookQueue: Queue,
+    private readonly webhookQueue: Queue, private readonly logger: LoggingService
   ) {}
 
   // CREATE

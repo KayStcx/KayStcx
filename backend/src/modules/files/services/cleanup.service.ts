@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import * as fs from 'fs';
 import * as path from 'path';
 import { promisify } from 'util';
+import { LoggingService } from "../../../common/logging/logging.service";
 
 const readdir = promisify(fs.readdir);
 const stat = promisify(fs.stat);
@@ -10,7 +11,6 @@ const unlink = promisify(fs.unlink);
 
 @Injectable()
 export class CleanupService {
-  private readonly logger = new Logger(CleanupService.name);
   private readonly tempDir = path.join(process.cwd(), 'temp');
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
@@ -39,4 +39,7 @@ export class CleanupService {
       this.logger.error(`Error during cleanup: ${error.message}`, error.stack);
     }
   }
+
+    constructor(private readonly logger: LoggingService) {
+    }
 }

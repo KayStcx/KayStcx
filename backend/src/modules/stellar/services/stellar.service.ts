@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   Horizon,
@@ -10,6 +10,7 @@ import {
   Operation,
 } from '@stellar/stellar-sdk';
 import axios from 'axios';
+import { LoggingService } from "../../../common/logging/logging.service";
 
 export interface CreateAccountResult {
   publicKey: string;
@@ -26,12 +27,11 @@ export interface TransactionResult {
 
 @Injectable()
 export class StellarService implements OnModuleInit {
-  private readonly logger = new Logger(StellarService.name);
   private server: Horizon.Server;
   private networkPassphrase: string;
   private issuerKeypair: Keypair;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService, private readonly logger: LoggingService) {}
 
   onModuleInit() {
     this.initializeStellar();

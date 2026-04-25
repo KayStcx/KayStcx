@@ -1,14 +1,13 @@
-import { Injectable, NestMiddleware, Logger } from '@nestjs/common';
+import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { RequestContextService } from '../services';
 import { IRequestContext } from '../interfaces';
+import { LoggingService } from "../../../common/logging/logging.service";
 
 @Injectable()
 export class AuditContextMiddleware implements NestMiddleware {
-  private readonly logger = new Logger(AuditContextMiddleware.name);
-
-  constructor(private requestContextService: RequestContextService) {}
+  constructor(private requestContextService: RequestContextService, private readonly logger: LoggingService) {}
 
   use(req: Request, res: Response, next: NextFunction) {
     const correlationId = req.get('x-correlation-id') || uuidv4();
