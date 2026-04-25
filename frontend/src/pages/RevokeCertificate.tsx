@@ -72,7 +72,10 @@ const RevokeCertificate = () => {
           recipientName: result.recipientName,
           courseName: result.courseName,
           issuerName: result.issuerName,
-          status: result.status
+          status: result.status,
+          recipientEmail: result.recipientEmail,
+          title: result.title,
+          issueDate: result.issueDate,
         });
       } else {
         setMessage({ type: 'error', text: 'Certificate not found.' });
@@ -295,3 +298,5 @@ const MessageBanner = ({ type, text }: { type: Message['type']; text: string }) 
   );
 };
 
+
+export default RevokeCertificate;
