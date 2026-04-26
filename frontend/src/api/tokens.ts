@@ -9,19 +9,13 @@
 const ACCESS_TOKEN_KEY = 'kaystcx_access_token';
 
 export const tokenStorage = {
-    getAccessToken: (): string | null => {
-        return sessionStorage.getItem(ACCESS_TOKEN_KEY);
-    },
-
-    setAccessToken: (token: string): void => {
-        sessionStorage.setItem(ACCESS_TOKEN_KEY, token);
-    },
-
+    getAccessToken: (): string | null => localStorage.getItem('accessToken'),
+    setAccessToken: (token: string): void => localStorage.setItem('accessToken', token),
+    getRefreshToken: (): string | null => localStorage.getItem('refreshToken'),
+    setRefreshToken: (token: string): void => localStorage.setItem('refreshToken', token),
     clearTokens: (): void => {
-        sessionStorage.removeItem(ACCESS_TOKEN_KEY);
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
     },
-
-    hasAccessToken: (): boolean => {
-        return !!sessionStorage.getItem(ACCESS_TOKEN_KEY);
-    },
-};
+    hasAccessToken: (): boolean => !!localStorage.getItem('accessToken'),
+  };
