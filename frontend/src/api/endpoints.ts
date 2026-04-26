@@ -24,6 +24,15 @@ import {
 } from "./types";
 import { tokenStorage } from "./tokens";
 
+interface AuditLogQueryParams {
+  action?: string;
+  resourceType?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}
+
 // Configuration flag - can be enabled via Vite env `VITE_USE_DUMMY_DATA` ("true"/"false").
 const VITE_USE_DUMMY = (
   import.meta as unknown as { env: Record<string, string> }
@@ -1244,7 +1253,7 @@ export const dashboardApi = {
 // ==================== AUDIT LOGS (#283) ====================
 
 export const auditApi = {
-  getLogs: async (params?: any): Promise<PaginatedActivityLog> => {
+  getLogs: async (params?: AuditLogQueryParams): Promise<PaginatedActivityLog> => {
     const searchParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
