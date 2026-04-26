@@ -21,6 +21,10 @@ import {
   TotalActiveUsersStats,
   IssuerStats,
   PaginatedActivityLog,
+  CertificateTransfer,
+  InitiateTransferDto,
+  ApproveTransferDto,
+  RejectTransferDto,
 } from "./types";
 import { tokenStorage } from "./tokens";
 
@@ -768,25 +772,25 @@ export const certificateApi = {
   
   // Certificate Transfer API (#286)
   transfer: {
-    initiate: async (data: any): Promise<any> => {
+    initiate: async (data: InitiateTransferDto): Promise<CertificateTransfer> => {
       return apiClient("/certificates/transfers/initiate", {
         method: "POST",
         body: JSON.stringify(data),
       });
     },
-    approve: async (data: any): Promise<any> => {
+    approve: async (data: ApproveTransferDto): Promise<CertificateTransfer> => {
       return apiClient("/certificates/transfers/approve", {
         method: "POST",
         body: JSON.stringify(data),
       });
     },
-    reject: async (data: any): Promise<any> => {
+    reject: async (data: RejectTransferDto): Promise<CertificateTransfer> => {
       return apiClient("/certificates/transfers/reject", {
         method: "POST",
         body: JSON.stringify(data),
       });
     },
-    getPending: async (): Promise<any[]> => {
+    getPending: async (): Promise<CertificateTransfer[]> => {
       return apiClient("/certificates/transfers/pending");
     },
   }
