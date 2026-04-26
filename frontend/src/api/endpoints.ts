@@ -811,7 +811,7 @@ export const loginApi = async (
         refreshToken: "dummy-refresh-token",
       };
       tokenStorage.setAccessToken(response.accessToken);
-      tokenStorage.setRefreshToken(response.refreshToken);
+      // Note: refreshToken is handled server-side via httpOnly cookies
       return response;
     }
     throw new Error("Invalid credentials");
@@ -823,7 +823,7 @@ export const loginApi = async (
       body: JSON.stringify(credentials),
     });
     tokenStorage.setAccessToken(response.accessToken);
-    tokenStorage.setRefreshToken(response.refreshToken);
+    // Note: refreshToken is handled server-side via httpOnly cookies
     return response;
   } catch (error) {
     return handleError(error, "loginApi");
@@ -848,7 +848,7 @@ export const registerApi = async (
       refreshToken: "dummy-refresh-token",
     };
     tokenStorage.setAccessToken(response.accessToken);
-    tokenStorage.setRefreshToken(response.refreshToken);
+    // Note: refreshToken is handled server-side via httpOnly cookies
     return response;
   }
 
@@ -858,7 +858,7 @@ export const registerApi = async (
       body: JSON.stringify(data),
     });
     tokenStorage.setAccessToken(response.accessToken);
-    tokenStorage.setRefreshToken(response.refreshToken);
+    // Note: refreshToken is handled server-side via httpOnly cookies
     return response;
   } catch (error) {
     return handleError(error, "registerApi");
