@@ -188,6 +188,21 @@ export class CertificateController {
     );
   }
 
+  @Get('user/:userId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.ISSUER, UserRole.USER)
+  @ApiOperation({ summary: 'List all certificates for a user with pagination' })
+  @ApiParam({ name: 'userId', description: 'User UUID' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async getUserCertificates(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+  ) {
+    return this.certificateService.getUserCertificates(userId, +page, +limit);
+  }
+
   // ─── Single Certificate ───────────────────────────────────────────────────────
 
   @Get(':id/qr')

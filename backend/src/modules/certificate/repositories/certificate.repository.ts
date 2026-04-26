@@ -91,6 +91,23 @@ export class CertificateRepository {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
+  async findByUserId(
+    userId: string,
+    page = 1,
+    limit = 10,
+  ): Promise<PaginatedCertificates> {
+    const [data, total] = await this.repo
+      .createQueryBuilder('cert')
+      .leftJoinAndSelect('cert.issuer', 'issuer')
+      .innerJoin('users', 'u', 'u.email = cert.recipientEmail')
+      .where('u.id = :userId', { userId })
+      .orderBy('cert.issuedAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
   async findByIssuerId(
     issuerId: string,
     page = 1,
