@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   HealthIndicator,
   HealthIndicatorResult,
@@ -7,6 +7,7 @@ import {
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { timeout } from 'rxjs/operators';
+import { LoggingService } from "../../../common/logging/logging.service";
 
 /**
  * Example: Custom Health Indicator for External Service
@@ -16,9 +17,7 @@ import { timeout } from 'rxjs/operators';
  */
 @Injectable()
 export class ExternalServiceHealthIndicator extends HealthIndicator {
-  private readonly logger = new Logger(ExternalServiceHealthIndicator.name);
-
-  constructor(private httpService: HttpService) {
+  constructor(private httpService: HttpService, private readonly logger: LoggingService) {
     super();
   }
 
@@ -62,9 +61,7 @@ export class ExternalServiceHealthIndicator extends HealthIndicator {
  */
 @Injectable()
 export class CacheHealthIndicator extends HealthIndicator {
-  private readonly logger = new Logger(CacheHealthIndicator.name);
-
-  constructor(private cacheService: any) {
+  constructor(private cacheService: any, private readonly logger: LoggingService) {
     super();
   }
 
@@ -95,9 +92,7 @@ export class CacheHealthIndicator extends HealthIndicator {
  */
 @Injectable()
 export class MessageQueueHealthIndicator extends HealthIndicator {
-  private readonly logger = new Logger(MessageQueueHealthIndicator.name);
-
-  constructor(private queueService: any) {
+  constructor(private queueService: any, private readonly logger: LoggingService) {
     super();
   }
 
@@ -132,7 +127,6 @@ export class MessageQueueHealthIndicator extends HealthIndicator {
  */
 @Injectable()
 export class MemoryHealthIndicator extends HealthIndicator {
-  private readonly logger = new Logger(MemoryHealthIndicator.name);
   private readonly maxMemoryUsage = 0.9; // 90%
 
   isHealthy(): HealthIndicatorResult {
@@ -164,4 +158,8 @@ export class MemoryHealthIndicator extends HealthIndicator {
       );
     }
   }
+
+    constructor(private readonly logger: LoggingService) {
+      super();
+    }
 }

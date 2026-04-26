@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Repository,
@@ -12,6 +12,7 @@ import { AuditLog } from '../entities';
 import { AuditAction, AuditResourceType } from '../constants';
 import { AuditSearchDto, AuditStatisticsDto } from '../dto';
 import { RequestContextService } from './request-context.service';
+import { LoggingService } from "../../../common/logging/logging.service";
 
 export interface LogAuditParams {
   action: AuditAction;
@@ -37,12 +38,10 @@ export interface LogAuditParams {
 
 @Injectable()
 export class AuditService {
-  private readonly logger = new Logger(AuditService.name);
-
   constructor(
     @InjectRepository(AuditLog)
     private auditLogRepository: Repository<AuditLog>,
-    private requestContextService: RequestContextService,
+    private requestContextService: RequestContextService, private readonly logger: LoggingService
   ) {}
 
   async log(params: LogAuditParams): Promise<AuditLog | null> {

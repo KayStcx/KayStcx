@@ -4,8 +4,7 @@ import {
   Body,
   Get,
   Param,
-  UseGuards,
-  Logger,
+  UseGuards
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { SorobanService } from '../services/soroban.service';
@@ -13,15 +12,14 @@ import { JwtAuthGuard } from 'src/common';
 import { RolesGuard } from '../../users/guards/roles.guard';
 import { Roles } from '../../users/decorators/roles.decorator';
 import { UserRole } from '../../users/entities/user.entity';
+import { LoggingService } from "../../../common/logging/logging.service";
 
 @ApiTags('Soroban')
 @Controller('soroban')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
 export class SorobanController {
-  private readonly logger = new Logger(SorobanController.name);
-
-  constructor(private readonly sorobanService: SorobanService) {}
+  constructor(private readonly sorobanService: SorobanService, private readonly logger: LoggingService) {}
 
   @Post('initialize-contract')
   @ApiOperation({ summary: 'Initialize the certificate contract' })

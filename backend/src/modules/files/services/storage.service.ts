@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   S3Client,
@@ -9,15 +9,15 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuidv4 } from 'uuid';
 import { extname } from 'path';
+import { LoggingService } from "../../../common/logging/logging.service";
 
 @Injectable()
 export class StorageService implements OnModuleInit {
-  private readonly logger = new Logger(StorageService.name);
   private readonly s3Client: S3Client | null = null;
   private readonly bucket: string;
   private readonly isStorageRequired: boolean;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(private readonly configService: ConfigService, private readonly logger: LoggingService) {
     this.bucket = this.configService.get<string>('STORAGE_BUCKET') ?? '';
     this.isStorageRequired =
       this.configService.get<string>('STORAGE_REQUIRED') !== 'false';

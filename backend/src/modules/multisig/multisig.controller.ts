@@ -8,7 +8,6 @@ import {
   Body,
   Query,
   UseGuards,
-  Logger,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
@@ -19,18 +18,25 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../../common/constants/roles';
+import { LoggingService } from "../../common/logging/logging.service";
 
 class InitMultisigConfigDto {
   issuer: string;
   threshold: number;
   signers: string[];
   maxSigners: number;
+
+    constructor(private readonly logger: LoggingService) {
+    }
 }
 
 class UpdateMultisigConfigDto {
   threshold?: number;
   signers?: string[];
   maxSigners?: number;
+
+    constructor(private readonly logger: LoggingService) {
+    }
 }
 
 class ProposeCertificateDto {
@@ -39,31 +45,44 @@ class ProposeCertificateDto {
   recipient: string;
   metadata: string;
   expirationDays: number;
+
+    constructor(private readonly logger: LoggingService) {
+    }
 }
 
 class ApproveRequestDto {
   requestId: string;
+
+    constructor(private readonly logger: LoggingService) {
+    }
 }
 
 class RejectRequestDto {
   requestId: string;
   reason?: string;
+
+    constructor(private readonly logger: LoggingService) {
+    }
 }
 
 class IssueCertificateDto {
   requestId: string;
+
+    constructor(private readonly logger: LoggingService) {
+    }
 }
 
 class CancelRequestDto {
   requestId: string;
+
+    constructor(private readonly logger: LoggingService) {
+    }
 }
 
 @Controller('multisig')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class MultisigController {
-  private readonly logger = new Logger(MultisigController.name);
-
-  constructor(private readonly multisigService: MultisigService) {}
+  constructor(private readonly multisigService: MultisigService, private readonly logger: LoggingService) {}
 
   @Post('config/init')
   @Roles(UserRole.ADMIN, UserRole.ISSUER)

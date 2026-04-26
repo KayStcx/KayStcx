@@ -1,4 +1,4 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Certificate } from '../entities/certificate.entity';
@@ -9,14 +9,13 @@ import {
   DuplicateDetectionConfig,
   OverrideRequest,
 } from '../interfaces/duplicate-detection.interface';
+import { LoggingService } from "../../../common/logging/logging.service";
 
 @Injectable()
 export class DuplicateDetectionService {
-  private readonly logger = new Logger(DuplicateDetectionService.name);
-
   constructor(
     @InjectRepository(Certificate)
-    private readonly certificateRepository: Repository<Certificate>,
+    private readonly certificateRepository: Repository<Certificate>, private readonly logger: LoggingService
   ) {}
 
   async checkForDuplicates(

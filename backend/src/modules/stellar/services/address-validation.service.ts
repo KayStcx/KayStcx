@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cache } from 'cache-manager';
 import { Horizon, StrKey } from '@stellar/stellar-sdk';
@@ -16,16 +16,16 @@ import {
   BulkAddressValidationResult,
   StellarNetwork,
 } from '../dto/address-validation.dto';
+import { LoggingService } from "../../../common/logging/logging.service";
 
 @Injectable()
 export class AddressValidationService {
-  private readonly logger = new Logger(AddressValidationService.name);
   private readonly servers: Map<StellarNetwork, Horizon.Server>;
   private readonly config: StellarConfig;
   private readonly cache: Cache;
 
   constructor(
-    private readonly configService: ConfigService,
+    private readonly configService: ConfigService, private readonly logger: LoggingService
     // @Inject(CACHE_MANAGER) cache: Cache,
   ) {
     // this.cache = cache;

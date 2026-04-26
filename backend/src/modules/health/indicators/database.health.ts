@@ -1,16 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   HealthIndicator,
   HealthIndicatorResult,
   HealthCheckError,
 } from '@nestjs/terminus';
 import { DataSource } from 'typeorm';
+import { LoggingService } from "../../../common/logging/logging.service";
 
 @Injectable()
 export class DatabaseHealthIndicator extends HealthIndicator {
-  private readonly logger = new Logger(DatabaseHealthIndicator.name);
-
-  constructor(private readonly dataSource: DataSource) {
+  constructor(private readonly dataSource: DataSource, private readonly logger: LoggingService) {
     super();
   }
 

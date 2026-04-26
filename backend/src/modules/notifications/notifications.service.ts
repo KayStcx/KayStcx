@@ -1,20 +1,19 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Notification, NotificationType } from './entities/notification.entity';
 import { NotificationPreference } from './entities/notification-preference.entity';
 import { NotificationsGateway } from './notifications.gateway';
+import { LoggingService } from "../../common/logging/logging.service";
 
 @Injectable()
 export class NotificationsService {
-  private readonly logger = new Logger(NotificationsService.name);
-
   constructor(
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
     @InjectRepository(NotificationPreference)
     private readonly preferenceRepository: Repository<NotificationPreference>,
-    private readonly notificationsGateway: NotificationsGateway,
+    private readonly notificationsGateway: NotificationsGateway, private readonly logger: LoggingService
   ) {}
 
   async createNotification(

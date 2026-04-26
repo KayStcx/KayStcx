@@ -1,5 +1,4 @@
 import { Process, Processor } from '@nestjs/bull';
-import { Logger } from '@nestjs/common';
 import type { Job } from 'bull';
 import axios from 'axios';
 import * as crypto from 'crypto';
@@ -8,17 +7,16 @@ import { Repository } from 'typeorm';
 
 import { WebhookSubscription } from './entities/webhook-subscription.entity';
 import { WebhookLog } from './entities/webhook-log.entity';
+import { LoggingService } from "../../common/logging/logging.service";
 
 @Processor('webhooks')
 export class WebhooksProcessor {
-  private readonly logger = new Logger(WebhooksProcessor.name);
-
   constructor(
     @InjectRepository(WebhookSubscription)
     private readonly subscriptionRepository: Repository<WebhookSubscription>,
 
     @InjectRepository(WebhookLog)
-    private readonly logRepository: Repository<WebhookLog>,
+    private readonly logRepository: Repository<WebhookLog>, private readonly logger: LoggingService
   ) {}
 
   @Process('deliver')

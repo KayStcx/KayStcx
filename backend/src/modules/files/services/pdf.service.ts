@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
+import { LoggingService } from "../../../common/logging/logging.service";
 
 export interface CertificateData {
   tokenId?: string;
@@ -18,8 +19,6 @@ export interface CertificateData {
 
 @Injectable()
 export class PdfService {
-  private readonly logger = new Logger(PdfService.name);
-
   async generateCertificate(data: CertificateData): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       try {
@@ -147,4 +146,7 @@ export class PdfService {
       }
     });
   }
+
+    constructor(private readonly logger: LoggingService) {
+    }
 }
