@@ -884,6 +884,17 @@ export const registerApi = async (
 export const authApi = {
   login: loginApi,
   register: registerApi,
+  refresh: async (): Promise<AuthResponse> => {
+    const refreshToken = tokenStorage.getRefreshToken();
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+    return apiClient<AuthResponse>('/auth/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
+      skipAuth: true,
+    });
+  },
   logout: async (): Promise<void> => {
     try {
       if (!USE_DUMMY_DATA) {
