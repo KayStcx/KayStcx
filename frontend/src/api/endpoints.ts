@@ -61,6 +61,21 @@ const handleError = (error: unknown, endpointName: string): never => {
 const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
+ * Refresh tokens using the stored refresh token
+ */
+const refreshTokens = async (): Promise<AuthResponse> => {
+  const refreshToken = tokenStorage.getRefreshToken();
+  if (!refreshToken) {
+    throw new Error('No refresh token available');
+  }
+  return apiClient<AuthResponse>('/auth/refresh', {
+    method: 'POST',
+    body: JSON.stringify({ refreshToken }),
+    skipAuth: true,
+  });
+};
+
+/**
  * Retry configuration
  */
 interface RetryConfig {
@@ -87,7 +102,7 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
  */
 export async function apiClient<T>(
   endpoint: string,
-  options: RequestInit = {},
+  options: RequestInit & { skipAuth?: boolean } = {},
   retryConfig: Partial<RetryConfig> = {},
 ): Promise<T> {
   const config = { ...DEFAULT_RETRY_CONFIG, ...retryConfig };
@@ -97,12 +112,14 @@ export async function apiClient<T>(
   const headers = new Headers(options.headers);
   headers.set("Content-Type", "application/json");
 
-  const token = tokenStorage.getAccessToken();
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
+  if (!options.skipAuth) {
+    const token = tokenStorage.getAccessToken();
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
   }
 
-  const attemptRequest = async (attempt: number): Promise<T> => {
+  const attemptRequest = async (attempt: number, hasTriedRefresh: boolean = false): Promise<T> => {
     try {
       const response = await fetch(url, {
         ...options,
@@ -115,8 +132,20 @@ export async function apiClient<T>(
           statusCode: response.status,
         }));
 
-        if (response.status === 401) {
+        if (response.status === 401 && !hasTriedRefresh) {
+          try {
+            const refreshResponse = await refreshTokens();
+            tokenStorage.setAccessToken(refreshResponse.accessToken);
+            tokenStorage.setRefreshToken(refreshResponse.refreshToken);
+            // Retry the original request with hasTriedRefresh = true
+            return attemptRequest(attempt, true);
+          } catch (refreshError) {
+            tokenStorage.clearTokens();
+            throw errorData;
+          }
+        } else if (response.status === 401) {
           tokenStorage.clearTokens();
+          throw errorData;
         }
 
         throw errorData;
