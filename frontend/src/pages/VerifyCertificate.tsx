@@ -3,6 +3,8 @@ import type { JSX } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { certificateApi, VerificationResult } from '../api';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 // Debounce hook for search inputs
 const useDebounce = (value: string, delay: number) => {
@@ -463,7 +465,7 @@ export default function VerifyCertificate(): JSX.Element {
                     onClick={() => {
                       const url = `${window.location.origin}/verify?serial=${encodeURIComponent(serial)}`;
                       navigator.clipboard.writeText(url);
-                      // Could add a toast notification here
+                      toast.success('Link copied to clipboard!');
                     }}
                     className="flex items-center gap-2 rounded-lg border border-white/10 bg-slate-800/50 px-3 py-2 text-sm text-white hover:bg-slate-700/50 transition"
                   >
