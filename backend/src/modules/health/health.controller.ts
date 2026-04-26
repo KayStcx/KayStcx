@@ -34,7 +34,9 @@ export class HealthController {
   })
   async check() {
     try {
-      return await this.health.check([]);
+      return await this.health.check([
+        () => this.stellarHealth.isHealthy(),
+      ]);
     } catch (error) {
       this.logger.error('Health check failed', error);
       throw new HttpException(

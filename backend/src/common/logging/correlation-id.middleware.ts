@@ -19,7 +19,7 @@ export class CorrelationIdMiddleware implements NestMiddleware {
     // Create context for this request
     const context: LogContext = {
       correlationId,
-      requestId: req.headers['x-request-id'] as string,
+      requestId: (req.headers['x-request-id'] as string) || this.loggingService.generateCorrelationId(),
       userId: (req as any).user?.id,
     };
 
@@ -28,7 +28,7 @@ export class CorrelationIdMiddleware implements NestMiddleware {
 
     // Add correlation ID to response headers
     res.setHeader('x-correlation-id', correlationId);
-    res.setHeader('x-request-id', context.requestId || '');
+    res.setHeader('x-request-id', context.requestId as string);
 
     // Log request
     this.loggingService.log(

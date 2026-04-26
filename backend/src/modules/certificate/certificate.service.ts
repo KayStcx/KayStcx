@@ -542,6 +542,14 @@ export class CertificateService {
     return certificate;
   }
 
+  async getUserCertificates(
+    userId: string,
+    page = 1,
+    limit = 10,
+  ): Promise<PaginatedCertificates> {
+    return this.certRepo.findByUserId(userId, page, limit);
+  }
+
   async getCertificatesByRecipient(
     email: string,
     page = 1,

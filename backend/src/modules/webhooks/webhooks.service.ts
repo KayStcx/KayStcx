@@ -115,8 +115,7 @@ export class WebhooksService {
       {
         attempts: 5,
         backoff: {
-          type: 'exponential',
-          delay: 1000,
+          type: 'webhookRetry',
         },
         removeOnComplete: true,
       },
