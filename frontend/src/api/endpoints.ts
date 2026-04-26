@@ -181,16 +181,16 @@ export async function apiClient<T>(
       console.warn(`API request failed (attempt ${attempt}/${config.maxRetries + 1}), retrying in ${delay}ms:`, error);
       
       await sleep(delay);
-      return attemptRequest(attempt + 1);
+      return attemptRequest(attempt + 1, hasTriedRefresh);
     }
   };
 
   // Only apply retry logic to GET requests by default
   if (isGetRequest) {
-    return attemptRequest(1);
+    return attemptRequest(1, false);
   } else {
     // For non-GET requests, make a single attempt
-    return attemptRequest(config.maxRetries + 1);
+    return attemptRequest(config.maxRetries + 1, false);
   }
 }
 
