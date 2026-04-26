@@ -21,8 +21,21 @@ import {
   TotalActiveUsersStats,
   IssuerStats,
   PaginatedActivityLog,
+  CertificateTransfer,
+  InitiateTransferDto,
+  ApproveTransferDto,
+  RejectTransferDto,
 } from "./types";
 import { tokenStorage } from "./tokens";
+
+interface AuditLogQueryParams {
+  action?: string;
+  resourceType?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}
 
 // Configuration flag - can be enabled via Vite env `VITE_USE_DUMMY_DATA` ("true"/"false").
 const VITE_USE_DUMMY = (
@@ -759,25 +772,25 @@ export const certificateApi = {
   
   // Certificate Transfer API (#286)
   transfer: {
-    initiate: async (data: any): Promise<any> => {
+    initiate: async (data: InitiateTransferDto): Promise<CertificateTransfer> => {
       return apiClient("/certificates/transfers/initiate", {
         method: "POST",
         body: JSON.stringify(data),
       });
     },
-    approve: async (data: any): Promise<any> => {
+    approve: async (data: ApproveTransferDto): Promise<CertificateTransfer> => {
       return apiClient("/certificates/transfers/approve", {
         method: "POST",
         body: JSON.stringify(data),
       });
     },
-    reject: async (data: any): Promise<any> => {
+    reject: async (data: RejectTransferDto): Promise<CertificateTransfer> => {
       return apiClient("/certificates/transfers/reject", {
         method: "POST",
         body: JSON.stringify(data),
       });
     },
-    getPending: async (): Promise<any[]> => {
+    getPending: async (): Promise<CertificateTransfer[]> => {
       return apiClient("/certificates/transfers/pending");
     },
   }
@@ -798,7 +811,7 @@ export const loginApi = async (
         refreshToken: "dummy-refresh-token",
       };
       tokenStorage.setAccessToken(response.accessToken);
-      tokenStorage.setRefreshToken(response.refreshToken);
+      // Note: refreshToken is handled server-side via httpOnly cookies
       return response;
     }
     throw new Error("Invalid credentials");
@@ -810,7 +823,7 @@ export const loginApi = async (
       body: JSON.stringify(credentials),
     });
     tokenStorage.setAccessToken(response.accessToken);
-    tokenStorage.setRefreshToken(response.refreshToken);
+    // Note: refreshToken is handled server-side via httpOnly cookies
     return response;
   } catch (error) {
     return handleError(error, "loginApi");
@@ -835,7 +848,7 @@ export const registerApi = async (
       refreshToken: "dummy-refresh-token",
     };
     tokenStorage.setAccessToken(response.accessToken);
-    tokenStorage.setRefreshToken(response.refreshToken);
+    // Note: refreshToken is handled server-side via httpOnly cookies
     return response;
   }
 
@@ -845,7 +858,7 @@ export const registerApi = async (
       body: JSON.stringify(data),
     });
     tokenStorage.setAccessToken(response.accessToken);
-    tokenStorage.setRefreshToken(response.refreshToken);
+    // Note: refreshToken is handled server-side via httpOnly cookies
     return response;
   } catch (error) {
     return handleError(error, "registerApi");
@@ -1244,7 +1257,7 @@ export const dashboardApi = {
 // ==================== AUDIT LOGS (#283) ====================
 
 export const auditApi = {
-  getLogs: async (params?: any): Promise<PaginatedActivityLog> => {
+  getLogs: async (params?: AuditLogQueryParams): Promise<PaginatedActivityLog> => {
     const searchParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
