@@ -36,6 +36,8 @@ const IssueCertificate = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+const [templatesError, setTemplatesError] = useState('');
   const [formData, setFormData] = useState<IssueCertificateFormData>({
     recipientName: '',
     recipientEmail: '',
@@ -60,19 +62,24 @@ const IssueCertificate = () => {
 
   useEffect(() => {
     const loadTemplates = async () => {
+      setTemplatesLoading(true);
+      setTemplatesError('');
       try {
         const [allTemplates, defaultTemplate] = await Promise.all([
           templateApi.list(),
-          fetchDefaultTemplate()
+          fetchDefaultTemplate(),
         ]);
         setTemplates(allTemplates);
         if (defaultTemplate) {
-          setFormData((prev) => (
+          setFormData((prev) =>
             prev.templateId ? prev : { ...prev, templateId: defaultTemplate.id }
-          ));
+          );
         }
       } catch (err) {
-        console.error("Failed to load templates:", err);
+        console.error('Failed to load templates:', err);
+        setTemplatesError('Failed to load templates. Please refresh the page.');
+      } finally {
+        setTemplatesLoading(false);
       }
     };
     loadTemplates();
@@ -90,19 +97,56 @@ const IssueCertificate = () => {
     expiryDate: formData.expiryDate || undefined,
     templateName: selectedTemplate?.name,
   };
-
+  const validateForm = (): string | null => {
+    const namePattern = /\S/;
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  
+    if (!formData.recipientName.trim() || formData.recipientName.trim().length < 2) {
+      return 'Recipient name must be at least 2 characters.';
+    }
+    if (!namePattern.test(formData.recipientName)) {
+      return 'Recipient name must contain valid characters.';
+    }
+    if (!emailPattern.test(formData.recipientEmail)) {
+      return 'Please enter a valid email address.';
+    }
+    if (!formData.courseName.trim() || formData.courseName.trim().length < 3) {
+      return 'Course name must be at least 3 characters.';
+    }
+    if (!formData.issuerName.trim() || formData.issuerName.trim().length < 2) {
+      return 'Issuer name must be at least 2 characters.';
+    }
+    if (!formData.grade) {
+      return 'Please select a grade.';
+    }
+    if (!formData.issueDate) {
+      return 'Please select an issue date.';
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const issueDate = new Date(`${formData.issueDate}T00:00:00`);
+    if (issueDate > today) {
+      return 'Issue date cannot be in the future.';
+    }
+    if (formData.expiryDate) {
+      const expiryDate = new Date(`${formData.expiryDate}T00:00:00`);
+      if (expiryDate <= issueDate) {
+        return 'Expiry date must be after the issue date.';
+      }
+    }
+    if (!formData.templateId) {
+      return 'Please select a template.';
+    }
+    return null;
+  };
+  
   const handleOpenPreview = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!e.currentTarget.checkValidity()) {
-      e.currentTarget.reportValidity();
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
       return;
     }
-
-    if (!formData.templateId) {
-      setError('Please select a template.');
-      return;
-    }
-
     setError('');
     setIsPreviewOpen(true);
   };
@@ -178,16 +222,38 @@ const IssueCertificate = () => {
 
       <div className="bg-white rounded-lg shadow-md p-6">
         <form onSubmit={handleOpenPreview} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Recipient Name</label>
-            <input
-              type="text"
-              value={formData.recipientName}
-              onChange={(e) => setFormData({ ...formData, recipientName: e.target.value })}
-              className="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
-              required
-            />
-          </div>
+        <div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">
+    <div className="flex items-center gap-2">
+      <Layout className="w-4 h-4" />
+      Certificate Template
+    </div>
+  </label>
+  {templatesLoading ? (
+    <div className="w-full px-4 py-2 border rounded-md bg-gray-50 text-gray-400 text-sm">
+      Loading templates…
+    </div>
+  ) : templatesError ? (
+    <div className="flex items-center gap-2 text-red-600 text-sm mt-1">
+      <XCircle className="w-4 h-4 flex-shrink-0" />
+      <span>{templatesError}</span>
+    </div>
+  ) : (
+    <select
+      value={formData.templateId}
+      onChange={(e) => setFormData({ ...formData, templateId: e.target.value })}
+      className="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white"
+      required
+    >
+      <option value="" disabled>Select a template</option>
+      {templates.map((template) => (
+        <option key={template.id} value={template.id}>
+          {template.name}
+        </option>
+      ))}
+    </select>
+  )}
+</div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Recipient Email</label>
