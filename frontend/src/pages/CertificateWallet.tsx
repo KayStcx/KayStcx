@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Wallet,
   Download,
@@ -9,6 +9,8 @@ import {
   AlertCircle,
   Share2,
   Check,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   Certificate,
@@ -31,6 +33,8 @@ const CertificateWallet = () => {
   const [error, setError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(9);
 
   useEffect(() => {
     if (!user) {
@@ -41,7 +45,10 @@ const CertificateWallet = () => {
     const fetchCertificates = async () => {
       try {
         const data = await getUserCertificates(user.id);
-        if (data) setCertificates(data);
+        if (data) {
+          setCertificates(data);
+          setPage(1);
+        }
       } catch (error) {
         console.error("Error fetching certificates:", error);
       } finally {
@@ -210,6 +217,28 @@ const CertificateWallet = () => {
     }
   };
 
+  const total = certificates.length;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const paginatedCertificates = useMemo(() => {
+    const start = (page - 1) * limit;
+    return certificates.slice(start, start + limit);
+  }, [certificates, page, limit]);
+
+  const getStatusBadgeClass = (status: Certificate["status"]) => {
+    switch (status) {
+      case "active":
+        return "bg-green-100 text-green-800";
+      case "revoked":
+        return "bg-red-100 text-red-800";
+      case "expired":
+        return "bg-yellow-100 text-yellow-800";
+      case "frozen":
+        return "bg-blue-100 text-blue-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto">
       <div className="flex items-center gap-4 mb-8">
@@ -240,91 +269,152 @@ const CertificateWallet = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {certificates.map((cert) => (
-            <div key={cert.id} className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex justify-between mb-4">
-                <h3 className="text-xl font-semibold">{cert.title}</h3>
-                <span
-                  className={`px-2 py-1 text-sm rounded ${
-                    cert.status === "active"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
-                  }`}
-                >
-                  {cert.status}
-                </span>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {paginatedCertificates.map((cert) => (
+              <div key={cert.id} className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex justify-between mb-4">
+                  <h3 className="text-xl font-semibold">{cert.title}</h3>
+                  <span
+                    className={`px-2 py-1 text-sm rounded ${getStatusBadgeClass(
+                      cert.status,
+                    )}`}
+                  >
+                    {cert.status}
+                  </span>
+                </div>
+
+                <div className="mb-6 space-y-2 text-gray-600">
+                  <p>Issued to: {cert.recipientName}</p>
+                  <p className="flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    {new Date(cert.issueDate).toLocaleDateString()}
+                  </p>
+                </div>
+
+                <div className="flex justify-between">
+                  <button
+                    onClick={() => handlePdfAction(cert, "view")}
+                    disabled={actionLoadingId === cert.id}
+                    className="flex items-center gap-2 text-blue-600 disabled:opacity-50"
+                  >
+                    <Eye className="w-4 h-4" />
+                    View
+                  </button>
+
+                  <button
+                    onClick={() => handleShowQR(cert.id)}
+                    disabled={loadingQR[cert.id]}
+                    className="flex items-center gap-2 text-purple-600 disabled:opacity-50"
+                  >
+                    {loadingQR[cert.id] ? (
+                      <div className="animate-spin h-4 w-4 border-b-2 border-purple-600 rounded-full"></div>
+                    ) : (
+                      <QrCode className="w-4 h-4" />
+                    )}
+                    QR
+                  </button>
+
+                  <button
+                    onClick={() => handlePdfAction(cert, "download")}
+                    disabled={actionLoadingId === cert.id}
+                    className="flex items-center gap-2 text-green-600 disabled:opacity-50"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download
+                  </button>
+
+                  <button
+                    onClick={() => handleShare(cert)}
+                    className="flex items-center gap-2 text-indigo-600"
+                  >
+                    {copiedId === cert.id ? (
+                      <Check className="w-4 h-4" />
+                    ) : (
+                      <Share2 className="w-4 h-4" />
+                    )}
+                    {copiedId === cert.id ? "Copied!" : "Share"}
+                  </button>
+                </div>
               </div>
+            ))}
+          </div>
 
-              <div className="mb-6 space-y-2 text-gray-600">
-                <p>Issued to: {cert.recipientName}</p>
-                <p className="flex items-center gap-2">
-                  <Clock className="w-4 h-4" />
-                  {new Date(cert.issueDate).toLocaleDateString()}
-                </p>
-              </div>
-
-              <div className="flex justify-between">
-                <button
-                  onClick={() => handlePdfAction(cert, "view")}
-                  disabled={actionLoadingId === cert.id}
-                  className="flex items-center gap-2 text-blue-600 disabled:opacity-50"
-                >
-                  <Eye className="w-4 h-4" />
-                  View
-                </button>
-
-                <button
-                  onClick={() => handleShowQR(cert.id)}
-                  disabled={loadingQR[cert.id]}
-                  className="flex items-center gap-2 text-purple-600 disabled:opacity-50"
-                >
-                  {loadingQR[cert.id] ? (
-                    <div className="animate-spin h-4 w-4 border-b-2 border-purple-600 rounded-full"></div>
-                  ) : (
-                    <QrCode className="w-4 h-4" />
-                  )}
-                  QR
-                </button>
-
-                <button
-                  onClick={() => handlePdfAction(cert, "download")}
-                  disabled={actionLoadingId === cert.id}
-                  className="flex items-center gap-2 text-green-600 disabled:opacity-50"
-                >
-                  <Download className="w-4 h-4" />
-                  Download
-                </button>
-
-                <button
-                  onClick={() => handleShare(cert)}
-                  className="flex items-center gap-2 text-indigo-600"
-                >
-                  {copiedId === cert.id ? (
-                    <Check className="w-4 h-4" />
-                  ) : (
-                    <Share2 className="w-4 h-4" />
-                  )}
-                  {copiedId === cert.id ? "Copied!" : "Share"}
-                </button>
-              </div>
+          <div className="mt-6 px-2 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-gray-200">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">
+                Showing {(page - 1) * limit + 1} to{" "}
+                {Math.min(page * limit, total)} of {total} results
+              </span>
+              <select
+                value={limit}
+                onChange={(e) => {
+                  setLimit(Number(e.target.value));
+                  setPage(1);
+                }}
+                className="ml-2 px-2 py-1 text-sm border border-gray-300 rounded-md"
+                aria-label="Certificates per page"
+              >
+                <option value={6}>6</option>
+                <option value={9}>9</option>
+                <option value={12}>12</option>
+                <option value={24}>24</option>
+              </select>
             </div>
-          ))}
-        </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                disabled={page === 1}
+                className="p-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <span className="px-4 py-2 text-sm text-gray-700">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() =>
+                  setPage((prev) => Math.min(totalPages, prev + 1))
+                }
+                disabled={page === totalPages}
+                className="p-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Next page"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* ✅ QR MODAL */}
       {selectedQR && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Certificate QR code"
+        >
           <div className="bg-white p-6 rounded-lg max-w-sm w-full">
             <div className="flex justify-between mb-4">
               <h3 className="font-semibold">Certificate QR Code</h3>
-              <button onClick={() => setSelectedQR(null)}>
+              <button
+                onClick={() => setSelectedQR(null)}
+                aria-label="Close QR modal"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <img src={selectedQR} className="mx-auto max-h-[300px]" />
+            <img
+              src={selectedQR}
+              alt="Certificate QR code for verification"
+              role="img"
+              aria-label="Certificate QR code for verification"
+              className="mx-auto max-h-[300px]"
+            />
             <p className="text-sm text-gray-600 text-center mt-4">
               Scan to verify certificate
             </p>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from "react";
 import {
   Save,
   Key,
@@ -10,15 +10,15 @@ import {
   Hash,
   Upload,
   ImagePlus,
-} from 'lucide-react';
-import { issuerProfileApi, userApi } from '../api';
+} from "lucide-react";
+import { issuerProfileApi, userApi } from "../api";
 
 const MAX_PROFILE_PICTURE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_PROFILE_PICTURE_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
 ];
 
 const IssuerProfile = () => {
@@ -26,21 +26,23 @@ const IssuerProfile = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [profilePreview, setProfilePreview] = useState('');
-  const [selectedProfileImage, setSelectedProfileImage] = useState<File | null>(null);
+  const [profilePreview, setProfilePreview] = useState("");
+  const [selectedProfileImage, setSelectedProfileImage] = useState<File | null>(
+    null,
+  );
   const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    username: '',
-    phone: '',
-    organization: '',
-    stellarPublicKey: '',
-    profilePicture: ''
+    firstName: "",
+    lastName: "",
+    email: "",
+    username: "",
+    phone: "",
+    organization: "",
+    stellarPublicKey: "",
+    profilePicture: "",
   });
 
   // Statistics state
@@ -50,17 +52,19 @@ const IssuerProfile = () => {
     revokedCertificates: 0,
     expiredCertificates: 0,
     totalVerifications: 0,
-    lastLogin: ''
+    lastLogin: "",
   });
 
   // Activity log state
-  const [activities, setActivities] = useState<{
-    id: string;
-    action: string;
-    description: string;
-    timestamp: string;
-    ip: string;
-  }[]>([]);
+  const [activities, setActivities] = useState<
+    {
+      id: string;
+      action: string;
+      description: string;
+      timestamp: string;
+      ip: string;
+    }[]
+  >([]);
 
   useEffect(() => {
     const loadPageData = async () => {
@@ -71,18 +75,18 @@ const IssuerProfile = () => {
           firstName: profile.firstName,
           lastName: profile.lastName,
           email: profile.email,
-          username: profile.username || '',
-          phone: profile.phone || '',
+          username: profile.username || "",
+          phone: profile.phone || "",
           organization: profile.metadata?.organization
             ? String(profile.metadata.organization)
-            : '',
-          stellarPublicKey: profile.stellarPublicKey || '',
-          profilePicture: profile.profilePicture || ''
+            : "",
+          stellarPublicKey: profile.stellarPublicKey || "",
+          profilePicture: profile.profilePicture || "",
         });
         setSelectedProfileImage(null);
-        setProfilePreview(profile.profilePicture || '');
+        setProfilePreview(profile.profilePicture || "");
       } catch (err) {
-        setError('Failed to load profile');
+        setError("Failed to load profile");
         console.error(err);
       } finally {
         setLoading(false);
@@ -92,28 +96,30 @@ const IssuerProfile = () => {
         const profileStats = await issuerProfileApi.getStats();
         setStats(profileStats);
       } catch (err) {
-        console.error('Failed to load issuer stats', err);
+        console.error("Failed to load issuer stats", err);
       }
 
       try {
         const activityResponse = await issuerProfileApi.getActivity();
         setActivities(
-          activityResponse.activities.map((activity: {
-            id: string;
-            action: string;
-            description: string;
-            timestamp: string;
-            ipAddress?: string;
-          }) => ({
-            id: activity.id,
-            action: activity.action,
-            description: activity.description,
-            timestamp: activity.timestamp,
-            ip: activity.ipAddress || 'Unknown IP',
-          })),
+          activityResponse.activities.map(
+            (activity: {
+              id: string;
+              action: string;
+              description: string;
+              timestamp: string;
+              ipAddress?: string;
+            }) => ({
+              id: activity.id,
+              action: activity.action,
+              description: activity.description,
+              timestamp: activity.timestamp,
+              ip: activity.ipAddress || "Unknown IP",
+            }),
+          ),
         );
       } catch (err) {
-        console.error('Failed to load issuer activity', err);
+        console.error("Failed to load issuer activity", err);
       }
     };
 
@@ -130,9 +136,9 @@ const IssuerProfile = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -149,12 +155,12 @@ const IssuerProfile = () => {
     if (!file) return;
 
     if (!ALLOWED_PROFILE_PICTURE_TYPES.includes(file.type)) {
-      setError('Please select a JPG, PNG, GIF, or WebP image');
+      setError("Please select a JPG, PNG, GIF, or WebP image");
       return;
     }
 
     if (file.size > MAX_PROFILE_PICTURE_SIZE) {
-      setError('Profile picture must be 5MB or smaller');
+      setError("Profile picture must be 5MB or smaller");
       return;
     }
 
@@ -172,8 +178,11 @@ const IssuerProfile = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (formData.stellarPublicKey && !validateStellarKey(formData.stellarPublicKey)) {
-      setError('Invalid Stellar public key format');
+    if (
+      formData.stellarPublicKey &&
+      !validateStellarKey(formData.stellarPublicKey)
+    ) {
+      setError("Invalid Stellar public key format");
       return;
     }
 
@@ -203,23 +212,26 @@ const IssuerProfile = () => {
         firstName: updatedUser.firstName,
         lastName: updatedUser.lastName,
         email: updatedUser.email,
-        username: updatedUser.username || '',
-        phone: updatedUser.phone || '',
+        username: updatedUser.username || "",
+        phone: updatedUser.phone || "",
         organization: updatedUser.metadata?.organization
           ? String(updatedUser.metadata.organization)
           : formData.organization,
-        stellarPublicKey: updatedUser.stellarPublicKey || '',
-        profilePicture: uploadedProfilePicture || updatedUser.profilePicture || '',
+        stellarPublicKey: updatedUser.stellarPublicKey || "",
+        profilePicture:
+          uploadedProfilePicture || updatedUser.profilePicture || "",
       });
       if (localPreviewUrl) {
         URL.revokeObjectURL(localPreviewUrl);
         setLocalPreviewUrl(null);
       }
-      setProfilePreview(uploadedProfilePicture || updatedUser.profilePicture || '');
+      setProfilePreview(
+        uploadedProfilePicture || updatedUser.profilePicture || "",
+      );
       setSelectedProfileImage(null);
-      setSuccess('Profile updated successfully');
+      setSuccess("Profile updated successfully");
     } catch (err) {
-      setError('Failed to update profile');
+      setError("Failed to update profile");
       console.error(err);
     } finally {
       setSaving(false);
@@ -239,20 +251,23 @@ const IssuerProfile = () => {
   return (
     <div className="max-w-7xl mx-auto py-8">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Issuer Profile Management</h1>
-        <p className="mt-2 text-gray-600">
-          Manage your profile information, Stellar integration, and view activity logs
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-slate-100">
+          Issuer Profile Management
+        </h1>
+        <p className="mt-2 text-gray-600 dark:text-slate-400">
+          Manage your profile information, Stellar integration, and view
+          activity logs
         </p>
       </div>
 
       {error && (
-        <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+        <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg dark:bg-red-900/20 dark:border-red-700 dark:text-red-300">
           {error}
         </div>
       )}
 
       {success && (
-        <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+        <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg dark:bg-green-900/20 dark:border-green-700 dark:text-green-300">
           {success}
         </div>
       )}
@@ -260,9 +275,9 @@ const IssuerProfile = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Profile Information Form */}
         <div className="lg:col-span-2">
-          <div className="bg-white shadow rounded-lg">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+          <div className="bg-white shadow rounded-lg dark:bg-slate-900 dark:border dark:border-slate-700">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 flex items-center">
                 <UserIcon className="h-5 w-5 mr-2 text-blue-600" />
                 Profile Information
               </h2>
@@ -270,7 +285,7 @@ const IssuerProfile = () => {
             <form onSubmit={handleSubmit} className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                     First Name
                   </label>
                   <input
@@ -278,12 +293,12 @@ const IssuerProfile = () => {
                     name="firstName"
                     value={formData.firstName}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600 dark:text-white"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                     Last Name
                   </label>
                   <input
@@ -291,12 +306,12 @@ const IssuerProfile = () => {
                     name="lastName"
                     value={formData.lastName}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600 dark:text-white"
                     required
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                     Email Address
                   </label>
                   <input
@@ -304,13 +319,15 @@ const IssuerProfile = () => {
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-300"
                     disabled
                   />
-                  <p className="mt-1 text-sm text-gray-500">Email cannot be changed</p>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
+                    Email cannot be changed
+                  </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                     Username
                   </label>
                   <input
@@ -318,12 +335,12 @@ const IssuerProfile = () => {
                     name="username"
                     value={formData.username}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600 dark:text-white"
                     placeholder="johndoe"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                     Phone Number
                   </label>
                   <input
@@ -331,12 +348,12 @@ const IssuerProfile = () => {
                     name="phone"
                     value={formData.phone}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600 dark:text-white"
                     placeholder="+1234567890"
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                     Organization
                   </label>
                   <input
@@ -344,16 +361,16 @@ const IssuerProfile = () => {
                     name="organization"
                     value={formData.organization}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600 dark:text-white"
                     placeholder="Your organization name"
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                     Profile Picture
                   </label>
-                  <div className="flex flex-col gap-4 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 sm:flex-row sm:items-center">
-                    <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-white">
+                  <div className="flex flex-col gap-4 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 sm:flex-row sm:items-center dark:border-slate-600 dark:bg-slate-800">
+                    <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-white dark:border-slate-600 dark:bg-slate-900">
                       {profilePreview ? (
                         <img
                           src={profilePreview}
@@ -361,36 +378,37 @@ const IssuerProfile = () => {
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <ImagePlus className="h-8 w-8 text-gray-400" />
+                        <ImagePlus className="h-8 w-8 text-gray-400 dark:text-slate-500" />
                       )}
                     </div>
                     <div className="flex-1">
                       <input
                         ref={fileInputRef}
                         type="file"
-                        accept={ALLOWED_PROFILE_PICTURE_TYPES.join(',')}
+                        accept={ALLOWED_PROFILE_PICTURE_TYPES.join(",")}
                         className="hidden"
                         onChange={handleProfilePictureChange}
                       />
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                        className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                       >
                         <Upload className="mr-2 h-4 w-4" />
-                        {selectedProfileImage ? 'Change Image' : 'Select Image'}
+                        {selectedProfileImage ? "Change Image" : "Select Image"}
                       </button>
-                      <p className="mt-2 text-sm text-gray-600">
+                      <p className="mt-2 text-sm text-gray-600 dark:text-slate-400">
                         JPG, PNG, GIF, or WebP. Maximum size 5MB.
                       </p>
                       {selectedProfileImage && (
-                        <p className="mt-1 text-sm text-gray-500">
+                        <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
                           Ready to upload: {selectedProfileImage.name}
                         </p>
                       )}
                       {!selectedProfileImage && formData.profilePicture && (
-                        <p className="mt-1 text-sm text-gray-500">
-                          Current picture will stay unless you select a new file.
+                        <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
+                          Current picture will stay unless you select a new
+                          file.
                         </p>
                       )}
                     </div>
@@ -398,14 +416,14 @@ const IssuerProfile = () => {
                 </div>
               </div>
 
-              <div className="mt-8 pt-6 border-t border-gray-200">
+              <div className="mt-8 pt-6 border-t border-gray-200 dark:border-slate-700">
                 <button
                   type="submit"
                   disabled={saving}
                   className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                 >
                   <Save className="h-4 w-4 mr-2" />
-                  {saving ? 'Saving...' : 'Save Changes'}
+                  {saving ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             </form>
@@ -415,16 +433,16 @@ const IssuerProfile = () => {
         {/* Sidebar with Stellar Integration and Stats */}
         <div className="space-y-6">
           {/* Stellar Integration Card */}
-          <div className="bg-white shadow rounded-lg">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+          <div className="bg-white shadow rounded-lg dark:bg-slate-900 dark:border dark:border-slate-700">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 flex items-center">
                 <Key className="h-5 w-5 mr-2 text-purple-600" />
                 Stellar Integration
               </h2>
             </div>
             <div className="p-6">
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                   Stellar Public Key
                 </label>
                 <div className="flex">
@@ -433,35 +451,43 @@ const IssuerProfile = () => {
                     name="stellarPublicKey"
                     value={formData.stellarPublicKey}
                     onChange={handleInputChange}
-                    className={`flex-1 px-3 py-2 border ${formData.stellarPublicKey && !validateStellarKey(formData.stellarPublicKey)
-                      ? 'border-red-300'
-                      : 'border-gray-300'
-                      } rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    className={`flex-1 px-3 py-2 border ${
+                      formData.stellarPublicKey &&
+                      !validateStellarKey(formData.stellarPublicKey)
+                        ? "border-red-300 dark:border-red-500"
+                        : "border-gray-300 dark:border-slate-600"
+                    } rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-white`}
                     placeholder="GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
                   />
                   <button
                     type="button"
-                    className="px-3 py-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r-md text-gray-600 hover:bg-gray-200"
+                    className="px-3 py-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r-md text-gray-600 hover:bg-gray-200 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                     onClick={() => {
                       // Generate new key pair logic would go here
-                      alert('Key generation feature coming soon');
+                      alert("Key generation feature coming soon");
                     }}
                   >
                     <Shield className="h-4 w-4" />
                   </button>
                 </div>
-                {formData.stellarPublicKey && !validateStellarKey(formData.stellarPublicKey) && (
-                  <p className="mt-1 text-sm text-red-600">Invalid Stellar public key format</p>
-                )}
+                {formData.stellarPublicKey &&
+                  !validateStellarKey(formData.stellarPublicKey) && (
+                    <p className="mt-1 text-sm text-red-600">
+                      Invalid Stellar public key format
+                    </p>
+                  )}
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-4 dark:bg-blue-900/20 dark:border-blue-700">
                 <div className="flex items-start">
                   <Shield className="h-5 w-5 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
                   <div>
-                    <h3 className="text-sm font-medium text-blue-800">Security Note</h3>
-                    <p className="mt-1 text-sm text-blue-700">
-                      Your Stellar public key is used for blockchain operations. Never share your secret key.
+                    <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                      Security Note
+                    </h3>
+                    <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
+                      Your Stellar public key is used for blockchain operations.
+                      Never share your secret key.
                     </p>
                   </div>
                 </div>
@@ -470,9 +496,9 @@ const IssuerProfile = () => {
           </div>
 
           {/* Statistics Card */}
-          <div className="bg-white shadow rounded-lg">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+          <div className="bg-white shadow rounded-lg dark:bg-slate-900 dark:border dark:border-slate-700">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 flex items-center">
                 <Settings className="h-5 w-5 mr-2 text-green-600" />
                 Issuer Statistics
               </h2>
@@ -480,24 +506,42 @@ const IssuerProfile = () => {
             <div className="p-6">
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Total Certificates</span>
-                  <span className="font-semibold text-blue-600">{stats.totalCertificates}</span>
+                  <span className="text-gray-600 dark:text-slate-400">
+                    Total Certificates
+                  </span>
+                  <span className="font-semibold text-blue-600">
+                    {stats.totalCertificates}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Active Certificates</span>
-                  <span className="font-semibold text-green-600">{stats.activeCertificates}</span>
+                  <span className="text-gray-600 dark:text-slate-400">
+                    Active Certificates
+                  </span>
+                  <span className="font-semibold text-green-600">
+                    {stats.activeCertificates}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Revoked Certificates</span>
-                  <span className="font-semibold text-red-600">{stats.revokedCertificates}</span>
+                  <span className="text-gray-600 dark:text-slate-400">
+                    Revoked Certificates
+                  </span>
+                  <span className="font-semibold text-red-600">
+                    {stats.revokedCertificates}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Total Verifications</span>
-                  <span className="font-semibold text-purple-600">{stats.totalVerifications}</span>
+                  <span className="text-gray-600 dark:text-slate-400">
+                    Total Verifications
+                  </span>
+                  <span className="font-semibold text-purple-600">
+                    {stats.totalVerifications}
+                  </span>
                 </div>
-                <div className="flex justify-between items-center pt-4 border-t border-gray-200">
-                  <span className="text-gray-600">Last Login</span>
-                  <span className="text-sm text-gray-500">
+                <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-slate-700">
+                  <span className="text-gray-600 dark:text-slate-400">
+                    Last Login
+                  </span>
+                  <span className="text-sm text-gray-500 dark:text-slate-500">
                     {new Date(stats.lastLogin).toLocaleDateString()}
                   </span>
                 </div>
@@ -508,36 +552,41 @@ const IssuerProfile = () => {
       </div>
 
       {/* Activity Log Section */}
-      <div className="mt-8 bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+      <div className="mt-8 bg-white shadow rounded-lg dark:bg-slate-900 dark:border dark:border-slate-700">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-700">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 flex items-center">
             <Activity className="h-5 w-5 mr-2 text-orange-600" />
             Recent Activity
           </h2>
         </div>
         <div className="p-6">
           {activities.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <Activity className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+            <div className="text-center py-8 text-gray-500 dark:text-slate-400">
+              <Activity className="h-12 w-12 mx-auto text-gray-300 dark:text-slate-600 mb-4" />
               <p>No recent activity found</p>
             </div>
           ) : (
             <div className="space-y-4">
               {activities.map((activity) => (
-                <div key={activity.id} className="flex items-start p-4 border border-gray-200 rounded-lg">
+                <div
+                  key={activity.id}
+                  className="flex items-start p-4 border border-gray-200 rounded-lg dark:border-slate-700 dark:bg-slate-800/40"
+                >
                   <div className="flex-shrink-0">
-                    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                    <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
                       <Activity className="h-5 w-5 text-blue-600" />
                     </div>
                   </div>
                   <div className="ml-4 flex-1">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-medium text-gray-900">{activity.description}</h3>
-                      <span className="text-xs text-gray-500">
+                      <h3 className="text-sm font-medium text-gray-900 dark:text-slate-100">
+                        {activity.description}
+                      </h3>
+                      <span className="text-xs text-gray-500 dark:text-slate-500">
                         {new Date(activity.timestamp).toLocaleString()}
                       </span>
                     </div>
-                    <div className="mt-1 flex items-center text-xs text-gray-500">
+                    <div className="mt-1 flex items-center text-xs text-gray-500 dark:text-slate-400">
                       <Hash className="h-3 w-3 mr-1" />
                       {activity.action} •
                       <Building className="h-3 w-3 ml-2 mr-1" />
