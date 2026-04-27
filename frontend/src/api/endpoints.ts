@@ -25,6 +25,8 @@ import {
   InitiateTransferDto,
   ApproveTransferDto,
   RejectTransferDto,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
 } from "./types";
 import { tokenStorage } from "./tokens";
 
@@ -917,13 +919,13 @@ export const authApi = {
       tokenStorage.clearTokens();
     }
   },
-  forgotPassword: async (data: any): Promise<{ message: string }> => {
+  forgotPassword: async (data: ForgotPasswordRequest): Promise<{ message: string }> => {
     return apiClient("/users/forgot-password", {
       method: "POST",
       body: JSON.stringify(data),
     });
   },
-  resetPassword: async (data: any): Promise<{ message: string }> => {
+  resetPassword: async (data: ResetPasswordRequest): Promise<{ message: string }> => {
     return apiClient("/users/reset-password", {
       method: "POST",
       body: JSON.stringify(data),

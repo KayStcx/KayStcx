@@ -163,7 +163,7 @@ export default function VerifyCertificate(): JSX.Element {
       case 'expired':
         return 'bg-yellow-500/20 text-yellow-300';
       default:
-        return 'bg-slate-500/20 text-slate-300';
+        return 'bg-slate-500/20 text-gray-600 dark:text-slate-300';
     }
   };
 
@@ -185,21 +185,21 @@ export default function VerifyCertificate(): JSX.Element {
               d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
             />
           </svg>
-          <h2 className="text-2xl font-semibold text-white">Verify Certificate</h2>
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Verify Certificate</h2>
         </div>
-        <p className="mt-2 max-w-2xl text-sm text-slate-300">
+        <p className="mt-2 max-w-2xl text-sm text-gray-600 dark:text-slate-300">
           Enter a certificate serial number to verify its authenticity and view details.
         </p>
       </div>
 
       <div className="space-y-6">
         {/* Verification Form */}
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label
                 htmlFor="serial"
-                className="text-xs font-semibold uppercase tracking-wide text-slate-400"
+                className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400"
               >
                 Certificate Serial Number
               </label>
@@ -210,7 +210,7 @@ export default function VerifyCertificate(): JSX.Element {
                   value={serial}
                   onChange={(e) => setSerial(e.target.value)}
                   placeholder="44c2adef-b514-4a37-ba07-6cef7bffba87"
-                  className="flex-1 rounded-xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-primary"
+                  className="flex-1 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-slate-950/70 px-4 py-3 text-sm text-gray-900  outline-none placeholder:text-gray-400 dark:text-slate-500 focus:border-primary"
                   disabled={state.loading}
                   aria-label="Certificate Serial Number"
                   aria-required="true"
@@ -218,7 +218,7 @@ export default function VerifyCertificate(): JSX.Element {
                 <button
                   type="button"
                   onClick={() => setShowQrScanner(!showQrScanner)}
-                  className="flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white hover:bg-slate-900/70 transition"
+                  className="flex items-center gap-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-slate-950/70 px-4 py-3 text-sm text-gray-900 dark:text-white hover:bg-slate-900/70 transition"
                   aria-label="Scan QR Code"
                 >
                   <svg
@@ -294,13 +294,13 @@ export default function VerifyCertificate(): JSX.Element {
 
         {/* QR Scanner */}
         {showQrScanner && (
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-6">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-white">Scan QR Code</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Scan QR Code</h3>
                 <button
                   onClick={() => setShowQrScanner(false)}
-                  className="text-slate-400 hover:text-white"
+                  className="text-gray-500 dark:text-slate-400 hover:text-gray-900"
                 >
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -308,7 +308,7 @@ export default function VerifyCertificate(): JSX.Element {
                 </button>
               </div>
               <div id="qr-reader" className="w-full max-w-sm mx-auto"></div>
-              <p className="text-sm text-slate-400 text-center">
+              <p className="text-sm text-gray-500 dark:text-slate-400 text-center">
                 Point your camera at a certificate QR code to scan it.
               </p>
             </div>
@@ -316,7 +316,7 @@ export default function VerifyCertificate(): JSX.Element {
         )}
 
         {/* Results Display */}
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-6">
           {state.loading && (
             <div className="flex flex-col items-center justify-center py-12">
               <svg
@@ -339,7 +339,7 @@ export default function VerifyCertificate(): JSX.Element {
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 />
               </svg>
-              <p className="mt-4 text-sm text-slate-300">Verifying certificate...</p>
+              <p className="mt-4 text-sm text-gray-600 dark:text-slate-300">Verifying certificate...</p>
             </div>
           )}
 
@@ -394,52 +394,52 @@ export default function VerifyCertificate(): JSX.Element {
               {/* Certificate Details */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
                     Recipient Name
                   </p>
-                  <p className="text-sm font-medium text-white">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
                     {state.result.certificate.recipientName || 'N/A'}
                   </p>
                 </div>
 
                 <div className="space-y-1">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
                     Course Name
                   </p>
-                  <p className="text-sm font-medium text-white">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
                     {state.result.certificate.courseName || 'N/A'}
                   </p>
                 </div>
 
                 <div className="space-y-1">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
                     Issue Date
                   </p>
-                  <p className="text-sm font-medium text-white">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
                     {formatDate(state.result.certificate.issueDate)}
                   </p>
                 </div>
 
                 <div className="space-y-1">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
                     Issuer
                   </p>
-                  <p className="text-sm font-medium text-white">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
                     {state.result.certificate.issuerName || 'N/A'}
                   </p>
                 </div>
 
                 <div className="space-y-1">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
                     Certificate Number
                   </p>
-                  <p className="text-sm font-medium text-white break-all">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white break-all">
                     {state.result.certificate.id || 'N/A'}
                   </p>
                 </div>
 
                 <div className="space-y-1">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
                     Certificate Status
                   </p>
                   <span
@@ -456,8 +456,8 @@ export default function VerifyCertificate(): JSX.Element {
               </div>
 
               {/* Share Verification Result */}
-              <div className="border-t border-white/10 pt-6">
-                <h4 className="text-sm font-semibold text-white mb-4">Share Verification Result</h4>
+              <div className="border-t border-gray-200 dark:border-white/10 pt-6">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Share Verification Result</h4>
                 <div className="flex gap-2">
                   <button
                     onClick={() => {
@@ -465,7 +465,7 @@ export default function VerifyCertificate(): JSX.Element {
                       navigator.clipboard.writeText(url);
                       // Could add a toast notification here
                     }}
-                    className="flex items-center gap-2 rounded-lg border border-white/10 bg-slate-800/50 px-3 py-2 text-sm text-white hover:bg-slate-700/50 transition"
+                    className="flex items-center gap-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-slate-800/50 px-3 py-2 text-sm text-gray-900 dark:text-white hover:bg-slate-700/50 transition"
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -486,7 +486,7 @@ export default function VerifyCertificate(): JSX.Element {
                         navigator.clipboard.writeText(`${text}\n${url}`);
                       }
                     }}
-                    className="flex items-center gap-2 rounded-lg border border-white/10 bg-slate-800/50 px-3 py-2 text-sm text-white hover:bg-slate-700/50 transition"
+                    className="flex items-center gap-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-slate-800/50 px-3 py-2 text-sm text-gray-900 dark:text-white hover:bg-slate-700/50 transition"
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
@@ -500,7 +500,7 @@ export default function VerifyCertificate(): JSX.Element {
 
           {!state.loading && !state.result && !state.error && (
             <div className="text-center py-12">
-              <p className="text-sm text-slate-400">
+              <p className="text-sm text-gray-500 dark:text-slate-400">
                 Enter a certificate serial number to view verification results.
               </p>
             </div>
