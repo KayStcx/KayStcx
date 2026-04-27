@@ -1,31 +1,47 @@
-import { Module, forwardRef } from '@nestjs/common'; // Add forwardRef
+import { Module, forwardRef } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtManagementService } from './services/jwt.service';
+import { TwoFactorService } from './services/two-factor.service';
 import { UsersModule } from '../users/users.module';
+import { User } from '../users/entities/user.entity';
 import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
     CacheModule.register(),
+    ConfigModule,
     PassportModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'default_secret_key_for_dev',
-      signOptions: {
-        expiresIn: parseInt(process.env.JWT_EXPIRES_IN || '3600', 10),
+    TypeOrmModule.forFeature([User]),
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        const secret = configService.get<string>('JWT_SECRET');
+        const expiresIn = (configService.get<string>('JWT_EXPIRES_IN') ||
+          '24h') as any;
+
+        if (!secret) {
+          throw new Error('JWT_SECRET must be configured');
+        }
+
+        return {
+          secret,
+          signOptions: {
+            expiresIn,
+          },
+        };
       },
     }),
-    forwardRef(() => UsersModule), // Use forwardRef here too
+    forwardRef(() => UsersModule),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtManagementService],
-  exports: [
-    AuthService,
-    JwtModule, // Keep this - it's important!
-    JwtManagementService,
-  ],
+  providers: [AuthService, JwtStrategy, JwtManagementService, TwoFactorService],
+  exports: [AuthService, JwtModule, JwtManagementService, TwoFactorService],
 })
 export class AuthModule {}

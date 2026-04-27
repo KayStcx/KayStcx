@@ -1,9 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Counter, Histogram, Registry } from 'prom-client';
+import { LoggingService } from "../logging/logging.service";
 
 @Injectable()
 export class MetricsService {
-  private readonly logger = new Logger(MetricsService.name);
   private readonly registry: Registry;
 
   // HTTP metrics
@@ -20,7 +20,7 @@ export class MetricsService {
   private certificateVerified: Counter;
   private authenticationAttempts: Counter;
 
-  constructor() {
+  constructor(private readonly logger: LoggingService) {
     this.registry = new Registry();
 
     // Initialize HTTP metrics

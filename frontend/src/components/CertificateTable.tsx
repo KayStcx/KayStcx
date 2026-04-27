@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     Search,
     ChevronUp,
@@ -11,10 +11,12 @@ import {
     AlertTriangle,
     FileText,
     Check,
-    XCircle
+    XCircle,
+    Send,
+    History
 } from 'lucide-react';
-import { certificateApi } from '../api';
-import type { Certificate, CertificateExportFilters } from '../api';
+import { certificateApi, auditApi } from '../api';
+import type { Certificate, CertificateExportFilters, ActivityItem } from '../api';
 
 type SortField = 'recipientName' | 'title' | 'issuerName' | 'issueDate' | 'status' | 'serialNumber';
 type SortOrder = 'asc' | 'desc';
@@ -23,6 +25,23 @@ interface CertificateTableProps {
     onError?: (message: string) => void;
     onSuccess?: (message: string) => void;
 }
+
+// Debounce hook for search inputs
+const useDebounce = (value: string, delay: number) => {
+    const [debouncedValue, setDebouncedValue] = useState(value);
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedValue(value);
+        }, delay);
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [value, delay]);
+
+    return debouncedValue;
+};
 
 const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
     // State for data and pagination
@@ -35,6 +54,7 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
 
     // State for filters
     const [search, setSearch] = useState('');
+    const debouncedSearch = useDebounce(search, 300);
     const [statusFilter, setStatusFilter] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -47,6 +67,10 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [selectAll, setSelectAll] = useState(false);
 
+    // State for filtered export
+    const [exportingFiltered, setExportingFiltered] = useState(false);
+    const [filteredCount, setFilteredCount] = useState(0);
+
     // Freeze modal state
     const [showFreezeModal, setShowFreezeModal] = useState(false);
     const [freezeReason, setFreezeReason] = useState('');
@@ -58,6 +82,21 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
     const [revokeReason, setRevokeReason] = useState('');
     const [revokingCertIds, setRevokingCertIds] = useState<string[]>([]);
 
+    // Transfer modal state
+    const [showTransferModal, setShowTransferModal] = useState(false);
+    const [transferData, setTransferData] = useState({
+        certificateId: '',
+        newOwnerEmail: '',
+        newOwnerName: '',
+        reason: ''
+    });
+
+    // History modal state
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
+    const [selectedCertId, setSelectedCertId] = useState<string | null>(null);
+    const [certHistory, setCertHistory] = useState<ActivityItem[]>([]);
+    const [loadingHistory, setLoadingHistory] = useState(false);
+
     // Fetch certificates
     const fetchCertificates = useCallback(async () => {
         setLoading(true);
@@ -65,7 +104,7 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
             const params = {
                 page,
                 limit,
-                search: search || undefined,
+                search: debouncedSearch || undefined,
                 status: statusFilter || undefined,
                 sortBy,
                 sortOrder,
@@ -77,13 +116,16 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
             setCertificates(response.data);
             setTotal(response.total);
             setTotalPages(response.totalPages);
+
+            // Set filtered count for export all functionality
+            setFilteredCount(response.total);
         } catch (err) {
             console.error('Failed to fetch certificates:', err);
             onError?.('Failed to fetch certificates');
         } finally {
             setLoading(false);
         }
-    }, [page, limit, search, statusFilter, sortBy, sortOrder, startDate, endDate, onError]);
+    }, [page, limit, debouncedSearch, statusFilter, sortBy, sortOrder, startDate, endDate, onError]);
 
     useEffect(() => {
         fetchCertificates();
@@ -148,6 +190,34 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
         }
     };
 
+    // Handle bulk export of all filtered results
+    const handleBulkExportAll = async () => {
+        setExportingFiltered(true);
+        try {
+            const filters: CertificateExportFilters = {
+                search: search || undefined,
+                status: statusFilter || undefined,
+                startDate: startDate || undefined,
+                endDate: endDate || undefined,
+            };
+            const blob = await certificateApi.bulkExportAll(filters);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `certificates-export-all-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            onSuccess?.(`Successfully exported ${filteredCount} certificates`);
+        } catch (err) {
+            console.error('Export failed:', err);
+            onError?.('Failed to export certificates');
+        } finally {
+            setExportingFiltered(false);
+        }
+    };
+
     // Handle bulk revoke
     const handleBulkRevoke = () => {
         setRevokingCertIds(Array.from(selectedIds));
@@ -203,7 +273,44 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
         }
     };
 
-    // Get status badge color
+    // Handle transfer
+    const handleTransfer = (cert: Certificate) => {
+        setTransferData({
+            certificateId: cert.id,
+            newOwnerEmail: '',
+            newOwnerName: '',
+            reason: ''
+        });
+        setShowTransferModal(true);
+    };
+
+    const confirmTransfer = async () => {
+        try {
+            await certificateApi.transfer.initiate(transferData);
+            onSuccess?.('Transfer initiated successfully. New owner must approve.');
+            setShowTransferModal(false);
+            fetchCertificates();
+        } catch (err) {
+            console.error('Transfer failed:', err);
+            onError?.('Failed to initiate transfer');
+        }
+    };
+
+    // Handle History
+    const handleViewHistory = async (certId: string) => {
+        setSelectedCertId(certId);
+        setShowHistoryModal(true);
+        setLoadingHistory(true);
+        try {
+            const history = await auditApi.getCertificateHistory(certId);
+            setCertHistory(history);
+        } catch (err) {
+            console.error('Failed to fetch history:', err);
+            onError?.('Failed to load certificate history');
+        } finally {
+            setLoadingHistory(false);
+        }
+    };
     const getStatusBadge = (status: string) => {
         const baseClasses = 'px-2 py-1 rounded-full text-xs font-medium';
         switch (status) {
@@ -246,6 +353,18 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
         >
             <Download className="w-4 h-4 mr-2" />
             Export ({selectedIds.size})
+        </button>
+    );
+
+    // Export all filtered button
+    const ExportAllButton = () => (
+        <button
+            onClick={handleBulkExportAll}
+            disabled={exportingFiltered || filteredCount === 0}
+            className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-300 rounded-md hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-600 dark:hover:bg-blue-900/30"
+        >
+            <Download className="w-4 h-4 mr-2" />
+            {exportingFiltered ? 'Exporting...' : `Export All (${filteredCount})`}
         </button>
     );
 
@@ -324,6 +443,7 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
                 {/* Bulk Actions */}
                 <div className="flex gap-2 mt-4">
                     <ExportButton />
+                    <ExportAllButton />
                     <RevokeButton />
                 </div>
             </div>
@@ -474,6 +594,21 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
                                                     <XCircle className="w-5 h-5" />
                                                 </button>
                                                 <button
+                                                    onClick={() => handleTransfer(cert)}
+                                                    className="p-1 text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300"
+                                                    title="Transfer Certificate"
+                                                    disabled={cert.status !== 'active'}
+                                                >
+                                                    <Send className="w-5 h-5" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleViewHistory(cert.id)}
+                                                    className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                                    title="View History"
+                                                >
+                                                    <History className="w-5 h-5" />
+                                                </button>
+                                                <button
                                                     className="p-1 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300"
                                                     title="View Certificate"
                                                 >
@@ -620,6 +755,137 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
                                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
                             >
                                 Revoke
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Transfer Modal */}
+            {showTransferModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white dark:bg-slate-900 rounded-lg p-6 max-w-md w-full mx-4">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Send className="w-6 h-6 text-purple-600" />
+                            <h3 className="text-lg font-semibold dark:text-white">Initiate Transfer</h3>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                            Transfer ownership of this certificate to a new recipient. The new owner will need to approve the transfer.
+                        </p>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    New Owner Name
+                                </label>
+                                <input
+                                    type="text"
+                                    value={transferData.newOwnerName}
+                                    onChange={(e) => setTransferData({ ...transferData, newOwnerName: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 dark:bg-slate-800 dark:border-slate-600 dark:text-white"
+                                    placeholder="Recipient's full name"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    New Owner Email
+                                </label>
+                                <input
+                                    type="email"
+                                    value={transferData.newOwnerEmail}
+                                    onChange={(e) => setTransferData({ ...transferData, newOwnerEmail: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 dark:bg-slate-800 dark:border-slate-600 dark:text-white"
+                                    placeholder="recipient@example.com"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Reason (Optional)
+                                </label>
+                                <textarea
+                                    value={transferData.reason}
+                                    onChange={(e) => setTransferData({ ...transferData, reason: e.target.value })}
+                                    rows={2}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 dark:bg-slate-800 dark:border-slate-600 dark:text-white"
+                                    placeholder="e.g., Correction of name, change of ownership..."
+                                />
+                            </div>
+                        </div>
+                        <div className="flex gap-3 mt-6">
+                            <button
+                                onClick={() => setShowTransferModal(false)}
+                                className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 dark:border-slate-600 dark:text-gray-300 dark:hover:bg-slate-700"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmTransfer}
+                                disabled={!transferData.newOwnerEmail || !transferData.newOwnerName}
+                                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
+                            >
+                                Initiate Transfer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* History Modal */}
+            {showHistoryModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white dark:bg-slate-900 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center gap-2">
+                                <History className="w-6 h-6 text-blue-600" />
+                                <h3 className="text-lg font-semibold dark:text-white">Certificate History</h3>
+                            </div>
+                            <button 
+                                onClick={() => setShowHistoryModal(false)}
+                                className="text-gray-500 hover:text-gray-700 dark:text-gray-400"
+                            >
+                                <XCircle className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        {loadingHistory ? (
+                            <div className="flex justify-center py-8">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            </div>
+                        ) : certHistory.length === 0 ? (
+                            <p className="text-center py-8 text-gray-500 dark:text-gray-400">No history found for this certificate.</p>
+                        ) : (
+                            <div className="space-y-6">
+                                {certHistory.map((item, index) => (
+                                    <div key={index} className="flex gap-4">
+                                        <div className="flex flex-col items-center">
+                                            <div className="w-3 h-3 bg-blue-600 rounded-full mt-1.5"></div>
+                                            {index !== certHistory.length - 1 && (
+                                                <div className="w-0.5 h-full bg-gray-200 dark:bg-slate-700 my-1"></div>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium dark:text-white capitalize">
+                                                {item.type.replace('_', ' ')}
+                                            </p>
+                                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                {item.description}
+                                            </p>
+                                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                                {new Date(item.date).toLocaleString()}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="mt-8">
+                            <button
+                                onClick={() => setShowHistoryModal(false)}
+                                className="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-white"
+                            >
+                                Close
                             </button>
                         </div>
                     </div>

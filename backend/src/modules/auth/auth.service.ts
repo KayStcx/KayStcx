@@ -5,20 +5,24 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
+import { UserRepository } from '../users/repositories/user.repository';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { LogoutResponseDto } from './dto/logout-response.dto';
 import { JwtManagementService } from './services/jwt.service';
+import { TwoFactorService } from './services/two-factor.service';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private usersService: UsersService,
-    private jwtService: JwtService,
-    private jwtManagementService: JwtManagementService,
+    private readonly usersService: UsersService,
+    private readonly jwtService: JwtService,
+    private readonly jwtManagementService: JwtManagementService,
+    private readonly twoFactorService: TwoFactorService,
+    private readonly userRepository: UserRepository,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<any> {
@@ -26,9 +30,7 @@ export class AuthService {
     if (user) {
       // Need to get user with password for comparison
       const userWithPassword =
-        await this.usersService['userRepository'].findByEmailWithPassword(
-          email,
-        );
+        await this.userRepository.findByEmailWithPassword(email);
       if (
         userWithPassword &&
         (await bcrypt.compare(pass, userWithPassword.password))
@@ -40,15 +42,25 @@ export class AuthService {
     return null;
   }
 
-  async login(loginDto: LoginDto): Promise<AuthResponseDto> {
+  async login(
+    loginDto: LoginDto,
+  ): Promise<AuthResponseDto & { requires2FA?: boolean; preAuthToken?: string }> {
     const user = await this.validateUser(loginDto.email, loginDto.password);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Check if account is active
     if (!user.isActive) {
       throw new ForbiddenException('Account is deactivated');
+    }
+
+    // If 2FA is enabled, issue a short-lived pre-auth token instead of a full access token
+    if (user.twoFactorEnabled) {
+      const preAuthToken = this.jwtService.sign(
+        { sub: user.id, type: 'pre-auth' },
+        { expiresIn: '5m' },
+      );
+      return { requires2FA: true, preAuthToken } as any;
     }
 
     const payload = { email: user.email, sub: user.id, role: user.role };
@@ -66,53 +78,79 @@ export class AuthService {
     };
   }
 
-  async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
-    // Check if user already exists
-    const existingUser = await this.usersService.findOneByEmail(
-      registerDto.email,
-    );
-    if (existingUser) {
-      throw new UnauthorizedException('Registration failed');
+  async verifyTwoFactor(
+    preAuthToken: string,
+    token: string,
+  ): Promise<AuthResponseDto> {
+    let payload: any;
+    try {
+      payload = this.jwtService.verify(preAuthToken);
+    } catch {
+      throw new UnauthorizedException('Invalid or expired pre-auth token');
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(registerDto.password, 12);
+    if (payload.type !== 'pre-auth') {
+      throw new UnauthorizedException('Invalid token type');
+    }
 
-    // Create user
-    const newUser = await this.usersService.create({
-      email: registerDto.email,
-      firstName: registerDto.firstName,
-      lastName: registerDto.lastName,
-      password: hashedPassword,
+    await this.twoFactorService.validateLogin(payload.sub, token);
+
+    const user = await this.usersService.findOneById(payload.sub);
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('User not found or inactive');
+    }
+
+    const accessToken = this.jwtService.sign({
+      email: user.email,
+      sub: user.id,
+      role: user.role,
     });
-
-    const payload = {
-      email: newUser.email,
-      sub: newUser.id,
-      role: newUser.role,
-    };
-    const accessToken = this.jwtService.sign(payload);
 
     return {
       accessToken,
       expiresIn: 3600,
       user: {
-        id: newUser.id,
-        email: newUser.email,
-        firstName: newUser.firstName,
-        lastName: newUser.lastName,
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
+    };
+  }
+
+  async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
+    // Delegate to UsersService for proper registration logic
+    const registrationResult = await this.usersService.register({
+      email: registerDto.email,
+      password: registerDto.password,
+      firstName: registerDto.firstName,
+      lastName: registerDto.lastName,
+    });
+
+    const { user, tokens } = registrationResult;
+
+    // Return in the format expected by AuthResponseDto
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
       },
     };
   }
 
   async logout(user: any, logoutDto: LogoutDto): Promise<LogoutResponseDto> {
-    // Blacklist the access token
+    // Blacklist access token
     if (logoutDto.accessToken) {
       await this.jwtManagementService.blacklistToken(logoutDto.accessToken);
     }
 
-    // Optionally invalidate the refresh token stored in the database
-    await this.usersService['userRepository'].update(user.id, {
+    // Optionally invalidate refresh token stored in database
+    await this.userRepository.update(user.id, {
       refreshToken: undefined,
     });
 
@@ -135,23 +173,23 @@ export class AuthService {
       }
 
       // Verify that the refresh token in the DB matches the one provided
-      if (user.refreshToken !== refreshToken) {
+      if (!user.refreshToken) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      const matches = await bcrypt.compare(refreshToken, user.refreshToken);
+      if (!matches) {
         throw new UnauthorizedException('Invalid refresh token');
       }
 
       // Generate new tokens
-      const newPayload = {
-        email: user.email,
-        sub: user.id,
-        role: user.role,
-      };
-
       const tokens =
         await this.jwtManagementService.refreshAccessToken(refreshToken);
 
       // Update the refresh token in the database
-      await this.usersService['userRepository'].update(user.id, {
-        refreshToken: tokens.refreshToken,
+      const hashedRefreshToken = await bcrypt.hash(tokens.refreshToken, 12);
+      await this.userRepository.update(user.id, {
+        refreshToken: hashedRefreshToken,
       });
 
       return {

@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Process, Processor } from '@nestjs/bull';
 import type { Job } from 'bull';
 import { EmailService } from './email.service';
 import { SendEmailDto } from './dto/send-email.dto';
+import { LoggingService } from "../../common/logging/logging.service";
 
 export const EMAIL_QUEUE_NAME =
   'stellar-email-queue-' + Math.random().toString(36).substring(7);
@@ -18,9 +19,7 @@ export enum EmailJobType {
 @Processor(EMAIL_QUEUE_NAME)
 @Injectable()
 export class EmailQueueProcessor {
-  private logger = new Logger(EmailQueueProcessor.name);
-
-  constructor(private emailService: EmailService) {}
+  constructor(private emailService: EmailService, private readonly logger: LoggingService) {}
 
   @Process(EmailJobType.SEND_EMAIL)
   async processSendEmail(job: Job<SendEmailDto>): Promise<void> {

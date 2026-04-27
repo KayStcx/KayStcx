@@ -1,5 +1,6 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { PUBLIC_KEY } from '../decorators/public.decorator';
 import { Reflector } from '@nestjs/core';
 import { AuthException } from '../exceptions';
@@ -20,6 +21,7 @@ export class JwtAuthGuard implements CanActivate {
   constructor(
     private jwtService: JwtService,
     private reflector: Reflector,
+    private configService: ConfigService,
   ) {}
 
   canActivate(context: ExecutionContext): boolean {
@@ -44,8 +46,17 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     try {
+      const secret = this.configService.get<string>('JWT_SECRET');
+
+      if (!secret) {
+        throw new AuthException(
+          ErrorCode.UNAUTHORIZED,
+          'JWT configuration is missing',
+        );
+      }
+
       const payload = this.jwtService.verify(token, {
-        secret: process.env.JWT_SECRET || 'your-secret-key',
+        secret,
       });
       request.user = payload as User;
     } catch (error: unknown) {

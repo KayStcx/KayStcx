@@ -2,10 +2,10 @@
  * User roles in the system
  */
 export enum UserRole {
-  ADMIN = 'admin',
-  ISSUER = 'issuer',
-  RECIPIENT = 'recipient',
-  VERIFIER = 'verifier',
+  ADMIN = "admin",
+  ISSUER = "issuer",
+  RECIPIENT = "recipient",
+  VERIFIER = "verifier",
 }
 
 /**
@@ -49,7 +49,7 @@ export interface Certificate {
   issuerName: string;
   issueDate: string;
   expiryDate?: string;
-  status: 'active' | 'revoked' | 'expired' | 'frozen';
+  status: "active" | "revoked" | "expired" | "frozen";
   pdfUrl?: string; // Link to certificate file
   txHash?: string; // Stellar transaction hash
   cid?: string; // IPFS CID for certificate file/metadata
@@ -60,13 +60,53 @@ export interface Certificate {
 }
 
 /**
+ * Certificate Transfer model (#286)
+ */
+export interface CertificateTransfer {
+  id: string;
+  certificateId: string;
+  fromUserId: string;
+  toEmail: string;
+  toUserId?: string;
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  initiationReason?: string;
+  rejectionReason?: string;
+  confirmationCode?: string;
+  createdAt: string;
+  updatedAt: string;
+  certificate?: Certificate;
+}
+
+export interface InitiateTransferDto {
+  certificateId: string;
+  newOwnerEmail: string;
+  newOwnerName: string;
+  reason?: string;
+}
+
+export interface ApproveTransferDto {
+  transferId: string;
+  confirmationCode?: string;
+}
+
+export interface RejectTransferDto {
+  transferId: string;
+  reason?: string;
+}
+
+/**
  * Request payload for creating a certificate
  */
 export interface CreateCertificateData {
+  title: string;
+  description: string;
   recipientName: string;
   recipientEmail: string;
   courseName: string;
+  issuerName: string;
+  issueDate: string;
   issuerId: string;
+  recipientId: string;
   expiryDate?: string;
   templateId?: string;
   metadata?: Record<string, unknown>;
@@ -77,7 +117,7 @@ export interface CreateCertificateData {
  */
 export interface VerificationResult {
   isValid: boolean;
-  status?: 'valid' | 'revoked' | 'expired' | 'not_found';
+  status?: "valid" | "revoked" | "expired" | "not_found";
   certificate?: Certificate;
   verificationDate?: string;
   verifiedAt?: string;
@@ -113,7 +153,7 @@ export interface StatusDistribution {
   expired: number;
 }
 
-export type ActivityType = 'issue' | 'verify' | 'revoke';
+export type ActivityType = "issue" | "verify" | "revoke";
 
 export interface ActivityItem {
   type: ActivityType;
@@ -135,6 +175,85 @@ export interface DashboardStats {
   issuanceTrend?: IssuanceTrendPoint[];
   statusDistribution?: StatusDistribution;
   recentActivity: ActivityItem[];
+}
+
+export interface UsersByRoleStats {
+  users: number;
+  issuers: number;
+  admins: number;
+  total: number;
+}
+
+export interface UsersByStatusStats {
+  active: number;
+  inactive: number;
+  suspended: number;
+  pendingVerification: number;
+}
+
+export interface CertificatesByStatusStats {
+  active: number;
+  revoked: number;
+  expired: number;
+  total: number;
+}
+
+export interface TopIssuerAnalytics {
+  issuerId: string;
+  issuerName: string;
+  certificateCount: number;
+  percentage: number;
+}
+
+export interface VerificationTrends {
+  total: number;
+  successful: number;
+  failed: number;
+  successRate: number;
+  last24Hours: number;
+  last7Days: number;
+  last30Days: number;
+}
+
+export interface TrendPoint {
+  date: string;
+  count: number;
+}
+
+export interface AdminAnalytics {
+  usersByRole: UsersByRoleStats;
+  usersByStatus: UsersByStatusStats;
+  certificatesByStatus: CertificatesByStatusStats;
+  topIssuers: TopIssuerAnalytics[];
+  verificationTrends: VerificationTrends;
+  userRegistrationTrend: TrendPoint[];
+  certificateIssuanceTrend: TrendPoint[];
+  totalIssuers: number;
+}
+
+export interface AuditLogItem {
+  id: string;
+  action: string;
+  description: string;
+  userId?: string;
+  resourceId?: string;
+  resourceType?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  metadata?: Record<string, unknown>;
+  timestamp: string;
+}
+
+export interface AuditLogSearchResponse {
+  data: AuditLogItem[];
+  total: number;
+}
+
+export interface AuditStatistics {
+  total: number;
+  byAction?: Record<string, number>;
+  byUser?: Record<string, number>;
+  byResourceType?: Record<string, number>;
 }
 
 /**
@@ -189,6 +308,17 @@ export interface ProfileUpdateData {
   profilePicture?: string;
   stellarPublicKey?: string;
   [key: string]: unknown;
+}
+
+// Password reset/request types
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
 }
 
 export interface DailyVerificationStats {

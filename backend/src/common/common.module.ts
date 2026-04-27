@@ -1,6 +1,9 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { BullModule } from '@nestjs/bull';
+import { BullBoardModule } from '@bull-board/nestjs';
+import { BullAdapter } from '@bull-board/api/bullAdapter';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { LoggingService } from './logging/logging.service';
 import { CorrelationIdMiddleware } from './logging/correlation-id.middleware';
@@ -14,7 +17,7 @@ import { ResponseInterceptor } from './interceptors/response.interceptor';
 import { TimeoutInterceptor } from './interceptors/timeout.interceptor';
 import { LoggingInterceptor } from './interceptors/logging.interceptor';
 import { GlobalExceptionFilter } from './exceptions/global-exception.filter';
-import { ValidationPipe } from './pipes/validation.pipe';
+import { RequestValidationPipe } from '../modules/security/pipes/request-validation.pipe';
 import {
   ValidationUtils,
   CryptoUtils,
@@ -25,14 +28,30 @@ import {
   RateLimitService,
   RATE_LIMIT_QUEUE_NAME,
 } from './rate-limiting/rate-limit.service';
-import { RateLimitGuard } from './guards/rate-limit.guard';
 import { Issuer } from '../modules/issuers/entities/issuer.entity';
 
 @Module({
   imports: [
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'your-secret-key',
-      signOptions: { expiresIn: '1h' },
+    ConfigModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        const secret = configService.get<string>('JWT_SECRET');
+        const expiresIn = (configService.get<string>('JWT_EXPIRES_IN') ||
+          '24h') as any;
+
+        if (!secret) {
+          throw new Error('JWT_SECRET must be configured');
+        }
+
+        return {
+          secret,
+          signOptions: {
+            expiresIn,
+          },
+        };
+      },
     }),
     TypeOrmModule.forFeature([Issuer]),
     BullModule.registerQueue({
@@ -41,6 +60,10 @@ import { Issuer } from '../modules/issuers/entities/issuer.entity';
         removeOnComplete: true,
         removeOnFail: false,
       },
+    }),
+    BullBoardModule.forFeature({
+      name: RATE_LIMIT_QUEUE_NAME,
+      adapter: BullAdapter,
     }),
   ],
   providers: [
@@ -56,10 +79,6 @@ import { Issuer } from '../modules/issuers/entities/issuer.entity';
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
-    },
-    {
-      provide: APP_GUARD,
-      useClass: RateLimitGuard,
     },
 
     {
@@ -82,7 +101,7 @@ import { Issuer } from '../modules/issuers/entities/issuer.entity';
 
     {
       provide: APP_PIPE,
-      useClass: ValidationPipe,
+      useClass: RequestValidationPipe,
     },
 
     {

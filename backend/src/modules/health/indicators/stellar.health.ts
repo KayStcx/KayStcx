@@ -1,16 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   HealthIndicator,
   HealthIndicatorResult,
   HealthCheckError,
 } from '@nestjs/terminus';
 import { StellarService } from '../../../common/services/stellar.service';
+import { LoggingService } from "../../../common/logging/logging.service";
 
 @Injectable()
 export class StellarHealthIndicator extends HealthIndicator {
-  private readonly logger = new Logger(StellarHealthIndicator.name);
-
-  constructor(private readonly stellarService: StellarService) {
+  constructor(private readonly stellarService: StellarService, private readonly logger: LoggingService) {
     super();
   }
 

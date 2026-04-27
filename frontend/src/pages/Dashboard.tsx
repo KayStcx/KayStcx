@@ -1,13 +1,15 @@
-import { Link } from 'react-router-dom';
-import { Award, Download, Search, Wallet, ShieldAlert } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import { analyticsApi } from '../api';
+import { Link } from "react-router-dom";
+import { Award, Download, Search, Wallet, ShieldAlert } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { analyticsApi, UserRole } from "../api";
+import { useAuth } from "../context/AuthContext";
 import type {
   ActivityItem,
   DashboardStats,
   IssuanceTrendPoint,
-  StatusDistribution
-} from '../api';
+  StatusDistribution,
+} from "../api";
+import AdminAnalyticsDashboard from "./AdminAnalyticsDashboard";
 
 type DateRange = {
   startDate: string;
@@ -22,8 +24,14 @@ type MetricCardProps = {
 
 const MetricCard = ({ label, value, accentClassName }: MetricCardProps) => (
   <div className="bg-white dark:bg-slate-900 p-6 rounded-lg shadow-md dark:shadow-lg dark:border dark:border-slate-700 transition-colors duration-250">
-    <p className="text-sm font-medium text-gray-500 dark:text-slate-400 transition-colors duration-250">{label}</p>
-    <p className={`mt-2 text-3xl font-bold ${accentClassName} dark:text-blue-400 transition-colors duration-250`}>{value}</p>
+    <p className="text-sm font-medium text-gray-500 dark:text-slate-400 transition-colors duration-250">
+      {label}
+    </p>
+    <p
+      className={`mt-2 text-3xl font-bold ${accentClassName} dark:text-blue-400 transition-colors duration-250`}
+    >
+      {value}
+    </p>
   </div>
 );
 
@@ -106,7 +114,8 @@ type StatusPieChartProps = {
 };
 
 const StatusPieChart = ({ distribution }: StatusPieChartProps) => {
-  const total = distribution.active + distribution.revoked + distribution.expired;
+  const total =
+    distribution.active + distribution.revoked + distribution.expired;
 
   if (!total) {
     return (
@@ -125,9 +134,24 @@ const StatusPieChart = ({ distribution }: StatusPieChartProps) => {
     color: string;
     label: string;
   }> = [
-    { key: 'active' as const, value: distribution.active, color: '#22c55e', label: 'Active' },
-    { key: 'revoked' as const, value: distribution.revoked, color: '#ef4444', label: 'Revoked' },
-    { key: 'expired' as const, value: distribution.expired, color: '#eab308', label: 'Expired' }
+    {
+      key: "active" as const,
+      value: distribution.active,
+      color: "#22c55e",
+      label: "Active",
+    },
+    {
+      key: "revoked" as const,
+      value: distribution.revoked,
+      color: "#ef4444",
+      label: "Revoked",
+    },
+    {
+      key: "expired" as const,
+      value: distribution.expired,
+      color: "#eab308",
+      label: "Expired",
+    },
   ].filter((segment) => segment.value > 0);
 
   let startAngle = 0;
@@ -149,8 +173,8 @@ const StatusPieChart = ({ distribution }: StatusPieChartProps) => {
       `M ${center} ${center}`,
       `L ${x1} ${y1}`,
       `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
-      'Z'
-    ].join(' ');
+      "Z",
+    ].join(" ");
 
     const currentStartAngle = startAngle;
     startAngle = endAngle;
@@ -180,8 +204,10 @@ const StatusPieChart = ({ distribution }: StatusPieChartProps) => {
                 style={{ backgroundColor: segment.color }}
               />
               <span className="text-gray-700">
-                {segment.label}{' '}
-                <span className="font-semibold text-gray-900">{segment.value}</span>{' '}
+                {segment.label}{" "}
+                <span className="font-semibold text-gray-900">
+                  {segment.value}
+                </span>{" "}
                 <span className="text-gray-500">({percentage}%)</span>
               </span>
             </div>
@@ -216,23 +242,29 @@ const ActivityFeed = ({ items }: ActivityFeedProps) => {
             <p className="font-medium text-gray-900">{item.description}</p>
             <p className="mt-1 text-xs text-gray-500">
               {new Date(item.date).toLocaleString(undefined, {
-                year: 'numeric',
-                month: 'short',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
+                year: "numeric",
+                month: "short",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
               })}
             </p>
           </div>
           <span className="ml-4 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold capitalize text-white">
-            {item.type === 'issue' && (
-              <span className="rounded-full bg-emerald-500 px-2 py-0.5">Issued</span>
+            {item.type === "issue" && (
+              <span className="rounded-full bg-emerald-500 px-2 py-0.5">
+                Issued
+              </span>
             )}
-            {item.type === 'verify' && (
-              <span className="rounded-full bg-blue-500 px-2 py-0.5">Verified</span>
+            {item.type === "verify" && (
+              <span className="rounded-full bg-blue-500 px-2 py-0.5">
+                Verified
+              </span>
             )}
-            {item.type === 'revoke' && (
-              <span className="rounded-full bg-red-500 px-2 py-0.5">Revoked</span>
+            {item.type === "revoke" && (
+              <span className="rounded-full bg-red-500 px-2 py-0.5">
+                Revoked
+              </span>
             )}
           </span>
         </li>
@@ -247,11 +279,11 @@ const createInitialDateRange = (): DateRange => {
   start.setDate(end.getDate() - 6);
   return {
     startDate: start.toISOString().slice(0, 10),
-    endDate: end.toISOString().slice(0, 10)
+    endDate: end.toISOString().slice(0, 10),
   };
 };
 
-const Dashboard = () => {
+const IssuerDashboard = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -265,15 +297,15 @@ const Dashboard = () => {
         setLoading(true);
         const data = await analyticsApi.getDashboardSummary({
           startDate: dateRange.startDate,
-          endDate: dateRange.endDate
+          endDate: dateRange.endDate,
         });
         setStats(data);
         setRevokedCount(data?.revokedCertificates ?? 0);
       } catch (err) {
         const message =
-          err && typeof err === 'object' && 'message' in err
+          err && typeof err === "object" && "message" in err
             ? String((err as { message?: string }).message)
-            : 'Failed to load analytics';
+            : "Failed to load analytics";
         setError(message);
       } finally {
         setLoading(false);
@@ -291,14 +323,14 @@ const Dashboard = () => {
     return {
       active: stats?.activeCertificates ?? 0,
       revoked: stats?.revokedCertificates ?? 0,
-      expired: stats?.expiredCertificates ?? 0
+      expired: stats?.expiredCertificates ?? 0,
     };
   }, [stats]);
 
   const handleDateChange = (field: keyof DateRange, value: string) => {
     setDateRange((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
     setFilterDirty(true);
   };
@@ -309,16 +341,16 @@ const Dashboard = () => {
       setError(null);
       const data = await analyticsApi.getDashboardSummary({
         startDate: dateRange.startDate,
-        endDate: dateRange.endDate
+        endDate: dateRange.endDate,
       });
       setStats(data);
       setRevokedCount(data?.revokedCertificates ?? 0);
       setFilterDirty(false);
     } catch (err) {
       const message =
-        err && typeof err === 'object' && 'message' in err
+        err && typeof err === "object" && "message" in err
           ? String((err as { message?: string }).message)
-          : 'Failed to load analytics';
+          : "Failed to load analytics";
       setError(message);
     } finally {
       setLoading(false);
@@ -335,15 +367,15 @@ const Dashboard = () => {
       setError(null);
       const data = await analyticsApi.getDashboardSummary({
         startDate: initial.startDate,
-        endDate: initial.endDate
+        endDate: initial.endDate,
       });
       setStats(data);
       setRevokedCount(data?.revokedCertificates ?? 0);
     } catch (err) {
       const message =
-        err && typeof err === 'object' && 'message' in err
+        err && typeof err === "object" && "message" in err
           ? String((err as { message?: string }).message)
-          : 'Failed to load analytics';
+          : "Failed to load analytics";
       setError(message);
     } finally {
       setLoading(false);
@@ -355,25 +387,25 @@ const Dashboard = () => {
 
     const rows: string[][] = [];
 
-    rows.push(['Metric', 'Value']);
-    rows.push(['Total Certificates', String(stats.totalCertificates)]);
-    rows.push(['Active Certificates', String(statusDistribution.active)]);
-    rows.push(['Revoked Certificates', String(statusDistribution.revoked)]);
-    rows.push(['Expired Certificates', String(statusDistribution.expired)]);
-    rows.push(['Total Verifications', String(stats.totalVerifications)]);
-    rows.push(['Verifications (24h)', String(stats.verifications24h)]);
+    rows.push(["Metric", "Value"]);
+    rows.push(["Total Certificates", String(stats.totalCertificates)]);
+    rows.push(["Active Certificates", String(statusDistribution.active)]);
+    rows.push(["Revoked Certificates", String(statusDistribution.revoked)]);
+    rows.push(["Expired Certificates", String(statusDistribution.expired)]);
+    rows.push(["Total Verifications", String(stats.totalVerifications)]);
+    rows.push(["Verifications (24h)", String(stats.verifications24h)]);
     rows.push([]);
 
-    rows.push(['Issuance Date', 'Certificates Issued']);
+    rows.push(["Issuance Date", "Certificates Issued"]);
     (stats.issuanceTrend ?? []).forEach((point) => {
       rows.push([point.date, String(point.count)]);
     });
     rows.push([]);
 
-    rows.push(['Status', 'Count']);
-    rows.push(['Active', String(statusDistribution.active)]);
-    rows.push(['Revoked', String(statusDistribution.revoked)]);
-    rows.push(['Expired', String(statusDistribution.expired)]);
+    rows.push(["Status", "Count"]);
+    rows.push(["Active", String(statusDistribution.active)]);
+    rows.push(["Revoked", String(statusDistribution.revoked)]);
+    rows.push(["Expired", String(statusDistribution.expired)]);
 
     const csvContent = rows
       .map((row) =>
@@ -382,15 +414,15 @@ const Dashboard = () => {
             const value = String(field).replace(/"/g, '""');
             return `"${value}"`;
           })
-          .join(',')
+          .join(","),
       )
-      .join('\r\n');
+      .join("\r\n");
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = 'issuer-analytics.csv';
+    link.download = "issuer-analytics.csv";
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -427,26 +459,32 @@ const Dashboard = () => {
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex flex-col">
-              <label htmlFor="startDate" className="text-xs font-medium text-gray-500 dark:text-slate-400 transition-colors duration-250">
+              <label
+                htmlFor="startDate"
+                className="text-xs font-medium text-gray-500 dark:text-slate-400 transition-colors duration-250"
+              >
                 Start
               </label>
               <input
                 id="startDate"
                 type="date"
                 value={dateRange.startDate}
-                onChange={(e) => handleDateChange('startDate', e.target.value)}
+                onChange={(e) => handleDateChange("startDate", e.target.value)}
                 className="mt-1 rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-sm text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors duration-250"
               />
             </div>
             <div className="flex flex-col">
-              <label htmlFor="endDate" className="text-xs font-medium text-gray-500 dark:text-slate-400 transition-colors duration-250">
+              <label
+                htmlFor="endDate"
+                className="text-xs font-medium text-gray-500 dark:text-slate-400 transition-colors duration-250"
+              >
                 End
               </label>
               <input
                 id="endDate"
                 type="date"
                 value={dateRange.endDate}
-                onChange={(e) => handleDateChange('endDate', e.target.value)}
+                onChange={(e) => handleDateChange("endDate", e.target.value)}
                 className="mt-1 rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-sm text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors duration-250"
               />
             </div>
@@ -477,7 +515,11 @@ const Dashboard = () => {
         </div>
         <div className="flex items-center justify-end gap-4 text-xs text-gray-500 dark:text-slate-400 transition-colors duration-250">
           {loading && <span>Loading analytics…</span>}
-          {error && !loading && <span className="text-red-500 dark:text-red-400 transition-colors duration-250">{error}</span>}
+          {error && !loading && (
+            <span className="text-red-500 dark:text-red-400 transition-colors duration-250">
+              {error}
+            </span>
+          )}
         </div>
       </div>
 
@@ -506,7 +548,9 @@ const Dashboard = () => {
 
       <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
         <div className="rounded-lg bg-white dark:bg-slate-900 p-6 shadow-md dark:shadow-lg dark:border dark:border-slate-700 transition-colors duration-250">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-250">Issuance over time</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-250">
+            Issuance over time
+          </h2>
           <p className="mt-1 text-xs text-gray-500 dark:text-slate-400 transition-colors duration-250">
             Daily certificate issuance for the selected date range.
           </p>
@@ -515,7 +559,9 @@ const Dashboard = () => {
           </div>
         </div>
         <div className="rounded-lg bg-white dark:bg-slate-900 p-6 shadow-md dark:shadow-lg dark:border dark:border-slate-700 transition-colors duration-250">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-250">Status distribution</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-250">
+            Status distribution
+          </h2>
           <p className="mt-1 text-xs text-gray-500 dark:text-slate-400 transition-colors duration-250">
             Breakdown of certificates by current status.
           </p>
@@ -527,7 +573,9 @@ const Dashboard = () => {
 
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[3fr,2fr]">
         <div className="rounded-lg bg-white dark:bg-slate-900 p-6 shadow-md dark:shadow-lg dark:border dark:border-slate-700 transition-colors duration-250">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-250">Recent activity</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-250">
+            Recent activity
+          </h2>
           <p className="mt-1 text-xs text-gray-500 dark:text-slate-400 transition-colors duration-250">
             Latest certificate issuance and revocation events.
           </p>
@@ -536,7 +584,9 @@ const Dashboard = () => {
           </div>
         </div>
         <div className="rounded-lg bg-white dark:bg-slate-900 p-6 shadow-md dark:shadow-lg dark:border dark:border-slate-700 transition-colors duration-250">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-250">Quick actions</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-250">
+            Quick actions
+          </h2>
           <p className="mt-1 text-xs text-gray-500 dark:text-slate-400 transition-colors duration-250">
             Common issuer workflows you can access from here.
           </p>
@@ -572,7 +622,9 @@ const Dashboard = () => {
           className="bg-white dark:bg-slate-900 p-6 rounded-lg shadow-md dark:shadow-lg dark:border dark:border-slate-700 hover:shadow-lg dark:hover:shadow-xl transition-all duration-250"
         >
           <Award className="w-12 h-12 text-blue-600 dark:text-blue-400 mb-4 transition-colors duration-250" />
-          <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white transition-colors duration-250">Issue Certificate</h3>
+          <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white transition-colors duration-250">
+            Issue Certificate
+          </h3>
           <p className="text-sm text-gray-600 dark:text-slate-400 transition-colors duration-250">
             Create and issue new digital certificates
           </p>
@@ -583,7 +635,9 @@ const Dashboard = () => {
           className="bg-white dark:bg-slate-900 p-6 rounded-lg shadow-md dark:shadow-lg dark:border dark:border-slate-700 hover:shadow-lg dark:hover:shadow-xl transition-all duration-250"
         >
           <Search className="w-12 h-12 text-green-600 dark:text-green-400 mb-4 transition-colors duration-250" />
-          <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white transition-colors duration-250">Verify Certificate</h3>
+          <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white transition-colors duration-250">
+            Verify Certificate
+          </h3>
           <p className="text-sm text-gray-600 dark:text-slate-400 transition-colors duration-250">
             Verify the authenticity of certificates
           </p>
@@ -594,7 +648,9 @@ const Dashboard = () => {
           className="bg-white dark:bg-slate-900 p-6 rounded-lg shadow-md dark:shadow-lg dark:border dark:border-slate-700 hover:shadow-lg dark:hover:shadow-xl transition-all duration-250"
         >
           <Wallet className="w-12 h-12 text-purple-600 dark:text-purple-400 mb-4 transition-colors duration-250" />
-          <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white transition-colors duration-250">Certificate Wallet</h3>
+          <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white transition-colors duration-250">
+            Certificate Wallet
+          </h3>
           <p className="text-sm text-gray-600 dark:text-slate-400 transition-colors duration-250">
             View and manage your certificates
           </p>
@@ -605,8 +661,12 @@ const Dashboard = () => {
           className="bg-white dark:bg-slate-900 p-6 rounded-lg shadow-md dark:shadow-lg border border-red-200 dark:border-red-900/50 hover:shadow-lg dark:hover:shadow-xl transition-all duration-250"
         >
           <ShieldAlert className="w-12 h-12 text-red-600 dark:text-red-400 mb-4 transition-colors duration-250" />
-          <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white transition-colors duration-250">Revoke Certificate</h3>
-          <p className="text-sm text-gray-600 dark:text-slate-400 transition-colors duration-250">Manage certificate revocation list</p>
+          <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white transition-colors duration-250">
+            Revoke Certificate
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-slate-400 transition-colors duration-250">
+            Manage certificate revocation list
+          </p>
           <div className="mt-2 text-sm text-red-600 dark:text-red-400 font-medium transition-colors duration-250">
             CRL Active • {revokedCount} revoked
           </div>
@@ -614,6 +674,16 @@ const Dashboard = () => {
       </div>
     </div>
   );
+};
+
+const Dashboard = () => {
+  const { user } = useAuth();
+
+  if (user?.role === UserRole.ADMIN) {
+    return <AdminAnalyticsDashboard />;
+  }
+
+  return <IssuerDashboard />;
 };
 
 export default Dashboard;

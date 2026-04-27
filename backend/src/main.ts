@@ -1,5 +1,4 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from './common/pipes/validation.pipe';
 import { GlobalExceptionFilter } from './common/exceptions/global-exception.filter';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -8,26 +7,54 @@ import { LoggingService } from './common/logging/logging.service';
 import { MonitoringInterceptor } from './common/monitoring/monitoring.interceptor';
 import { MetricsService } from './common/monitoring/metrics.service';
 import { VersioningType } from '@nestjs/common';
+import { RequestValidationPipe } from './modules/security/pipes/request-validation.pipe';
+import express from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-
-  console.log('🚀 Starting application...');
-  console.log(
-    '📧 Email queue name:',
-    process.env.EMAIL_QUEUE_NAME || 'email-queue',
-  );
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.set('trust proxy', true);
 
   const sentryService = app.get(SentryService);
   const loggingService = app.get(LoggingService);
   const metricsService = app.get(MetricsService);
 
+  loggingService.log('🚀 Starting application...');
+  loggingService.log(
+    '📧 Email queue name: ' + (process.env.EMAIL_QUEUE_NAME || 'email-queue')
+  );
+
+  const requestLimit = process.env.REQUEST_SIZE_LIMIT || '1mb';
+  app.use(express.json({ limit: requestLimit }));
+  app.use(express.urlencoded({ extended: true, limit: requestLimit }));
+
   // Enable CORS
+  const allowedOrigins = (
+    process.env.ALLOWED_ORIGINS || 'http://localhost:5173'
+  )
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
   app.enableCors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || [
-      'http://localhost:5173',
-    ],
+    origin: allowedOrigins.includes('*') ? true : allowedOrigins,
     credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-API-Key',
+      'X-Requested-With',
+    ],
+    exposedHeaders: [
+      'X-RateLimit-Limit',
+      'X-RateLimit-Remaining',
+      'X-RateLimit-Reset',
+      'Retry-After',
+      'X-ApiKey-RateLimit-Limit',
+      'X-ApiKey-RateLimit-Remaining',
+      'X-ApiKey-RateLimit-Reset',
+    ],
   });
 
   // Set global prefix
@@ -40,7 +67,7 @@ async function bootstrap() {
   });
 
   // Use global pipes and filters
-  app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalPipes(new RequestValidationPipe());
   app.useGlobalFilters(
     new GlobalExceptionFilter(sentryService, loggingService),
   );

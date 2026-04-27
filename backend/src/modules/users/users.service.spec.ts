@@ -16,6 +16,9 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { EmailQueueService } from '../email/email-queue.service';
+import { CertificateStatsService } from '../certificate/services/stats.service';
+import { AuditService } from '../audit/services/audit.service';
 
 // Mock bcrypt
 jest.mock('bcryptjs', () => ({
@@ -28,6 +31,9 @@ describe('UsersService', () => {
   let userRepository: jest.Mocked<UserRepository>;
   let jwtService: jest.Mocked<JwtService>;
   let configService: jest.Mocked<ConfigService>;
+  let emailQueueService: jest.Mocked<EmailQueueService>;
+  let certificateStatsService: jest.Mocked<CertificateStatsService>;
+  let auditService: jest.Mocked<AuditService>;
 
   const mockUser: User = {
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -102,6 +108,19 @@ describe('UsersService', () => {
     get: jest.fn(),
   };
 
+  const mockEmailQueueService = {
+    queueVerificationEmail: jest.fn(),
+    queuePasswordReset: jest.fn(),
+  };
+
+  const mockCertificateStatsService = {
+    getStatistics: jest.fn(),
+  };
+
+  const mockAuditService = {
+    search: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -120,6 +139,18 @@ describe('UsersService', () => {
           provide: ConfigService,
           useValue: mockConfigService,
         },
+        {
+          provide: EmailQueueService,
+          useValue: mockEmailQueueService,
+        },
+        {
+          provide: CertificateStatsService,
+          useValue: mockCertificateStatsService,
+        },
+        {
+          provide: AuditService,
+          useValue: mockAuditService,
+        },
       ],
     }).compile();
 
@@ -127,10 +158,23 @@ describe('UsersService', () => {
     userRepository = module.get(UserRepository);
     jwtService = module.get(JwtService);
     configService = module.get(ConfigService);
+    emailQueueService = module.get(EmailQueueService);
+    certificateStatsService = module.get(CertificateStatsService);
+    auditService = module.get(AuditService);
 
     // Default mock implementations
     mockConfigService.get.mockReturnValue('1h');
     mockJwtService.sign.mockReturnValue('mock-jwt-token');
+    mockCertificateStatsService.getStatistics.mockResolvedValue({
+      totalCertificates: 0,
+      activeCertificates: 0,
+      revokedCertificates: 0,
+      expiredCertificates: 0,
+      verificationStats: {
+        totalVerifications: 0,
+      },
+    });
+    mockAuditService.search.mockResolvedValue({ data: [], total: 0 });
     (bcrypt.hash as jest.Mock).mockResolvedValue('hashedPassword123');
     (bcrypt.compare as jest.Mock).mockResolvedValue(true);
   });
@@ -162,6 +206,12 @@ describe('UsersService', () => {
         createUserDto.email,
       );
       expect(bcrypt.hash).toHaveBeenCalled();
+      expect(emailQueueService.queueVerificationEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: createUserDto.email,
+          userName: 'Jane Doe',
+        }),
+      );
     });
 
     it('should throw ConflictException if email already exists', async () => {
@@ -294,13 +344,13 @@ describe('UsersService', () => {
     it('should successfully refresh tokens', async () => {
       const userWithRefreshToken = {
         ...mockUser,
-        refreshToken: 'valid-refresh-token',
+        refreshToken: 'hashed-refresh-token',
         refreshTokenExpires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       };
-      mockUserRepository.findByRefreshToken.mockResolvedValue(
-        userWithRefreshToken,
-      );
+      mockJwtService.verify.mockReturnValue({ sub: userWithRefreshToken.id });
+      mockUserRepository.findById.mockResolvedValue(userWithRefreshToken);
       mockUserRepository.update.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
       const result = await service.refreshTokens({
         refreshToken: 'valid-refresh-token',
@@ -311,7 +361,9 @@ describe('UsersService', () => {
     });
 
     it('should throw UnauthorizedException for invalid refresh token', async () => {
-      mockUserRepository.findByRefreshToken.mockResolvedValue(null);
+      mockJwtService.verify.mockImplementation(() => {
+        throw new Error('invalid');
+      });
 
       await expect(
         service.refreshTokens({ refreshToken: 'invalid-token' }),
@@ -321,15 +373,30 @@ describe('UsersService', () => {
     it('should throw UnauthorizedException for expired refresh token', async () => {
       const userWithExpiredToken = {
         ...mockUser,
-        refreshToken: 'expired-token',
+        refreshToken: 'hashed-refresh-token',
         refreshTokenExpires: new Date(Date.now() - 1000),
       };
-      mockUserRepository.findByRefreshToken.mockResolvedValue(
-        userWithExpiredToken,
-      );
+      mockJwtService.verify.mockReturnValue({ sub: userWithExpiredToken.id });
+      mockUserRepository.findById.mockResolvedValue(userWithExpiredToken);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
       await expect(
         service.refreshTokens({ refreshToken: 'expired-token' }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should throw UnauthorizedException when refresh token does not match stored hash', async () => {
+      const userWithRefreshToken = {
+        ...mockUser,
+        refreshToken: 'hashed-refresh-token',
+        refreshTokenExpires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      };
+      mockJwtService.verify.mockReturnValue({ sub: userWithRefreshToken.id });
+      mockUserRepository.findById.mockResolvedValue(userWithRefreshToken);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+
+      await expect(
+        service.refreshTokens({ refreshToken: 'valid-refresh-token' }),
       ).rejects.toThrow(UnauthorizedException);
     });
   });
@@ -373,6 +440,36 @@ describe('UsersService', () => {
       await expect(
         service.verifyEmail({ token: 'expired-token' }),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('resendVerificationEmail', () => {
+    it('should queue a new verification email for an existing unverified user', async () => {
+      const unverifiedUser = {
+        ...mockUser,
+        isEmailVerified: false,
+      };
+      mockUserRepository.findByEmail.mockResolvedValue(unverifiedUser);
+      mockUserRepository.update.mockResolvedValue(unverifiedUser);
+
+      const result = await service.resendVerificationEmail({
+        email: unverifiedUser.email,
+      });
+
+      expect(result.message).toContain('If the email exists');
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        unverifiedUser.id,
+        expect.objectContaining({
+          emailVerificationToken: expect.any(String),
+          emailVerificationExpires: expect.any(Date),
+        }),
+      );
+      expect(emailQueueService.queueVerificationEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: unverifiedUser.email,
+          userName: 'John Doe',
+        }),
+      );
     });
   });
 
@@ -442,6 +539,12 @@ describe('UsersService', () => {
 
       expect(result.message).toContain('If the email exists');
       expect(mockUserRepository.update).toHaveBeenCalled();
+      expect(emailQueueService.queuePasswordReset).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: mockUser.email,
+          userName: 'John Doe',
+        }),
+      );
     });
   });
 

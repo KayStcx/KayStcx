@@ -254,30 +254,25 @@ export class UsersController {
     @CurrentUser('id') userId: string,
     @UploadedFile() file: any,
   ) {
-    // Validate file exists
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
 
-    // Validate file size
     if (file.size > maxFileSize) {
       throw new BadRequestException(
         `File size exceeds maximum allowed size of ${maxFileSize / 1024 / 1024}MB`,
       );
     }
 
-    // Validate file type
     if (!allowedImageMimeTypes.includes(file.mimetype)) {
       throw new BadRequestException(
         `Invalid file type. Allowed types: ${allowedImageMimeTypes.join(', ')}`,
       );
     }
 
-    // Generate unique filename with user ID
     const extension = file.originalname.split('.').pop();
     const key = `profile-pictures/${userId}-${Date.now()}.${extension}`;
 
-    // Upload to S3
     const { url } = await this.storageService.uploadFile(
       file.buffer,
       file.originalname,
@@ -285,7 +280,6 @@ export class UsersController {
       key,
     );
 
-    // Update user's profile picture in database
     await this.usersService.updateProfile(userId, {
       profilePicture: url,
     });
@@ -333,14 +327,32 @@ export class UsersController {
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get user statistics (Admin only)' })
-  @ApiResponse({
-    status: 200,
-    description: 'User statistics',
-  })
+  @ApiResponse({ status: 200, description: 'User statistics' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
   async getStats() {
     return this.usersService.getUserStats();
+  }
+
+  // FIX #271 — GET /users/email/:email
+  // Declared BEFORE GET /:id so NestJS does not try to pipe "email" through
+  // ParseUUIDPipe and throw a 400 before we even reach the handler.
+  @Get('email/:email')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get user by email address (Admin only)' })
+  @ApiParam({ name: 'email', description: 'User email address' })
+  @ApiResponse({
+    status: 200,
+    description: 'User details',
+    type: UserResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async findByEmail(@Param('email') email: string) {
+    return this.usersService.findOneByEmail(email);
   }
 
   @Get(':id')
@@ -520,18 +532,8 @@ export class UsersController {
   @Roles(UserRole.ISSUER, UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get issuer activity log' })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    description: 'Page number',
-    example: 1,
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    description: 'Items per page',
-    example: 10,
-  })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number', example: 1 })
+  @ApiQuery({ name: 'limit', required: false, description: 'Items per page', example: 10 })
   @ApiResponse({
     status: 200,
     description: 'Activity log',
@@ -559,10 +561,7 @@ export class UsersController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Issuer/Admin only' })
-  @ApiResponse({
-    status: 409,
-    description: 'Username or Stellar key already taken',
-  })
+  @ApiResponse({ status: 409, description: 'Username or Stellar key already taken' })
   async updateIssuerProfile(
     @CurrentUser('id') userId: string,
     @Body() updateDto: UpdateIssuerProfileDto,

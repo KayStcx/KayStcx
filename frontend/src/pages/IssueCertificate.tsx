@@ -1,56 +1,138 @@
-import { useState } from 'react';
-import { Award, Upload, XCircle } from 'lucide-react';
-import { createCertificate, fetchDefaultTemplate, fetchUserByEmail } from '../api';
+import { useState, useEffect } from 'react';
+import { Award, Eye, Layout, XCircle } from 'lucide-react';
+import { createCertificate, fetchDefaultTemplate, fetchUserByEmail, templateApi, CertificateTemplate } from '../api';
+import CertificatePreviewModal, { CertificatePreviewData } from '../components/CertificatePreviewModal';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+const GRADE_OPTIONS = ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D', 'F', 'Pass', 'Distinction', 'Merit'];
+
+interface IssueCertificateFormData {
+  recipientName: string;
+  recipientEmail: string;
+  courseName: string;
+  issuerName: string;
+  grade: string;
+  issueDate: string;
+  expiryDate: string;
+  templateId: string;
+}
+
+const formatPreviewDate = (value: string) => {
+  if (!value) {
+    return '';
+  }
+
+  return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+};
 
 const IssueCertificate = () => {
+  const { user } = useAuth();
   const [error, setError] = useState("");
-  const [formData, setFormData] = useState({
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
+  const [formData, setFormData] = useState<IssueCertificateFormData>({
     recipientName: '',
     recipientEmail: '',
     courseName: '',
     issuerName: '',
-    issuerEmail: '',
+    grade: '',
     issueDate: '',
     expiryDate: '',
-    issuerId: '',
-    recipientId: '',
     templateId: ''
   });
 
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    if (user) {
+      const fullName = ('firstName' in user && 'lastName' in user)
+        ? `${(user as { firstName: string }).firstName} ${(user as { lastName: string }).lastName}`.trim()
+        : ('name' in user ? (user as { name: string }).name : '');
+      setFormData(prev => ({ ...prev, issuerName: fullName }));
+    }
+  }, [user]);
+
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        const [allTemplates, defaultTemplate] = await Promise.all([
+          templateApi.list(),
+          fetchDefaultTemplate()
+        ]);
+        setTemplates(allTemplates);
+        if (defaultTemplate) {
+          setFormData((prev) => (
+            prev.templateId ? prev : { ...prev, templateId: defaultTemplate.id }
+          ));
+        }
+      } catch (err) {
+        console.error("Failed to load templates:", err);
+      }
+    };
+    loadTemplates();
+  }, []);
+
+  const selectedTemplate = templates.find((template) => template.id === formData.templateId);
+
+  const previewData: CertificatePreviewData = {
+    recipientName: formData.recipientName,
+    recipientEmail: formData.recipientEmail,
+    courseName: formData.courseName,
+    issuerName: formData.issuerName,
+    grade: formData.grade,
+    issueDate: formData.issueDate,
+    expiryDate: formData.expiryDate || undefined,
+    templateName: selectedTemplate?.name,
+  };
+
+  const handleOpenPreview = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!e.currentTarget.checkValidity()) {
+      e.currentTarget.reportValidity();
+      return;
+    }
+
+    if (!formData.templateId) {
+      setError('Please select a template.');
+      return;
+    }
+
+    setError('');
+    setIsPreviewOpen(true);
+  };
+
+  const handleConfirmIssue = async () => {
     try {
-      // Fetch recipient and issuer details
+      if (!user) {
+        setError("You must be logged in to issue a certificate.");
+        return;
+      }
+
+      setIsSubmitting(true);
+      setError('');
+
+      // Fetch recipient details
       const recipient = await fetchUserByEmail(formData.recipientEmail);
-      const issuer = await fetchUserByEmail(formData.issuerEmail);
-      const template = await fetchDefaultTemplate();
+      // Use selected templateId if available, otherwise fetch default as fallback
+      const templateId = formData.templateId || (await fetchDefaultTemplate())?.id;
 
       if (!recipient) {
         setError("Failed to fetch recipient details. Please Recheck Email");
         return;
       }
 
-      if (!issuer) {
-        setError("Failed to fetch Issuer details. Please Recheck Email");
+      if (!templateId) {
+        setError("Please select a template.");
         return;
       }
 
-      if (!template) {
-        setError("Failed to fetch template.");
-        return;
-      }
-
-
-      // Set recipientId and issuerId
-      setFormData((prev) => ({
-        ...prev,
-        recipientId: recipient.id,
-        issuerId: issuer.id,
-        templateId: template.id
-      }));
+      const issuerId = user.id;
 
       const certificateData = {
         title: `${formData.courseName} Certificate`,
@@ -61,11 +143,11 @@ const IssueCertificate = () => {
         recipientEmail: formData.recipientEmail,
         issueDate: formData.issueDate,
         expiryDate: formData.expiryDate || undefined,
-        issuerId: issuer.id,
+        issuerId,
         recipientId: recipient.id,
-        templateId: template.id,
+        templateId: templateId,
         metadata: {
-          grade: 'A',
+          grade: formData.grade,
           courseName: formData.courseName
         }
       };
@@ -77,10 +159,13 @@ const IssueCertificate = () => {
         setError("Failed to create Certificate");
         return;
       }
+      setIsPreviewOpen(false);
       navigate("/");
     } catch (error: unknown) {
       console.error('Error issuing certificate:', error);
       setError(error instanceof Error ? error.message : 'Failed to issue certificate');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -92,7 +177,7 @@ const IssueCertificate = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleOpenPreview} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Recipient Name</label>
             <input
@@ -127,17 +212,6 @@ const IssueCertificate = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Issuer Email</label>
-            <input
-              type="email"
-              value={formData.issuerEmail}
-              onChange={(e) => setFormData({ ...formData, issuerEmail: e.target.value })}
-              className="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
-              required
-            />
-          </div>
-
-          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Course Name</label>
             <input
               type="text"
@@ -146,6 +220,21 @@ const IssueCertificate = () => {
               className="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
               required
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Grade / Achievement Level</label>
+            <select
+              value={formData.grade}
+              onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
+              className="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white"
+              required
+            >
+              <option value="" disabled>Select a grade</option>
+              {GRADE_OPTIONS.map((g) => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -160,6 +249,28 @@ const IssueCertificate = () => {
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="flex items-center gap-2">
+                <Layout className="w-4 h-4" />
+                Certificate Template
+              </div>
+            </label>
+            <select
+              value={formData.templateId}
+              onChange={(e) => setFormData({ ...formData, templateId: e.target.value })}
+              className="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white"
+              required
+            >
+              <option value="" disabled>Select a template</option>
+              {templates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date (Optional)</label>
             <input
               type="date"
@@ -168,24 +279,43 @@ const IssueCertificate = () => {
               className="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
+            {error && (
+            <div className="flex items-center gap-2 text-red-600 mb-4">
+              <XCircle className="w-5 h-5" />
+              <p>{error}</p>
+            </div>
+          )}
 
           <div className="flex items-center justify-between pt-4">
             <button
               type="submit"
               className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
             >
-              <Upload className="w-4 h-4" />
-              Issue Certificate
+              <Eye className="w-4 h-4" />
+              Preview Certificate
             </button>
           </div>
         </form>
-        {error && (
-          <div className="flex items-center gap-2 text-red-600 mb-4">
-            <XCircle className="w-5 h-5" />
-            <p>{error}</p>
-          </div>
-        )}
+        <div className="mt-6 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
+          <p className="font-medium">Preview before issuance</p>
+          <p className="mt-1 text-blue-800">
+            You will review recipient details, course name, template, and dates before the certificate is submitted.
+          </p>
+          {formData.issueDate && (
+            <p className="mt-2 text-blue-700">
+              Current draft issue date: {formatPreviewDate(formData.issueDate)}
+            </p>
+          )}
+        </div>
       </div>
+
+      <CertificatePreviewModal
+        isOpen={isPreviewOpen}
+        preview={previewData}
+        isSubmitting={isSubmitting}
+        onClose={() => setIsPreviewOpen(false)}
+        onConfirm={handleConfirmIssue}
+      />
     </div>
   );
 };

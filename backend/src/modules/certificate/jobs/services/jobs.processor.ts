@@ -3,18 +3,17 @@ import type { Job } from 'bull';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Certificate } from '../../entities/certificate.entity';
+import { CertificateStatus } from '../../constants/certificate-status.enum';
 import { WebhooksService } from '../../../webhooks/webhooks.service';
 import { WebhookEvent } from '../../../webhooks/entities/webhook-subscription.entity';
-import { Logger } from '@nestjs/common';
+import { LoggingService } from "../../../../common/logging/logging.service";
 
 @Processor('certificate-jobs')
 export class JobsProcessor {
-  private readonly logger = new Logger(JobsProcessor.name);
-
   constructor(
     @InjectRepository(Certificate)
     private readonly certificateRepository: Repository<Certificate>,
-    private readonly webhooksService: WebhooksService,
+    private readonly webhooksService: WebhooksService, private readonly logger: LoggingService
   ) {}
 
   @Process('send-email')
@@ -71,7 +70,7 @@ export class JobsProcessor {
     }
 
     for (const cert of expiredCertificates) {
-      cert.status = 'expired';
+      cert.status = CertificateStatus.EXPIRED;
       await this.certificateRepository.save(cert);
 
       try {
