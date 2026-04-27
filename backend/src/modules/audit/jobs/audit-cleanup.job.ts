@@ -3,17 +3,20 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { AuditService } from '../services';
 import { AuditAction, AuditResourceType } from '../constants';
-import { LoggingService } from "../../../common/logging/logging.service";
+import { LoggingService } from '../../../common/logging/logging.service';
 
 @Injectable()
 export class AuditCleanupJob {
   constructor(
     private auditService: AuditService,
-    private configService: ConfigService, private readonly logger: LoggingService
+    private configService: ConfigService,
+    private readonly logger: LoggingService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleCron() {
+    // Retrieves AUDIT_RETENTION_DAYS from environment config
+    // Defaults to 90 days if not configured
     const retentionDays =
       this.configService.get<number>('AUDIT_RETENTION_DAYS') ||
       this.configService.get<number>('audit.retentionDays') ||

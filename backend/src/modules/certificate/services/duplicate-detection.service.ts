@@ -1,6 +1,7 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { Certificate } from '../entities/certificate.entity';
 import {
   DuplicateCheckResult,
@@ -9,13 +10,15 @@ import {
   DuplicateDetectionConfig,
   OverrideRequest,
 } from '../interfaces/duplicate-detection.interface';
-import { LoggingService } from "../../../common/logging/logging.service";
+import { LoggingService } from '../../../common/logging/logging.service';
 
 @Injectable()
 export class DuplicateDetectionService {
   constructor(
     @InjectRepository(Certificate)
-    private readonly certificateRepository: Repository<Certificate>, private readonly logger: LoggingService
+    private readonly certificateRepository: Repository<Certificate>,
+    private readonly configService: ConfigService,
+    private readonly logger: LoggingService,
   ) {}
 
   async checkForDuplicates(
@@ -31,10 +34,13 @@ export class DuplicateDetectionService {
       };
     }
 
+    // Apply environment-based configuration overrides
+    const effectiveConfig = this.applyEnvironmentConfig(config);
+
     const matches: DuplicateMatch[] = [];
     let maxConfidence = 0;
 
-    for (const rule of config.rules.filter((r) => r.enabled)) {
+    for (const rule of effectiveConfig.rules.filter((r) => r.enabled)) {
       const ruleMatches = await this.applyRule(certificateData, rule);
       matches.push(...ruleMatches);
 
@@ -46,15 +52,18 @@ export class DuplicateDetectionService {
       }
     }
 
-    const isDuplicate = matches.length > 0 && maxConfidence >= 0.7;
-    let action: 'block' | 'warn' | 'allow' = config.defaultAction;
+    // Use configured threshold or default to 0.7
+    const threshold =
+      this.configService.get<number>('DUPLICATE_DETECTION_THRESHOLD') ?? 0.7;
+    const isDuplicate = matches.length > 0 && maxConfidence >= threshold;
+    let action: 'block' | 'warn' | 'allow' = effectiveConfig.defaultAction;
 
     if (isDuplicate) {
-      const highestPriorityRule = config.rules
+      const highestPriorityRule = effectiveConfig.rules
         .filter((r) => r.enabled)
         .sort((a, b) => b.priority - a.priority)[0];
 
-      action = highestPriorityRule?.action || config.defaultAction;
+      action = highestPriorityRule?.action || effectiveConfig.defaultAction;
     }
 
     return {
@@ -64,6 +73,38 @@ export class DuplicateDetectionService {
       action,
       message: this.generateDuplicateMessage(matches, action),
     };
+  }
+
+  /**
+   * Apply environment variable configuration overrides to the detection config
+   */
+  private applyEnvironmentConfig(
+    config: DuplicateDetectionConfig,
+  ): DuplicateDetectionConfig {
+    const envThreshold = this.configService.get<number>(
+      'DUPLICATE_DETECTION_THRESHOLD',
+    );
+    const envFuzzyMatching = this.configService.get<boolean>(
+      'DUPLICATE_DETECTION_FUZZY_MATCHING',
+    );
+    const envTimeWindow = this.configService.get<number>(
+      'DUPLICATE_DETECTION_TIME_WINDOW_DAYS',
+    );
+
+    // Create a deep copy of the config
+    const effectiveConfig = JSON.parse(
+      JSON.stringify(config),
+    ) as DuplicateDetectionConfig;
+
+    // Apply environment overrides to all rules
+    effectiveConfig.rules = effectiveConfig.rules.map((rule) => ({
+      ...rule,
+      threshold: envThreshold ?? rule.threshold,
+      fuzzyMatching: envFuzzyMatching ?? rule.fuzzyMatching,
+      timeWindow: envTimeWindow ?? rule.timeWindow,
+    }));
+
+    return effectiveConfig;
   }
 
   private async applyRule(

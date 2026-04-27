@@ -6,6 +6,8 @@ import {
   validateSync,
   IsOptional,
   IsBoolean,
+  MinLength,
+  ValidateIf,
 } from 'class-validator';
 
 export const CERTIFICATE_EXPIRY_WINDOW_DAYS =
@@ -42,6 +44,11 @@ class EnvironmentVariables {
   DB_NAME: string;
 
   @IsString()
+  @ValidateIf((o) => o.NODE_ENV === 'production')
+  @MinLength(32, {
+    message:
+      'JWT_SECRET must be at least 32 characters long in production environment',
+  })
   JWT_SECRET: string;
 
   @IsString()
@@ -167,6 +174,31 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   SECURITY_FORCE_HSTS?: string;
+
+  // Duplicate Detection Configuration
+  @IsOptional()
+  @IsNumber()
+  DUPLICATE_DETECTION_THRESHOLD?: number;
+
+  @IsOptional()
+  @IsNumber()
+  DUPLICATE_DETECTION_EMAIL_WEIGHT?: number;
+
+  @IsOptional()
+  @IsNumber()
+  DUPLICATE_DETECTION_NAME_WEIGHT?: number;
+
+  @IsOptional()
+  @IsNumber()
+  DUPLICATE_DETECTION_TITLE_WEIGHT?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  DUPLICATE_DETECTION_FUZZY_MATCHING?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  DUPLICATE_DETECTION_TIME_WINDOW_DAYS?: number;
 }
 
 export function validateEnv(): EnvironmentVariables {
@@ -224,14 +256,37 @@ export function validateEnv(): EnvironmentVariables {
       AUTH_BRUTE_FORCE_MAX_ATTEMPTS: process.env.AUTH_BRUTE_FORCE_MAX_ATTEMPTS
         ? parseInt(process.env.AUTH_BRUTE_FORCE_MAX_ATTEMPTS, 10)
         : undefined,
-      VERIFICATION_RATE_LIMIT_WINDOW_MS: process.env.VERIFICATION_RATE_LIMIT_WINDOW_MS
+      VERIFICATION_RATE_LIMIT_WINDOW_MS: process.env
+        .VERIFICATION_RATE_LIMIT_WINDOW_MS
         ? parseInt(process.env.VERIFICATION_RATE_LIMIT_WINDOW_MS, 10)
         : 60 * 1000, // 1 minute default
-      VERIFICATION_RATE_LIMIT_MAX_REQUESTS: process.env.VERIFICATION_RATE_LIMIT_MAX_REQUESTS
+      VERIFICATION_RATE_LIMIT_MAX_REQUESTS: process.env
+        .VERIFICATION_RATE_LIMIT_MAX_REQUESTS
         ? parseInt(process.env.VERIFICATION_RATE_LIMIT_MAX_REQUESTS, 10)
         : 100, // 100 requests per minute default
       SECURITY_CSP: process.env.SECURITY_CSP,
       SECURITY_FORCE_HSTS: process.env.SECURITY_FORCE_HSTS,
+      DUPLICATE_DETECTION_THRESHOLD: process.env.DUPLICATE_DETECTION_THRESHOLD
+        ? parseFloat(process.env.DUPLICATE_DETECTION_THRESHOLD)
+        : undefined,
+      DUPLICATE_DETECTION_EMAIL_WEIGHT: process.env
+        .DUPLICATE_DETECTION_EMAIL_WEIGHT
+        ? parseFloat(process.env.DUPLICATE_DETECTION_EMAIL_WEIGHT)
+        : undefined,
+      DUPLICATE_DETECTION_NAME_WEIGHT: process.env
+        .DUPLICATE_DETECTION_NAME_WEIGHT
+        ? parseFloat(process.env.DUPLICATE_DETECTION_NAME_WEIGHT)
+        : undefined,
+      DUPLICATE_DETECTION_TITLE_WEIGHT: process.env
+        .DUPLICATE_DETECTION_TITLE_WEIGHT
+        ? parseFloat(process.env.DUPLICATE_DETECTION_TITLE_WEIGHT)
+        : undefined,
+      DUPLICATE_DETECTION_FUZZY_MATCHING:
+        process.env.DUPLICATE_DETECTION_FUZZY_MATCHING === 'true',
+      DUPLICATE_DETECTION_TIME_WINDOW_DAYS: process.env
+        .DUPLICATE_DETECTION_TIME_WINDOW_DAYS
+        ? parseInt(process.env.DUPLICATE_DETECTION_TIME_WINDOW_DAYS, 10)
+        : undefined,
     },
     { enableImplicitConversion: true },
   );
