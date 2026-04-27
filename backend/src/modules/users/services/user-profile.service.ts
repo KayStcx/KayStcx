@@ -7,7 +7,7 @@ import { User, UserRole } from '../entities/user.entity';
 import { UserRepository } from '../repositories/user.repository';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { IUserPublic } from '../interfaces/user.interface';
-import { LoggingService } from "../../common/logging/logging.service";
+import { LoggingService } from '../../../common/logging/logging.service';
 
 @Injectable()
 export class UserProfileService {
