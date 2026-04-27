@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import { GlobalExceptionFilter } from './common/exceptions/global-exception.filter';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -6,6 +7,7 @@ import { SentryService } from './common/monitoring/sentry.service';
 import { LoggingService } from './common/logging/logging.service';
 import { MonitoringInterceptor } from './common/monitoring/monitoring.interceptor';
 import { MetricsService } from './common/monitoring/metrics.service';
+import { SecurityHeadersInterceptor } from './modules/security/interceptor';
 import { VersioningType } from '@nestjs/common';
 import { RequestValidationPipe } from './modules/security/pipes/request-validation.pipe';
 import express from 'express';
@@ -72,8 +74,9 @@ async function bootstrap() {
     new GlobalExceptionFilter(sentryService, loggingService),
   );
 
-  // Add global monitoring interceptor
+  // Add global security and monitoring interceptors
   app.useGlobalInterceptors(
+    new SecurityHeadersInterceptor(app.get(ConfigService)),
     new MonitoringInterceptor(metricsService, sentryService, loggingService),
   );
 
@@ -82,10 +85,18 @@ async function bootstrap() {
     .setTitle('Kaystcx API')
     .setDescription('Certificate Management System API Documentation')
     .setVersion('1.0')
-    .addBearerAuth()
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      'access-token',
+    )
     .build();
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  SwaggerModule.setup('api/docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+      docExpansion: 'none',
+    },
+  });
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
