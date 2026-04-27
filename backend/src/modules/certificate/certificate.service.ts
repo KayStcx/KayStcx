@@ -1,21 +1,19 @@
-import {
-  Injectable,
-  ConflictException,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { UpdateCertificateDto } from './dto/update-certificate.dto';
 import { Certificate } from './entities/certificate.entity';
-import { Verification } from './entities/verification.entity';
-import { DuplicateDetectionService } from './services/duplicate-detection.service';
 import { DuplicateDetectionConfig } from './interfaces/duplicate-detection.interface';
-import { WebhooksService } from '../webhooks/webhooks.service';
-import { WebhookEvent } from '../webhooks/entities/webhook-subscription.entity';
-import { MetadataSchemaService } from '../metadata-schema/services/metadata-schema.service';
+import { CertificateIssuanceService } from './services/certificate-issuance.service';
+import { CertificateRevocationService } from './services/certificate-revocation.service';
+import { CertificateVerificationService } from './services/certificate-verification.service';
+import { CertificateSearchService } from './services/certificate-search.service';
 
+/**
+ * Main Certificate Service - Facade for certificate operations
+ * Delegates to specialized services for specific functionality
+ */
 @Injectable()
 export class CertificateService {
   private readonly logger = new Logger(CertificateService.name);
@@ -23,303 +21,78 @@ export class CertificateService {
   constructor(
     @InjectRepository(Certificate)
     private readonly certificateRepository: Repository<Certificate>,
-    @InjectRepository(Verification)
-    private readonly verificationRepository: Repository<Verification>,
-    private readonly duplicateDetectionService: DuplicateDetectionService,
-    private readonly webhooksService: WebhooksService,
-    private readonly metadataSchemaService: MetadataSchemaService,
+    private readonly issuanceService: CertificateIssuanceService,
+    private readonly revocationService: CertificateRevocationService,
+    private readonly verificationService: CertificateVerificationService,
+    private readonly searchService: CertificateSearchService,
   ) {}
 
+  // Issuance operations - delegated to CertificateIssuanceService
   async create(
     createCertificateDto: CreateCertificateDto,
     duplicateConfig?: DuplicateDetectionConfig,
     overrideReason?: string,
   ): Promise<Certificate> {
-    // Check for duplicates if config is provided
-    if (duplicateConfig?.enabled) {
-      const duplicateCheck =
-        await this.duplicateDetectionService.checkForDuplicates(
-          createCertificateDto,
-          duplicateConfig,
-        );
-
-      if (duplicateCheck.isDuplicate) {
-        if (duplicateCheck.action === 'block') {
-          throw new ConflictException({
-            message: 'Certificate issuance blocked due to potential duplicate',
-            details: duplicateCheck,
-          });
-        } else if (duplicateCheck.action === 'warn' && !overrideReason) {
-          throw new ConflictException({
-            message:
-              'Warning: Potential duplicate detected. Override reason required.',
-            details: duplicateCheck,
-            requiresOverride: true,
-          });
-        }
-      }
-    }
-
-    if (
-      createCertificateDto.metadataSchemaId &&
-      createCertificateDto.metadata
-    ) {
-      const validationResult = await this.metadataSchemaService.validate(
-        createCertificateDto.metadataSchemaId,
-        createCertificateDto.metadata,
-      );
-      if (!validationResult.valid) {
-        throw new ConflictException({
-          message: 'Certificate metadata failed schema validation',
-          errors: validationResult.errors,
-          schemaId: validationResult.schemaId,
-          schemaVersion: validationResult.schemaVersion,
-        });
-      }
-    }
-
-    const certificate = this.certificateRepository.create({
-      ...createCertificateDto,
-      expiresAt:
-        createCertificateDto.expiresAt || this.calculateDefaultExpiry(),
-      verificationCode:
-        createCertificateDto.verificationCode ||
-        this.generateVerificationCode(),
-      isDuplicate: false,
-    });
-
-    const savedCertificate = await this.certificateRepository.save(certificate);
-
-    // If this was an override, mark it appropriately
-    if (overrideReason) {
-      savedCertificate.isDuplicate = true;
-      savedCertificate.overrideReason = overrideReason;
-      await this.certificateRepository.save(savedCertificate);
-    }
-
-    this.logger.log(
-      `Certificate created: ${savedCertificate.id} for ${createCertificateDto.recipientEmail}`,
+    return this.issuanceService.issue(
+      createCertificateDto,
+      duplicateConfig,
+      overrideReason,
     );
-
-    // Trigger webhook event
-    await this.webhooksService.triggerEvent(
-      WebhookEvent.CERTIFICATE_ISSUED,
-      savedCertificate.issuerId,
-      {
-        id: savedCertificate.id,
-        recipientEmail: savedCertificate.recipientEmail,
-        recipientName: savedCertificate.recipientName,
-        title: savedCertificate.title,
-        issuedAt: savedCertificate.issuedAt,
-        status: savedCertificate.status,
-      },
-    );
-
-    return savedCertificate;
   }
 
+  // Search operations - delegated to CertificateSearchService
   async findAll(
     page = 1,
     limit = 10,
     issuerId?: string,
     status?: string,
   ): Promise<{ certificates: Certificate[]; total: number }> {
-    const queryBuilder = this.certificateRepository
-      .createQueryBuilder('certificate')
-      .leftJoinAndSelect('certificate.issuer', 'issuer')
-      .orderBy('certificate.issuedAt', 'DESC');
-
-    if (issuerId) {
-      queryBuilder.andWhere('certificate.issuerId = :issuerId', { issuerId });
-    }
-
-    if (status) {
-      queryBuilder.andWhere('certificate.status = :status', { status });
-    }
-
-    const total = await queryBuilder.getCount();
-    const certificates = await queryBuilder
-      .skip((page - 1) * limit)
-      .take(limit)
-      .getMany();
-
-    return { certificates, total };
+    return this.searchService.findAll(page, limit, issuerId, status);
   }
 
   async findOne(id: string): Promise<Certificate> {
-    const certificate = await this.certificateRepository
-      .createQueryBuilder('certificate')
-      .leftJoinAndSelect('certificate.issuer', 'issuer')
-      .where('certificate.id = :id', { id })
-      .getOne();
-
-    if (!certificate) {
-      throw new NotFoundException(`Certificate with ID ${id} not found`);
-    }
-
-    return certificate;
+    return this.searchService.findOne(id);
   }
 
+  async getCertificatesByRecipient(email: string): Promise<Certificate[]> {
+    return this.searchService.getCertificatesByRecipient(email);
+  }
+
+  async getCertificatesByIssuer(issuerId: string): Promise<Certificate[]> {
+    return this.searchService.getCertificatesByIssuer(issuerId);
+  }
+
+  async getDuplicateCertificates(): Promise<Certificate[]> {
+    return this.searchService.getDuplicateCertificates();
+  }
+
+  async exportCertificates(
+    issuerId?: string,
+    status?: string,
+  ): Promise<Certificate[]> {
+    return this.searchService.exportCertificates(issuerId, status);
+  }
+
+  // Verification operations - delegated to CertificateVerificationService
   async findByVerificationCode(verificationCode: string): Promise<Certificate> {
-    const certificate = await this.certificateRepository
-      .createQueryBuilder('certificate')
-      .leftJoinAndSelect('certificate.issuer', 'issuer')
-      .where('certificate.verificationCode = :verificationCode', {
-        verificationCode,
-      })
-      .andWhere('certificate.status = :status', { status: 'active' })
-      .getOne();
-
-    if (!certificate) {
-      // Record failed verification if we want to track it
-      throw new NotFoundException(
-        'Certificate not found or invalid verification code',
-      );
-    }
-
-    return certificate;
+    return this.verificationService.findByVerificationCode(verificationCode);
   }
 
   async verifyCertificate(verificationCode: string): Promise<Certificate> {
-    try {
-      const certificate = await this.findByVerificationCode(verificationCode);
-
-      // Record successful verification
-      await this.verificationRepository.save({
-        certificate,
-        success: true,
-        verifiedAt: new Date(),
-      });
-
-      // Trigger webhook event
-      await this.webhooksService.triggerEvent(
-        WebhookEvent.CERTIFICATE_VERIFIED,
-        certificate.issuerId,
-        {
-          id: certificate.id,
-          verificationCode,
-          verifiedAt: new Date(),
-          recipientEmail: certificate.recipientEmail,
-        },
-      );
-
-      return certificate;
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        // Option: Record failed verification in DB too
-      }
-      throw error;
-    }
+    return this.verificationService.verifyCertificate(verificationCode);
   }
 
-  async update(
-    id: string,
-    updateCertificateDto: UpdateCertificateDto,
-  ): Promise<Certificate> {
-    const certificate = await this.findOne(id);
-
-    Object.assign(certificate, updateCertificateDto);
-
-    return this.certificateRepository.save(certificate);
-  }
-
+  // Revocation operations - delegated to CertificateRevocationService
   async revoke(id: string, reason?: string): Promise<Certificate> {
-    const certificate = await this.findOne(id);
-
-    certificate.status = 'revoked';
-    if (reason) {
-      certificate.metadata = {
-        ...certificate.metadata,
-        revocationReason: reason,
-        revokedAt: new Date(),
-      };
-    }
-
-    const savedCertificate = await this.certificateRepository.save(certificate);
-
-    // Trigger webhook event
-    await this.webhooksService.triggerEvent(
-      WebhookEvent.CERTIFICATE_REVOKED,
-      savedCertificate.issuerId,
-      {
-        id: savedCertificate.id,
-        status: savedCertificate.status,
-        revocationReason: reason,
-        revokedAt: new Date(),
-      },
-    );
-
-    return savedCertificate;
+    return this.revocationService.revoke(id, reason);
   }
 
   async freeze(id: string, reason?: string): Promise<Certificate> {
-    const certificate = await this.findOne(id);
-
-    if (certificate.status !== 'active') {
-      throw new ConflictException(
-        `Certificate must be active to freeze. Current status: ${certificate.status}`,
-      );
-    }
-
-    certificate.status = 'frozen';
-    if (reason) {
-      certificate.metadata = {
-        ...certificate.metadata,
-        freezeReason: reason,
-        frozenAt: new Date(),
-      };
-    }
-
-    const savedCertificate = await this.certificateRepository.save(certificate);
-
-    // Trigger webhook event
-    await this.webhooksService.triggerEvent(
-      WebhookEvent.CERTIFICATE_REVOKED, // Using existing revoked event, could add new freeze event
-      savedCertificate.issuerId,
-      {
-        id: savedCertificate.id,
-        status: savedCertificate.status,
-        freezeReason: reason,
-        frozenAt: new Date(),
-      },
-    );
-
-    return savedCertificate;
+    return this.revocationService.freeze(id, reason);
   }
 
   async unfreeze(id: string, reason?: string): Promise<Certificate> {
-    const certificate = await this.findOne(id);
-
-    if (certificate.status !== 'frozen') {
-      throw new ConflictException(
-        `Certificate must be frozen to unfreeze. Current status: ${certificate.status}`,
-      );
-    }
-
-    certificate.status = 'active';
-    if (reason) {
-      certificate.metadata = {
-        ...certificate.metadata,
-        unfreezeReason: reason,
-        unfrozenAt: new Date(),
-      };
-    }
-
-    const savedCertificate = await this.certificateRepository.save(certificate);
-
-    // Trigger webhook event
-    await this.webhooksService.triggerEvent(
-      WebhookEvent.CERTIFICATE_ISSUED, // Using existing issued event, could add new unfreeze event
-      savedCertificate.issuerId,
-      {
-        id: savedCertificate.id,
-        status: savedCertificate.status,
-        unfreezeReason: reason,
-        unfrozenAt: new Date(),
-      },
-    );
-
-    return savedCertificate;
+    return this.revocationService.unfreeze(id, reason);
   }
 
   async bulkRevoke(
@@ -329,88 +102,21 @@ export class CertificateService {
     revoked: Certificate[];
     failed: { id: string; error: string }[];
   }> {
-    const revoked: Certificate[] = [];
-    const failed: { id: string; error: string }[] = [];
-
-    for (const id of certificateIds) {
-      try {
-        const certificate = await this.revoke(id, reason);
-        revoked.push(certificate);
-      } catch (error) {
-        failed.push({
-          id,
-          error: error.message || 'Failed to revoke certificate',
-        });
-      }
-    }
-
-    return { revoked, failed };
+    return this.revocationService.bulkRevoke(certificateIds, reason);
   }
 
-  async exportCertificates(
-    issuerId?: string,
-    status?: string,
-  ): Promise<Certificate[]> {
-    const queryBuilder = this.certificateRepository
-      .createQueryBuilder('certificate')
-      .leftJoinAndSelect('certificate.issuer', 'issuer')
-      .orderBy('certificate.issuedAt', 'DESC');
-
-    if (issuerId) {
-      queryBuilder.andWhere('certificate.issuerId = :issuerId', { issuerId });
-    }
-
-    if (status) {
-      queryBuilder.andWhere('certificate.status = :status', { status });
-    }
-
-    return queryBuilder.getMany();
+  // Generic operations (kept in main service for simplicity)
+  async update(
+    id: string,
+    updateCertificateDto: UpdateCertificateDto,
+  ): Promise<Certificate> {
+    const certificate = await this.findOne(id);
+    Object.assign(certificate, updateCertificateDto);
+    return this.certificateRepository.save(certificate);
   }
 
   async remove(id: string): Promise<void> {
     const certificate = await this.findOne(id);
     await this.certificateRepository.remove(certificate);
-  }
-
-  async getCertificatesByRecipient(email: string): Promise<Certificate[]> {
-    return this.certificateRepository
-      .createQueryBuilder('certificate')
-      .leftJoinAndSelect('certificate.issuer', 'issuer')
-      .where('certificate.recipientEmail = :email', { email })
-      .orderBy('certificate.issuedAt', 'DESC')
-      .getMany();
-  }
-
-  async getCertificatesByIssuer(issuerId: string): Promise<Certificate[]> {
-    return this.certificateRepository
-      .createQueryBuilder('certificate')
-      .leftJoinAndSelect('certificate.issuer', 'issuer')
-      .where('certificate.issuerId = :issuerId', { issuerId })
-      .orderBy('certificate.issuedAt', 'DESC')
-      .getMany();
-  }
-
-  async getDuplicateCertificates(): Promise<Certificate[]> {
-    return this.certificateRepository
-      .createQueryBuilder('certificate')
-      .leftJoinAndSelect('certificate.issuer', 'issuer')
-      .where('certificate.isDuplicate = :isDuplicate', { isDuplicate: true })
-      .orderBy('certificate.issuedAt', 'DESC')
-      .getMany();
-  }
-
-  private calculateDefaultExpiry(): Date {
-    const expiry = new Date();
-    expiry.setFullYear(expiry.getFullYear() + 1); // Default 1 year expiry
-    return expiry;
-  }
-
-  private generateVerificationCode(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let code = '';
-    for (let i = 0; i < 8; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return code;
   }
 }

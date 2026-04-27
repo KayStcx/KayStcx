@@ -8,10 +8,15 @@ import { CertificateStatsService } from './services/stats.service';
 import { CertificateController } from './certificate.controller';
 import { MetadataSchemaModule } from '../metadata-schema/metadata-schema.module';
 import { AuthModule } from '../auth/auth.module';
+import { WebhooksModule } from '../webhooks/webhooks.module';
 
 // Import services directly
 import { DuplicateDetectionService } from './services/duplicate-detection.service';
 import { DuplicateDetectionController } from './controllers/duplicate-detection.controller';
+import { CertificateIssuanceService } from './services/certificate-issuance.service';
+import { CertificateRevocationService } from './services/certificate-revocation.service';
+import { CertificateVerificationService } from './services/certificate-verification.service';
+import { CertificateSearchService } from './services/certificate-search.service';
 
 @Module({
   imports: [
@@ -22,16 +27,20 @@ import { DuplicateDetectionController } from './controllers/duplicate-detection.
     }),
     MetadataSchemaModule,
     AuthModule,
-    // REMOVE: DuplicateDetectionModule
+    WebhooksModule,
   ],
   controllers: [
     CertificateController,
-    DuplicateDetectionController, // Add this directly
+    DuplicateDetectionController,
   ],
   providers: [
     CertificateService,
     CertificateStatsService,
-    DuplicateDetectionService, // Add this directly
+    DuplicateDetectionService,
+    CertificateIssuanceService,
+    CertificateRevocationService,
+    CertificateVerificationService,
+    CertificateSearchService,
   ],
   exports: [CertificateService, CertificateStatsService],
 })

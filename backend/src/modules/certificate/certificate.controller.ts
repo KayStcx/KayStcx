@@ -9,6 +9,7 @@ import {
   Delete,
   Patch,
   Res,
+  UseInterceptors,
 } from '@nestjs/common';
 import { CertificateService } from './certificate.service';
 import {
@@ -25,6 +26,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/constants/roles';
 import { Certificate } from './entities/certificate.entity';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
+import { CacheInterceptor } from '../../common/interceptors/cache.interceptor';
 
 @ApiTags('Certificates')
 @Controller('certificates')
@@ -49,6 +51,7 @@ export class CertificateController {
   }
 
   @Get('stats/summary')
+  @UseInterceptors(CacheInterceptor)
   @ApiOperation({ summary: 'Get public certificate summary statistics' })
   async getPublicSummary(): Promise<Partial<CertificateStatsDto>> {
     return this.statsService.getPublicSummary();

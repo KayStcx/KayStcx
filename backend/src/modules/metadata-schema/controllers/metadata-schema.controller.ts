@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
   ParseUUIDPipe,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -27,6 +28,7 @@ import {
   MetadataValidationResultDto,
 } from '../dto/metadata-schema.dto';
 import { MetadataSchema } from '../entities/metadata-schema.entity';
+import { CacheInterceptor } from '../../../common/interceptors/cache.interceptor';
 
 @ApiTags('Metadata Schemas')
 @Controller('metadata-schemas')
@@ -43,6 +45,7 @@ export class MetadataSchemaController {
   }
 
   @Get()
+  @UseInterceptors(CacheInterceptor)
   @ApiOperation({ summary: 'List all active schemas' })
   @ApiQuery({ name: 'issuerId', required: false })
   async findAll(
@@ -52,6 +55,7 @@ export class MetadataSchemaController {
   }
 
   @Get(':id')
+  @UseInterceptors(CacheInterceptor)
   @ApiOperation({ summary: 'Get schema by ID' })
   @ApiParam({ name: 'id', type: 'string' })
   async findOne(
@@ -61,12 +65,14 @@ export class MetadataSchemaController {
   }
 
   @Get('name/:name')
+  @UseInterceptors(CacheInterceptor)
   @ApiOperation({ summary: 'Get all versions of a schema by name' })
   async findByName(@Param('name') name: string): Promise<MetadataSchema[]> {
     return this.schemaService.findByName(name);
   }
 
   @Get('name/:name/latest')
+  @UseInterceptors(CacheInterceptor)
   @ApiOperation({ summary: 'Get the latest version of a schema' })
   async findLatest(@Param('name') name: string): Promise<MetadataSchema> {
     const schema = await this.schemaService.findLatestByName(name);
@@ -77,6 +83,7 @@ export class MetadataSchemaController {
   }
 
   @Get('name/:name/history')
+  @UseInterceptors(CacheInterceptor)
   @ApiOperation({ summary: 'Get version history of a schema' })
   async getVersionHistory(
     @Param('name') name: string,

@@ -60,6 +60,34 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
+  // Enable graceful shutdown hooks
+  app.enableShutdownHooks();
+
+  // Handle graceful shutdown
+  const gracefulShutdown = async (signal: string) => {
+    loggingService.log(`Received ${signal}. Starting graceful shutdown...`);
+
+    // Close BullMQ queues and Redis connections
+    try {
+      const queues = app.get('BULL_MODULE_QUEUES') || [];
+      for (const queue of queues) {
+        await queue.close();
+      }
+      loggingService.log('BullMQ queues closed successfully');
+    } catch (error) {
+      loggingService.error('Error closing BullMQ queues:', error);
+    }
+
+    // Close NestJS application
+    await app.close();
+    loggingService.log('Application closed successfully');
+    process.exit(0);
+  };
+
+  // Listen for shutdown signals
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
 

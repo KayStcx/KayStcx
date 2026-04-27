@@ -6,6 +6,7 @@ import {
   Param,
   Body,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { IssuersService } from './issuers.service';
@@ -14,6 +15,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/constants/roles';
+import { CacheInterceptor } from '../../common/interceptors/cache.interceptor';
 
 @ApiTags('Issuers')
 @ApiBearerAuth()
@@ -34,6 +36,7 @@ export class IssuersController {
   }
 
   @Get()
+  @UseInterceptors(CacheInterceptor)
   async list() {
     return this.issuersService.listIssuers();
   }
