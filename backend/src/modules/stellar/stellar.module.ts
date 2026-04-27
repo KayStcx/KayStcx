@@ -3,7 +3,9 @@ import { ConfigModule } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
 import { AddressValidationService } from './services/address-validation.service';
 import { StellarService } from './services/stellar.service';
+import { SorobanService } from './services/soroban.service';
 import { AddressValidationController } from './controllers/address-validation.controller';
+import { SorobanController } from './controllers/soroban.controller';
 
 @Module({
   imports: [
@@ -13,8 +15,8 @@ import { AddressValidationController } from './controllers/address-validation.co
       max: 1000, // Maximum number of items in cache
     }),
   ],
-  controllers: [AddressValidationController],
-  providers: [AddressValidationService, StellarService],
-  exports: [AddressValidationService, StellarService],
+  controllers: [AddressValidationController, SorobanController],
+  providers: [AddressValidationService, StellarService, SorobanService],
+  exports: [AddressValidationService, StellarService, SorobanService],
 })
 export class StellarModule {}

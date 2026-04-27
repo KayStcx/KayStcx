@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Res, UseGuards, Logger } from '@nestjs/common';
+import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuditService } from '../services';
@@ -6,14 +6,13 @@ import { AuditSearchDto, AuditStatisticsDto } from '../dto';
 import { AuditLog } from '../entities';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { UserRole } from '../../../common/constants/roles';
+import { LoggingService } from "../../../common/logging/logging.service";
 
 @ApiTags('Audit')
 @Controller('audit')
 @Roles(UserRole.ADMIN)
 export class AuditController {
-  private readonly logger = new Logger(AuditController.name);
-
-  constructor(private auditService: AuditService) {}
+  constructor(private auditService: AuditService, private readonly logger: LoggingService) {}
 
   @Get('logs')
   @ApiOperation({ summary: 'Search audit logs' })

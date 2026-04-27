@@ -1,22 +1,26 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
+import { ConfigModule } from '@nestjs/config';
+
 import { Certificate } from './entities/certificate.entity';
 import { Verification } from './entities/verification.entity';
+
 import { CertificateService } from './certificate.service';
 import { CertificateStatsService } from './services/stats.service';
+import { DuplicateDetectionService } from './services/duplicate-detection.service';
+
 import { CertificateController } from './certificate.controller';
+import { DuplicateDetectionController } from './controllers/duplicate-detection.controller';
+
 import { MetadataSchemaModule } from '../metadata-schema/metadata-schema.module';
 import { AuthModule } from '../auth/auth.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
-
-// Import services directly
-import { DuplicateDetectionService } from './services/duplicate-detection.service';
-import { DuplicateDetectionController } from './controllers/duplicate-detection.controller';
-import { CertificateIssuanceService } from './services/certificate-issuance.service';
-import { CertificateRevocationService } from './services/certificate-revocation.service';
-import { CertificateVerificationService } from './services/certificate-verification.service';
-import { CertificateSearchService } from './services/certificate-search.service';
+import { StellarModule } from '../stellar/stellar.module';
+import { AuditModule } from '../audit/audit.module';
+import { FilesModule } from '../files/files.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -25,9 +29,15 @@ import { CertificateSearchService } from './services/certificate-search.service'
       ttl: 300,
       max: 100,
     }),
+    ConfigModule,
     MetadataSchemaModule,
     AuthModule,
     WebhooksModule,
+    StellarModule,
+    AuditModule,
+    FilesModule,
+    NotificationsModule,
+    EmailModule,
   ],
   controllers: [
     CertificateController,
@@ -37,10 +47,6 @@ import { CertificateSearchService } from './services/certificate-search.service'
     CertificateService,
     CertificateStatsService,
     DuplicateDetectionService,
-    CertificateIssuanceService,
-    CertificateRevocationService,
-    CertificateVerificationService,
-    CertificateSearchService,
   ],
   exports: [CertificateService, CertificateStatsService],
 })

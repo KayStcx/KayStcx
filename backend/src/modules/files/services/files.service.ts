@@ -1,17 +1,34 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { StorageService } from './storage.service';
 import { PdfService, CertificateData } from './pdf.service';
 import { QrCodeService } from './qrcode.service';
+import { LoggingService } from "../../../common/logging/logging.service";
 
 @Injectable()
 export class FilesService {
-  private readonly logger = new Logger(FilesService.name);
-
   constructor(
     private readonly storageService: StorageService,
     private readonly pdfService: PdfService,
-    private readonly qrCodeService: QrCodeService,
+    private readonly qrCodeService: QrCodeService, private readonly logger: LoggingService
   ) {}
+
+  async generateAndUploadQrCode(
+    text: string,
+    filenamePrefix = 'qr',
+  ): Promise<{ qrUrl: string; qrKey: string; qrBuffer: Buffer }> {
+    const qrBuffer = await this.qrCodeService.generateQrCode(text);
+    const qrUpload = await this.storageService.uploadFile(
+      qrBuffer,
+      `${filenamePrefix}.png`,
+      'image/png',
+    );
+
+    return {
+      qrUrl: qrUpload.url,
+      qrKey: qrUpload.key,
+      qrBuffer,
+    };
+  }
 
   async generateAndUploadCertificate(data: CertificateData): Promise<{
     pdfUrl: string;
@@ -27,16 +44,13 @@ export class FilesService {
 
     if (data.verificationUrl) {
       try {
-        qrBuffer = await this.qrCodeService.generateQrCode(
+        const qrUpload = await this.generateAndUploadQrCode(
           data.verificationUrl,
+          `qr-${data.tokenId || Date.now()}`,
         );
-        const qrUpload = await this.storageService.uploadFile(
-          qrBuffer,
-          `qr-${data.tokenId || Date.now()}.png`,
-          'image/png',
-        );
-        qrKey = qrUpload.key;
-        qrUrl = qrUpload.url;
+        qrBuffer = qrUpload.qrBuffer;
+        qrKey = qrUpload.qrKey;
+        qrUrl = qrUpload.qrUrl;
       } catch (error) {
         this.logger.error(
           `Error generating/uploading QR code: ${error.message}`,

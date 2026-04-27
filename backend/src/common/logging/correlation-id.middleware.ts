@@ -1,11 +1,9 @@
-import { Injectable, NestMiddleware, Logger } from '@nestjs/common';
+import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { LoggingService, LogContext } from '../logging/logging.service';
 
 @Injectable()
 export class CorrelationIdMiddleware implements NestMiddleware {
-  private readonly logger = new Logger(CorrelationIdMiddleware.name);
-
   constructor(private loggingService: LoggingService) {}
 
   use(req: Request, res: Response, next: NextFunction): void {
@@ -19,7 +17,7 @@ export class CorrelationIdMiddleware implements NestMiddleware {
     // Create context for this request
     const context: LogContext = {
       correlationId,
-      requestId: req.headers['x-request-id'] as string,
+      requestId: (req.headers['x-request-id'] as string) || this.loggingService.generateCorrelationId(),
       userId: (req as any).user?.id,
     };
 
@@ -28,7 +26,7 @@ export class CorrelationIdMiddleware implements NestMiddleware {
 
     // Add correlation ID to response headers
     res.setHeader('x-correlation-id', correlationId);
-    res.setHeader('x-request-id', context.requestId || '');
+    res.setHeader('x-request-id', context.requestId as string);
 
     // Log request
     this.loggingService.log(

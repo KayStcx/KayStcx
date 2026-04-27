@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use super::*;
-use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, String, Vec};
+use soroban_sdk::{testutils::Address as _, Address, Env, String, Vec};
 
 #[test]
 fn test_admin_multisig_flow() {
@@ -18,29 +18,60 @@ fn test_admin_multisig_flow() {
     signers.push_back(admin2.clone());
     signers.push_back(admin3.clone());
 
-    // Initialize with 2-of-3 multisig
-    client.init_admin_multisig(&2, &signers);
+    env.mock_all_auths();
 
-    // Proposer proposes an action
+    // Initialize with 2-of-3 multisig and a 10-ledger proposal window.
+    client.init_admin_multisig(&2, &signers, &10);
+
     let proposal_id = String::from_str(&env, "prop-1");
     let action = AdminAction::Other(String::from_str(&env, "custom_action"));
-    
-    env.mock_all_auths();
-    
-    let proposal = client.propose_admin_action(
-        &proposal_id,
-        &admin1,
-        &action,
-        &86400, // 1 day
-    );
+
+    let proposal = client.propose_action(&proposal_id, &admin1, &action);
 
     assert_eq!(proposal.status, AdminProposalStatus::Pending);
+    assert_eq!(proposal.created_ledger, env.ledger().sequence());
+    assert_eq!(proposal.expires_at_ledger, env.ledger().sequence() + 10);
 
     // Admin1 approves (now 1-of-2)
-    let status1 = client.approve_admin_action(&proposal_id, &admin1);
+    let status1 = client.approve_action(&proposal_id, &admin1);
     assert_eq!(status1, AdminProposalStatus::Pending);
 
     // Admin2 approves (now 2-of-2), reaches threshold, autocompletes
-    let status2 = client.approve_admin_action(&proposal_id, &admin2);
+    let status2 = client.approve_action(&proposal_id, &admin2);
     assert_eq!(status2, AdminProposalStatus::Executed);
+
+    let stored_proposal = client.get_proposal(&proposal_id);
+    assert_eq!(stored_proposal.status, AdminProposalStatus::Executed);
+}
+
+#[test]
+fn test_remove_issuer_action_executes_after_threshold() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, AdminMultisigContract);
+    let client = AdminMultisigContractClient::new(&env, &contract_id);
+
+    let admin1 = Address::generate(&env);
+    let admin2 = Address::generate(&env);
+    let issuer = Address::generate(&env);
+
+    let mut signers = Vec::new(&env);
+    signers.push_back(admin1.clone());
+    signers.push_back(admin2.clone());
+
+    env.mock_all_auths();
+
+    client.init_admin_multisig(&2, &signers, &5);
+
+    let proposal_id = String::from_str(&env, "remove-issuer-1");
+    let action = AdminAction::RemoveIssuer(issuer.clone());
+
+    client.propose_action(&proposal_id, &admin1, &action);
+    assert!(!client.is_issuer_removed(&issuer));
+
+    client.approve_action(&proposal_id, &admin1);
+    assert!(!client.is_issuer_removed(&issuer));
+
+    let status = client.approve_action(&proposal_id, &admin2);
+    assert_eq!(status, AdminProposalStatus::Executed);
+    assert!(client.is_issuer_removed(&issuer));
 }

@@ -6,8 +6,8 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
-import { Logger } from '@nestjs/common';
 import { Notification } from './entities/notification.entity';
+import { LoggingService } from "../../common/logging/logging.service";
 
 @WebSocketGateway({
   cors: {
@@ -20,9 +20,7 @@ export class NotificationsGateway
   @WebSocketServer()
   server: Server;
 
-  private readonly logger = new Logger(NotificationsGateway.name);
-
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(private readonly jwtService: JwtService, private readonly logger: LoggingService) {}
 
   async handleConnection(client: Socket) {
     try {

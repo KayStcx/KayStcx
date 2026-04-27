@@ -1,10 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import * as QRCode from 'qrcode';
+import { LoggingService } from "../../../common/logging/logging.service";
 
 @Injectable()
 export class QrCodeService {
-  private readonly logger = new Logger(QrCodeService.name);
-
   async generateQrCode(text: string): Promise<Buffer> {
     try {
       return await QRCode.toBuffer(text, {
@@ -33,4 +32,7 @@ export class QrCodeService {
       throw error;
     }
   }
+
+    constructor(private readonly logger: LoggingService) {
+    }
 }

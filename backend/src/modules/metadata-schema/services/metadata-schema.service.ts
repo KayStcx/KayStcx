@@ -1,6 +1,5 @@
 import {
   Injectable,
-  Logger,
   NotFoundException,
   ConflictException,
   BadRequestException,
@@ -19,14 +18,13 @@ import {
   ValidationErrorDetail,
   MetadataValidationResultDto,
 } from '../dto/metadata-schema.dto';
+import { LoggingService } from "../../../common/logging/logging.service";
 
 @Injectable()
 export class MetadataSchemaService {
-  private readonly logger = new Logger(MetadataSchemaService.name);
-
   constructor(
     @InjectRepository(MetadataSchema)
-    private readonly schemaRepository: Repository<MetadataSchema>,
+    private readonly schemaRepository: Repository<MetadataSchema>, private readonly logger: LoggingService
   ) {}
 
   async create(dto: CreateMetadataSchemaDto): Promise<MetadataSchema> {

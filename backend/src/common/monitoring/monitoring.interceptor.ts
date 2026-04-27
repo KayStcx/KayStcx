@@ -2,8 +2,7 @@ import {
   Injectable,
   NestInterceptor,
   ExecutionContext,
-  CallHandler,
-  Logger,
+  CallHandler
 } from '@nestjs/common';
 import { Observable, throwError } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
@@ -17,8 +16,6 @@ import { LoggingService } from '../logging/logging.service';
  */
 @Injectable()
 export class MonitoringInterceptor implements NestInterceptor {
-  private readonly logger = new Logger(MonitoringInterceptor.name);
-
   constructor(
     private metricsService: MetricsService,
     private sentryService: SentryService,

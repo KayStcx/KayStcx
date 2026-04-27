@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import * as fs from 'fs';
@@ -9,6 +9,7 @@ import { SendVerificationDto } from './dto/send-verification.dto';
 import { SendPasswordResetDto } from './dto/send-password-reset.dto';
 import { SendRevocationNoticeDto } from './dto/send-revocation-notice.dto';
 import { SendEmailDto } from './dto/send-email.dto';
+import { LoggingService } from "../../common/logging/logging.service";
 
 interface EmailConfig {
   service?: string;
@@ -24,10 +25,9 @@ interface EmailConfig {
 @Injectable()
 export class EmailService {
   private transporter: nodemailer.Transporter;
-  private logger = new Logger(EmailService.name);
   private templates: Map<string, HandlebarsTemplateDelegate> = new Map();
 
-  constructor(private configService: ConfigService) {
+  constructor(private configService: ConfigService, private readonly logger: LoggingService) {
     this.initializeTransporter();
     this.loadTemplates();
   }

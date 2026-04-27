@@ -1,7 +1,6 @@
 import {
   Controller,
   Get,
-  Logger,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
@@ -9,16 +8,15 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
 import { DatabaseHealthIndicator } from './indicators/database.health';
 import { StellarHealthIndicator } from './indicators/stellar.health';
+import { LoggingService } from "../../common/logging/logging.service";
 
 @ApiTags('health')
 @Controller('health')
 export class HealthController {
-  private readonly logger = new Logger(HealthController.name);
-
   constructor(
     private health: HealthCheckService,
     private databaseHealth: DatabaseHealthIndicator,
-    private stellarHealth: StellarHealthIndicator,
+    private stellarHealth: StellarHealthIndicator, private readonly logger: LoggingService
   ) {}
 
   /**
@@ -34,7 +32,9 @@ export class HealthController {
   })
   async check() {
     try {
-      return await this.health.check([]);
+      return await this.health.check([
+        () => this.stellarHealth.isHealthy(),
+      ]);
     } catch (error) {
       this.logger.error('Health check failed', error);
       throw new HttpException(

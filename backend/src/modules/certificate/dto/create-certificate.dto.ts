@@ -9,6 +9,7 @@ import {
 import { Type } from 'class-transformer';
 
 export class CreateCertificateDto {
+  @IsOptional()
   @IsUUID()
   issuerId: string;
 
@@ -36,6 +37,14 @@ export class CreateCertificateDto {
   @IsOptional()
   @IsUUID()
   metadataSchemaId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  templateId?: string;
+
+  @IsOptional()
+  @IsString()
+  courseName?: string;
 
   @IsOptional()
   @IsObject()

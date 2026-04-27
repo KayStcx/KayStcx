@@ -4,8 +4,10 @@ import {
   ArgumentsHost,
   HttpException,
   BadRequestException,
+  Injectable,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { ConfigService } from '@nestjs/config';
 import { SentryService } from '../monitoring/sentry.service';
 import { LoggingService } from '../logging/logging.service';
 import { AppException } from './exceptions';
@@ -27,12 +29,18 @@ interface RequestWithContext extends Request {
   };
 }
 
+@Injectable()
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
+  private isProduction: boolean;
+
   constructor(
+    private configService: ConfigService,
     private sentryService: SentryService,
     private loggingService: LoggingService,
-  ) {}
+  ) {
+    this.isProduction = this.configService.get<string>('NODE_ENV') === 'production';
+  }
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
@@ -66,6 +74,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       if (context?.correlationId) {
         errorResponse.correlationId = context.correlationId;
       }
+      // Remove sensitive information in production
+      if (this.isProduction) {
+        delete errorResponse.details;
+        delete errorResponse.stack;
+      }
     }
     // Handle BadRequestException with validation errors
     else if (exception instanceof BadRequestException) {
@@ -77,11 +90,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       errorResponse = {
         errorCode: 'VALIDATION_ERROR',
         message: (exceptionResponse.message as string) || 'Validation failed',
-        details: exceptionResponse.message,
         timestamp: new Date().toISOString(),
         path: request.url,
         method: request.method,
       };
+      // Only include details in non-production environments
+      if (!this.isProduction) {
+        errorResponse.details = exceptionResponse.message;
+      }
       if (context?.correlationId) {
         errorResponse.correlationId = context.correlationId;
       }
@@ -107,7 +123,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         exception instanceof Error ? exception.message : String(exception);
       errorResponse = {
         errorCode: 'INTERNAL_SERVER_ERROR',
-        message,
+        message: this.isProduction ? 'Internal server error' : message,
         timestamp: new Date().toISOString(),
         path: request.url,
         method: request.method,

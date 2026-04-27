@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Logger } from '@nestjs/common';
+import { Controller, Post, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { EmailService } from './email.service';
 import { EmailQueueService } from './email-queue.service';
@@ -6,15 +6,14 @@ import { SendCertificateIssuedDto } from './dto/send-certificate-issued.dto';
 import { SendVerificationDto } from './dto/send-verification.dto';
 import { SendPasswordResetDto } from './dto/send-password-reset.dto';
 import { SendRevocationNoticeDto } from './dto/send-revocation-notice.dto';
+import { LoggingService } from "../../common/logging/logging.service";
 
 @ApiTags('Email')
 @Controller('email')
 export class EmailController {
-  private logger = new Logger(EmailController.name);
-
   constructor(
     private emailService: EmailService,
-    private emailQueueService: EmailQueueService,
+    private emailQueueService: EmailQueueService, private readonly logger: LoggingService
   ) {}
 
   @Post('send-certificate-issued')

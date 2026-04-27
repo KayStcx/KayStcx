@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
+import { BullBoardModule } from '@bull-board/nestjs';
+import { ExpressAdapter } from '@bull-board/express';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
@@ -21,6 +23,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { MetadataSchemaModule } from './modules/metadata-schema/metadata-schema.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AdminAnalyticsModule } from './modules/admin-analytics/admin-analytics.module';
+import { SecurityModule } from './modules/security/security.module';
 
 @Module({
   imports: [
@@ -44,6 +47,10 @@ import { AdminAnalyticsModule } from './modules/admin-analytics/admin-analytics.
         };
       },
     }),
+    BullBoardModule.forRoot({
+      route: '/admin/queues',
+      adapter: ExpressAdapter,
+    }),
     TypeOrmModule.forRoot(typeOrmConfig),
     CommonModule,
     VersioningModule,
@@ -60,6 +67,7 @@ import { AdminAnalyticsModule } from './modules/admin-analytics/admin-analytics.
     MetadataSchemaModule,
     NotificationsModule,
     AdminAnalyticsModule,
+    SecurityModule,
   ],
   controllers: [AppController],
   providers: [AppService],

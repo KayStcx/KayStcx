@@ -9,6 +9,7 @@ dist/
 build/
 target/
 coverage/
+stellar-contracts/test_snapshots/
 
 # IDE
 .vscode/
