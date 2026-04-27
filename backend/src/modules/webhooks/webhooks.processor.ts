@@ -7,7 +7,7 @@ import { Repository } from 'typeorm';
 
 import { WebhookSubscription } from './entities/webhook-subscription.entity';
 import { WebhookLog } from './entities/webhook-log.entity';
-import { LoggingService } from "../../common/logging/logging.service";
+import { LoggingService } from '../../common/logging/logging.service';
 
 @Processor('webhooks')
 export class WebhooksProcessor {
@@ -16,7 +16,8 @@ export class WebhooksProcessor {
     private readonly subscriptionRepository: Repository<WebhookSubscription>,
 
     @InjectRepository(WebhookLog)
-    private readonly logRepository: Repository<WebhookLog>, private readonly logger: LoggingService
+    private readonly logRepository: Repository<WebhookLog>,
+    private readonly logger: LoggingService,
   ) {}
 
   @Process('deliver')
@@ -32,8 +33,12 @@ export class WebhooksProcessor {
       return;
     }
 
+    // Generate timestamp for signature
     const timestamp = Math.floor(Date.now() / 1000);
 
+    // Create HMAC-SHA256 signature using subscription-specific secret
+    // Format: t=<timestamp>,v1=<signature>
+    // Signature is computed over: <timestamp>.<json_payload>
     const signature = crypto
       .createHmac('sha256', subscription.secret)
       .update(`${timestamp}.${JSON.stringify(payload)}`)
