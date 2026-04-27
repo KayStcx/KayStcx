@@ -11,6 +11,7 @@ import {
   ParseUUIDPipe,
   Req,
   Res,
+  UseInterceptors,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -38,6 +39,7 @@ import { RevokeCertificateDto } from './dto/revoke-certificate.dto';
 import { SearchCertificatesDto } from './dto/search-certificates.dto';
 import { UpdateCertificateDto } from './dto/update-certificate.dto';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
+import { CacheInterceptor } from '../../common/interceptors/cache.interceptor';
 
 interface AuthenticatedUser {
   id: string;
@@ -90,7 +92,8 @@ export class CertificateController {
 
   @Get('stats/summary')
   @Public()
-  @ApiOperation({ summary: 'Public certificate summary statistics' })
+  @UseInterceptors(CacheInterceptor)
+  @ApiOperation({ summary: 'Get public certificate summary statistics' })
   async getPublicSummary(): Promise<Partial<CertificateStatsDto>> {
     return this.statsService.getPublicSummary();
   }
@@ -281,7 +284,7 @@ export class CertificateController {
     @Body() dto: UpdateCertificateDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.certificateService.update(id, dto, user.id);
+    return this.certificateService.updateWithUser(id, dto, user.id);
   }
 
   // ─── Revoke ───────────────────────────────────────────────────────────────────
@@ -300,7 +303,7 @@ export class CertificateController {
     const ipAddress =
       (req.headers['x-forwarded-for'] as string) ?? req.ip ?? 'unknown';
     const userAgent = req.headers['user-agent'] ?? 'unknown';
-    return this.certificateService.revoke(
+    return this.certificateService.revokeWithUser(
       id,
       dto,
       user.id,
