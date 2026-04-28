@@ -21,7 +21,7 @@ import {
 import { IAuthTokens, IUserPublic } from '../interfaces/user.interface';
 import { EmailQueueService } from '../../email/email-queue.service';
 import { LoggingService } from '../../../common/logging/logging.service';
-import { AuditService } from '../audit/services/audit.service';
+import { AuditService } from '../../audit/services/audit.service';
 
 @Injectable()
 export class UserAuthService {

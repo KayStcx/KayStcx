@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  ConflictException
 } from '@nestjs/common';
 import { User, UserRole, UserStatus } from '../entities/user.entity';
 import { UserRepository } from '../repositories/user.repository';
@@ -13,9 +14,9 @@ import {
 } from '../dto/admin-user.dto';
 import { UserFilterDto } from '../dto/pagination.dto';
 import { IPaginatedResult } from '../interfaces';
-import { LoggingService } from "../../common/logging/logging.service";
+import { LoggingService } from '../../../common/logging/logging.service';
 import { CertificateStatsService } from '../../certificate/services/stats.service';
-import { AuditService } from '../audit/services/audit.service';
+import { AuditService } from '../../audit/services/audit.service';
 
 @Injectable()
 export class UserAdminService {

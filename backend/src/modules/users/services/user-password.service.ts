@@ -13,7 +13,7 @@ import {
   ResetPasswordDto,
 } from '../dto/change-password.dto';
 import { EmailQueueService } from '../../email/email-queue.service';
-import { LoggingService } from "../../common/logging/logging.service";
+import { LoggingService } from '../../../common/logging/logging.service';
 
 @Injectable()
 export class UserPasswordService {
