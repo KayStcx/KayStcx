@@ -116,13 +116,91 @@ export class UsersService {
   async forgotPassword(
     forgotPasswordDto: ForgotPasswordDto,
   ): Promise<{ message: string }> {
-    return await this.userPasswordService.forgotPassword(forgotPasswordDto);
+    const { email } = forgotPasswordDto;
+
+    const user = await this.userRepository.findByEmail(email);
+
+    if (!user) {
+      // Don't reveal if email exists
+      return {
+        message: 'If the email exists, a password reset link has been sent',
+      };
+    }
+
+    // Generate password reset token
+    const passwordResetToken = this.generateToken();
+    const passwordResetExpires = new Date();
+    passwordResetExpires.setHours(
+      passwordResetExpires.getHours() + this.PASSWORD_RESET_EXPIRY_HOURS,
+    );
+
+    const hashedPasswordResetToken = await bcrypt.hash(
+      passwordResetToken,
+      this.SALT_ROUNDS,
+    );
+
+    await this.userRepository.update(user.id, {
+      passwordResetToken: hashedPasswordResetToken,
+      passwordResetExpires,
+    });
+
+    await this.queuePasswordResetEmail(user, passwordResetToken);
+
+    this.logger.log(`Password reset requested for: ${email}`);
+
+    return {
+      message: 'If the email exists, a password reset link has been sent',
+    };
   }
 
   async resetPassword(
     resetPasswordDto: ResetPasswordDto,
   ): Promise<{ message: string }> {
-    return await this.userPasswordService.resetPassword(resetPasswordDto);
+    const { token, newPassword, confirmPassword } = resetPasswordDto;
+
+    if (newPassword !== confirmPassword) {
+      throw new BadRequestException('Passwords do not match');
+    }
+
+    const usersWithResetTokens =
+      await this.userRepository.findUsersWithPasswordResetTokens();
+    let user: User | null = null;
+
+    for (const candidate of usersWithResetTokens) {
+      if (!candidate.passwordResetToken) {
+        continue;
+      }
+
+      const tokenMatches = await bcrypt.compare(
+        token,
+        candidate.passwordResetToken,
+      );
+      if (tokenMatches) {
+        user = candidate;
+        break;
+      }
+    }
+
+    if (!user) {
+      throw new BadRequestException('Invalid reset token');
+    }
+
+    if (!user.isPasswordResetTokenValid()) {
+      throw new BadRequestException('Reset token has expired');
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, this.SALT_ROUNDS);
+
+    await this.userRepository.update(user.id, {
+      password: hashedPassword,
+      passwordResetToken: undefined as any,
+      passwordResetExpires: undefined as any,
+    });
+
+    this.logger.log(`Password reset completed for: ${user.email}`);
+
+    return { message: 'Password reset successfully' };
   }
 
   // ==================== Profile Management Delegation ====================
