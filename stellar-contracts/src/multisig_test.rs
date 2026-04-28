@@ -124,12 +124,15 @@ fn test_reject_request() {
     client.propose_certificate(&request_id, &issuer, &recipient, &metadata, &7);
 
     // Reject by one signer
-    let result = client.reject_request(&request_id, &signer1, &None);
+    let rejection_reason = String::from_str(&env, "Insufficient supporting documentation");
+    let result = client.reject_request(&request_id, &signer1, &Some(rejection_reason.clone()));
     assert!(result.success);
     assert_eq!(
         result.final_status,
         OptionalRequestStatus::Some(RequestStatus::Pending)
     );
+    let request = client.get_pending_request(&request_id);
+    assert_eq!(request.rejection_reason, Some(rejection_reason));
 
     // Approve by another signer
     let result = client.approve_request(&request_id, &signer2);
