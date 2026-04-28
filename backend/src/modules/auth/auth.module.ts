@@ -1,4 +1,5 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module, forwardRef, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import { RequestMethod } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -11,6 +12,7 @@ import { TwoFactorService } from './services/two-factor.service';
 import { UsersModule } from '../users/users.module';
 import { User } from '../users/entities/user.entity';
 import { CacheModule } from '@nestjs/cache-manager';
+import { AuthRateLimitMiddleware } from './middleware/auth-rate-limit.middleware';
 
 @Module({
   imports: [
@@ -41,7 +43,22 @@ import { CacheModule } from '@nestjs/cache-manager';
     forwardRef(() => UsersModule),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtManagementService, TwoFactorService],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    JwtManagementService,
+    TwoFactorService,
+    AuthRateLimitMiddleware,
+  ],
   exports: [AuthService, JwtModule, JwtManagementService, TwoFactorService],
 })
-export class AuthModule {}
+export class AuthModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(AuthRateLimitMiddleware)
+      .forRoutes(
+        { path: 'auth/login', method: RequestMethod.POST },
+        { path: 'auth/register', method: RequestMethod.POST },
+      );
+  }
+}
