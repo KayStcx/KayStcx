@@ -124,6 +124,13 @@ impl CertificateContract {
         );
     }
 
+    /// Check if a certificate exists
+    pub fn certificate_exists(env: Env, id: String) -> bool {
+        env.storage()
+            .instance()
+            .has(&DataKey::Certificate(id))
+    }
+
     /// Get certificate details
     pub fn get_certificate(env: Env, id: String) -> Option<Certificate> {
         env.storage().instance().get(&DataKey::Certificate(id))
@@ -580,9 +587,14 @@ impl CertificateContract {
                 .instance()
                 .get::<_, Certificate>(&DataKey::Certificate(id.clone()))
             {
+                let is_expired_by_time = cert
+                    .expires_at
+                    .map_or(false, |exp| env.ledger().timestamp() >= exp);
+
                 let is_revoked = cert.status == CertificateStatus::Revoked
                     || cert.status == CertificateStatus::Suspended
-                    || cert.status == CertificateStatus::Expired;
+                    || cert.status == CertificateStatus::Expired
+                    || is_expired_by_time;
 
                 if !is_revoked {
                     successful += 1;

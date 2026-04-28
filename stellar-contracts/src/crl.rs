@@ -1,4 +1,4 @@
-use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec};
+use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, IntoVal, String, Vec};
 
 const DEFAULT_UPDATE_WINDOW_SECONDS: u64 = 7 * 24 * 60 * 60;
 
@@ -43,6 +43,7 @@ enum DataKey {
     Info,
     Revocation(String),
     RevokedCertificates,
+    CertContract,
 }
 
 #[contract]
@@ -50,7 +51,7 @@ pub struct CRLContract;
 
 #[contractimpl]
 impl CRLContract {
-    pub fn initialize(env: Env, issuer: Address) {
+    pub fn initialize(env: Env, issuer: Address, certificate_contract: Address) {
         if env.storage().instance().has(&DataKey::Issuer) {
             panic!("CRL already initialized");
         }
@@ -70,6 +71,9 @@ impl CRLContract {
         env.storage().instance().set(&DataKey::Issuer, &issuer);
         env.storage()
             .instance()
+            .set(&DataKey::CertContract, &certificate_contract);
+        env.storage()
+            .instance()
             .set(&DataKey::RevokedCertificates, &Vec::<String>::new(&env));
         env.storage().instance().set(&DataKey::Info, &crl_info);
     }
@@ -82,6 +86,21 @@ impl CRLContract {
     ) {
         let issuer = Self::get_issuer(&env);
         issuer.require_auth();
+
+        // Verify the certificate exists in the CertificateContract (#414)
+        let cert_contract: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::CertContract)
+            .expect("CRL not initialized");
+        let cert_exists: bool = env.invoke_contract(
+            &cert_contract,
+            &soroban_sdk::Symbol::new(&env, "certificate_exists"),
+            soroban_sdk::vec![&env, certificate_id.clone().into_val(&env)],
+        );
+        if !cert_exists {
+            panic!("Certificate does not exist");
+        }
 
         let revocation_key = DataKey::Revocation(certificate_id.clone());
         if env.storage().instance().has(&revocation_key) {
@@ -108,37 +127,6 @@ impl CRLContract {
             .set(&DataKey::RevokedCertificates, &revoked_certificates);
 
         crl_info.revoked_count += 1;
-        Self::refresh_crl_info(&env, &mut crl_info);
-        env.storage().instance().set(&DataKey::Info, &crl_info);
-    }
-
-    pub fn unrevoke_certificate(env: Env, certificate_id: String) {
-        let issuer = Self::get_issuer(&env);
-        issuer.require_auth();
-
-        let revocation_key = DataKey::Revocation(certificate_id.clone());
-        let revocation_info: RevocationInfo = env
-            .storage()
-            .instance()
-            .get(&revocation_key)
-            .expect("Certificate not found in revocation list");
-
-        if revocation_info.issuer != issuer {
-            panic!("Only the original issuer can unrevoke");
-        }
-
-        env.storage().instance().remove(&revocation_key);
-
-        let mut revoked_certificates = Self::get_revoked_certificate_ids(&env);
-        Self::remove_certificate_id(&mut revoked_certificates, &certificate_id);
-        env.storage()
-            .instance()
-            .set(&DataKey::RevokedCertificates, &revoked_certificates);
-
-        let mut crl_info = Self::get_crl_info_internal(&env);
-        if crl_info.revoked_count > 0 {
-            crl_info.revoked_count -= 1;
-        }
         Self::refresh_crl_info(&env, &mut crl_info);
         env.storage().instance().set(&DataKey::Info, &crl_info);
     }
@@ -244,19 +232,6 @@ impl CRLContract {
         match env.storage().instance().get(&DataKey::RevokedCertificates) {
             Some(revoked_certificates) => revoked_certificates,
             None => Vec::new(env),
-        }
-    }
-
-    fn remove_certificate_id(revoked_certificates: &mut Vec<String>, certificate_id: &String) {
-        let mut index = 0;
-        while index < revoked_certificates.len() {
-            if let Some(existing_id) = revoked_certificates.get(index) {
-                if existing_id == certificate_id.clone() {
-                    revoked_certificates.remove(index);
-                    break;
-                }
-            }
-            index += 1;
         }
     }
 
