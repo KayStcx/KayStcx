@@ -2,6 +2,8 @@ import { NavLink } from 'react-router-dom';
 import ThemeToggle from './ThemeToggle';
 import { User } from 'lucide-react';
 import NotificationDropdown from './NotificationDropdown';
+import { useAuth } from '../context/AuthContext';
+import { UserRole } from '../api/types';
 
 type NavItem = {
   label: string;
@@ -9,14 +11,44 @@ type NavItem = {
   icon?: React.ReactNode;
 };
 
-const navItems: NavItem[] = [
-  { label: 'Home', to: '/' },
-  { label: 'Verify', to: '/verify' },
-  { label: 'Dashboard', to: '/dashboard' },
-  { label: 'Profile', to: '/profile', icon: <User className="h-4 w-4" /> }
-];
-
 export default function Header(): JSX.Element {
+  const { user } = useAuth();
+
+  const isIssuerOrAdmin =
+    user?.role === UserRole.ISSUER || user?.role === UserRole.ADMIN;
+
+  const navItems: NavItem[] = [
+    // Public
+    { label: 'Home', to: '/' },
+    { label: 'Verify', to: '/verify' },
+
+    // Authenticated common
+    ...(user ? ([{ label: 'Dashboard', to: '/dashboard' }] as NavItem[]) : []),
+
+    // Role-based (must match routes protected in App.tsx / ProtectedRoute)
+    ...(isIssuerOrAdmin
+      ? ([
+          { label: 'Issue', to: '/issue' },
+          { label: 'Revoke', to: '/revoke' },
+          { label: 'Wallet', to: '/wallet' },
+          { label: 'Certificates', to: '/certificates' },
+        ] as NavItem[])
+      : user
+        ? ([{ label: 'Wallet', to: '/wallet' }] as NavItem[])
+        : []),
+
+    // Profile (authenticated)
+    ...(user
+      ? ([
+          {
+            label: 'Profile',
+            to: '/profile',
+            icon: <User className="h-4 w-4" />,
+          },
+        ] as NavItem[])
+      : []),
+  ];
+
   return (
     <header className="no-print border-b border-gray-200 dark:border-white/10 bg-white dark:bg-slate-950/90 dark:backdrop-blur transition-colors duration-250">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
@@ -82,4 +114,3 @@ export default function Header(): JSX.Element {
     </header>
   );
 }
-
