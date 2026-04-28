@@ -59,7 +59,7 @@ export class RateLimitGuard implements CanActivate {
       (isProd ? 120 : 1_000);
 
     this.bruteForceWindowMs =
-      Number(this.configService.get('AUTH_BRUTE_FORCE_WINDOW_MS')) || 300_000;
+      Number(this.configService.get('AUTH_BRUTE_FORCE_WINDOW_MS')) || 60_000;
 
     this.bruteForceMaxAttempts =
       Number(this.configService.get('AUTH_BRUTE_FORCE_MAX_ATTEMPTS')) || 5;
