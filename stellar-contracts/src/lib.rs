@@ -20,6 +20,8 @@ pub use admin_multisig::*;
 mod admin_multisig_test;
 #[cfg(test)]
 mod multisig_test;
+#[cfg(test)]
+mod update_metadata_uri_test;
 
 #[contract]
 pub struct CertificateContract;
@@ -210,6 +212,39 @@ impl CertificateContract {
         env.storage()
             .instance()
             .set(&DataKey::Certificate(id.clone()), &cert);
+    }
+
+    /// Update the metadata URI of an existing certificate.
+    /// Only the original issuer of the certificate may call this function.
+    pub fn update_metadata_uri(env: Env, id: String, new_uri: String) {
+        let mut cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&DataKey::Certificate(id.clone()))
+            .expect("Certificate not found");
+
+        // Only the original issuer is authorised to update the metadata URI
+        cert.issuer.require_auth();
+
+        if new_uri.len() == 0 {
+            panic!("metadata_uri cannot be empty");
+        }
+
+        let old_uri = cert.metadata_uri.clone();
+        cert.metadata_uri = new_uri.clone();
+        env.storage()
+            .instance()
+            .set(&DataKey::Certificate(id.clone()), &cert);
+
+        env.events().publish(
+            (symbol_short!("meta_upd"), id.clone()),
+            MetadataUriUpdatedEvent {
+                id,
+                issuer: cert.issuer,
+                old_uri,
+                new_uri,
+            },
+        );
     }
 
     /// Verify if a certificate is valid (active and not expired)
