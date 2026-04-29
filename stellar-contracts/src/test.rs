@@ -1,8 +1,50 @@
 #![cfg(test)]
-
 use super::*;
-use soroban_sdk::{testutils::Address as _, Address, Bytes, BytesN, Env, Vec};
+use soroban_sdk::{testutils::{Address as _, Events}, Vec, Address, Bytes, BytesN, Env, IntoVal};
 use soroban_sdk::{Env, testutils::Address as _, Address, String};
+
+#[test]
+fn test_batch_issue_certificates() {
+    let env = Env::default();
+    env.mock_all_auths(); // Mock authorization for the test
+
+    let contract_id = env.register_contract(None, StellarCertContract);
+    let client = StellarCertContractClient::new(&env, &contract_id);
+
+    let issuer = Address::generate(&env);
+    let recipient_1 = Address::generate(&env);
+    let recipient_2 = Address::generate(&env);
+    
+    // Create mock certificate hashes
+    let hash_1 = BytesN::from_array(&env, &[1; 32]);
+    let hash_2 = BytesN::from_array(&env, &[2; 32]);
+
+    // Construct the batch Vector
+    let batch = vec![
+        &env,
+        CertBatchItem { recipient: recipient_1.clone(), cert_hash: hash_1.clone() },
+        CertBatchItem { recipient: recipient_2.clone(), cert_hash: hash_2.clone() },
+    ];
+
+    // Execute the batch issuance
+    client.batch_issue_certificates(&issuer, &batch);
+
+    // Verify storage state (Assuming you have a 'get_certificate' or similar read function)
+    // assert_eq!(client.get_certificate(&hash_1), recipient_1);
+    // assert_eq!(client.get_certificate(&hash_2), recipient_2);
+
+    // Verify the event was emitted correctly
+    let events = env.events().all();
+    let last_event = events.last().unwrap();
+    assert_eq!(
+        last_event.1, // Topics
+        (symbol_short!("batch_iss"), issuer).into_val(&env)
+    );
+    assert_eq!(
+        last_event.2, // Data (Length of batch)
+        2u32.into_val(&env)
+    );
+}
 
 // Helper function to create a certificate version
 fn create_version(env: &Env, major: u32, minor: u32, patch: u32) -> CertificateVersion {
