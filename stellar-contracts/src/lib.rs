@@ -1,5 +1,5 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, symbol_short, Address, BytesN, Env, String, Vec};
+use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env, Vec, symbol_short};use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env, Vec, symbol_short};
 
 mod types;
 pub use types::*;
@@ -24,6 +24,49 @@ mod multisig_test;
 mod issuer_test;
 #[cfg(test)]
 mod status_test;
+
+// 1. Define the input structure for the batch array
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CertBatchItem {
+    pub recipient: Address,
+    pub cert_hash: BytesN<32>, // The unique hash of the certificate data
+}
+
+#[contract]
+pub struct StellarCertContract;
+
+#[contractimpl]
+impl StellarCertContract {
+    
+    // Existing single issue function (for context)
+    // pub fn issue_certificate(env: Env, issuer: Address, recipient: Address, cert_hash: BytesN<32>) { ... }
+
+    // 2. Implement the Batch Function
+    pub fn batch_issue_certificates(env: Env, issuer: Address, certificates: Vec<CertBatchItem>) {
+        // Require the issuer to authorize the entire batch operation once
+        issuer.require_auth();
+
+        // 3. Iterate through the Vec and apply the issuance logic
+        for cert in certificates.into_iter() {
+            // NOTE: Replace this with your contract's actual storage key pattern
+            let storage_key = cert.cert_hash.clone(); 
+            
+            // Ensure the certificate doesn't already exist to prevent overwriting
+            if env.storage().persistent().has(&storage_key) {
+                panic!("Certificate hash already exists in this batch");
+            }
+
+            // Store the certificate
+            env.storage().persistent().set(&storage_key, &cert.recipient);
+        }
+
+        // 4. Emit a single event for the batch to save on event emission costs
+        env.events().publish(
+            (symbol_short!("batch_iss"), issuer),
+            certificates.len(), // Log how many were issued
+        );
+    }
 
 #[contract]
 pub struct CertificateContract;
