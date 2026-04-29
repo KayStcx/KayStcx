@@ -7,6 +7,7 @@ pub enum CertificateStatus {
     Revoked,
     Expired,
     Suspended,
+    Frozen,
 }
 
 #[contracttype]
@@ -50,6 +51,10 @@ pub enum DataKey {
     IssuerCertIds(Address),
     OwnerCertIds(Address),
     ContractVersion,
+    Transfer(String),
+    CertificateTransfers(String),
+    PendingTransfers(Address),
+    TransferCount,
 }
 
 #[contracttype]
@@ -96,6 +101,43 @@ pub struct CertificateFrozenEvent {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CertificateUnfrozenEvent {
     pub id: String,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum TransferStatus {
+    Pending,
+    Accepted,
+    Rejected,
+    Completed,
+    Cancelled,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CertificateTransfer {
+    pub id: String,
+    pub certificate_id: String,
+    pub from_owner: Address,
+    pub to_owner: Address,
+    pub status: TransferStatus,
+    pub initiated_at: u64,
+    pub accepted_at: Option<u64>,
+    pub completed_at: Option<u64>,
+    pub require_revocation: bool,
+    pub transfer_fee: u64,
+    pub memo: Option<String>,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TransferHistoryEntry {
+    pub transfer_id: String,
+    pub from_address: Address,
+    pub to_address: Address,
+    pub completed_at: u64,
+    pub transfer_fee: u64,
+    pub memo: Option<String>,
 }
 
 // Multisig Types

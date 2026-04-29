@@ -227,7 +227,7 @@ impl CertificateContract {
     }
 
     /// Reinstate a suspended certificate
-    pub fn reinstate_certificate(env: Env, id: String, reason: String) {
+    pub fn reinstate_certificate(env: Env, id: String, _reason: String) {
         let mut cert: Certificate = env
             .storage()
             .instance()
