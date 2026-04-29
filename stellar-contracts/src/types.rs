@@ -86,6 +86,7 @@ pub struct PendingRequest {
     pub proposer: Address,
     pub approvals: Vec<Address>,
     pub rejections: Vec<Address>,
+    pub rejection_reason: Option<String>,
     pub created_at: u64,
     pub expires_at: u64,
     pub status: RequestStatus,
