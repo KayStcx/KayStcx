@@ -101,10 +101,122 @@ fn test_issue_and_revoke() {
     let revoked = client.is_revoked(&id);
     assert!(revoked);
 
+    let metadata_uri = String::from_str(&env, "ipfs://Qm...");
+
+    env.mock_all_auths();
+    client.issue_certificate(&id, &issuer, &owner, &metadata_uri);
+
+    let cert = client.get_certificate(&id);
+    assert_eq!(cert.id, id);
+    assert_eq!(cert.status, CertificateStatus::Active);
+    assert_eq!(cert.revoked, false);
+
+    let reason = String::from_str(&env, "Violation of terms");
+    client.revoke_certificate(&id, &reason);
+
+    let revoked = client.is_revoked(&id);
+    assert!(revoked);
+
     let cert_revoked = client.get_certificate(&id);
     assert_eq!(cert_revoked.status, CertificateStatus::Revoked);
     assert_eq!(cert_revoked.revoked, true);
     assert_eq!(cert_revoked.revocation_reason, Some(reason));
+}
+
+#[test]
+fn test_update_metadata_uri_by_original_issuer() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let issuer = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let id = String::from_str(&env, "cert-meta-1");
+    let original_uri = String::from_str(&env, "ipfs://QmOriginal");
+    let new_uri = String::from_str(&env, "ipfs://QmMigrated");
+
+    env.mock_all_auths();
+    client.initialize(&issuer);
+    client.add_issuer(&issuer);
+    client.issue_certificate(&id, &issuer, &owner, &original_uri, &None);
+
+    client.update_metadata_uri(&id, &new_uri);
+
+    let cert = client.get_certificate(&id).expect("Certificate not found");
+    assert_eq!(cert.metadata_uri, new_uri);
+}
+
+#[test]
+fn test_update_metadata_uri_rejected_for_non_issuer() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let issuer = Address::generate(&env);
+    let other = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let id = String::from_str(&env, "cert-meta-2");
+    let original_uri = String::from_str(&env, "ipfs://QmOriginal");
+    let new_uri = String::from_str(&env, "ipfs://QmAttacker");
+
+    env.mock_all_auths();
+    client.initialize(&issuer);
+    client.add_issuer(&issuer);
+    client.issue_certificate(&id, &issuer, &owner, &original_uri, &None);
+
+    // Simulate auth as `other` only — require_auth on issuer will fail
+    env.set_auths(&[(
+        other.clone(),
+        soroban_sdk::testutils::AuthorizedInvocation {
+            function: soroban_sdk::testutils::AuthorizedFunction::Contract((
+                contract_id.clone(),
+                soroban_sdk::symbol_short!("upd_meta"),
+                soroban_sdk::vec![&env],
+            )),
+            sub_invocations: soroban_sdk::vec![&env],
+        },
+    )]);
+
+    let result = client.try_update_metadata_uri(&id, &new_uri);
+    assert!(result.is_err(), "Non-issuer should not be able to update metadata_uri");
+}
+
+#[test]
+fn test_update_metadata_uri_certificate_not_found() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let issuer = Address::generate(&env);
+    let missing_id = String::from_str(&env, "cert-does-not-exist");
+    let new_uri = String::from_str(&env, "ipfs://QmAnything");
+
+    env.mock_all_auths();
+    client.initialize(&issuer);
+
+    let result = client.try_update_metadata_uri(&missing_id, &new_uri);
+    assert!(result.is_err(), "Should panic when certificate is not found");
+}
+
+#[test]
+fn test_update_metadata_uri_rejects_empty_uri() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, CertificateContract);
+    let client = CertificateContractClient::new(&env, &contract_id);
+
+    let issuer = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let id = String::from_str(&env, "cert-meta-empty");
+    let original_uri = String::from_str(&env, "ipfs://QmOriginal");
+    let empty_uri = String::from_str(&env, "");
+
+    env.mock_all_auths();
+    client.initialize(&issuer);
+    client.add_issuer(&issuer);
+    client.issue_certificate(&id, &issuer, &owner, &original_uri, &None);
+
+    let result = client.try_update_metadata_uri(&id, &empty_uri);
+    assert!(result.is_err(), "Empty metadata_uri should be rejected");
 }
 
 #[test]

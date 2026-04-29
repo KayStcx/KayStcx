@@ -50,6 +50,15 @@ pub struct CertificateRevokedEvent {
     pub reason: String,
 }
 
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MetadataUriUpdatedEvent {
+    pub id: String,
+    pub issuer: Address,
+    pub old_uri: String,
+    pub new_uri: String,
+}
+
 // Multisig Types
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
