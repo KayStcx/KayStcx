@@ -27,6 +27,8 @@ pub struct Certificate {
 pub enum DataKey {
     Admin,
     Issuer(Address),
+    IssuerCount,
+    Issuers,
     Certificate(String),
     MultisigConfig(Address),
     IssuerAdmin(Address),

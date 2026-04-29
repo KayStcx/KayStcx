@@ -20,6 +20,8 @@ pub use admin_multisig::*;
 mod admin_multisig_test;
 #[cfg(test)]
 mod multisig_test;
+#[cfg(test)]
+mod issuer_test;
 
 #[contract]
 pub struct CertificateContract;
@@ -34,7 +36,6 @@ impl CertificateContract {
         env.storage().instance().set(&DataKey::Admin, &admin);
     }
 
-    /// Add an authorized issuer (only admin can call)
     pub fn add_issuer(env: Env, issuer: Address) {
         let admin: Address = env
             .storage()
@@ -42,9 +43,45 @@ impl CertificateContract {
             .get(&DataKey::Admin)
             .expect("Contract not initialized");
         admin.require_auth();
+
+        let key = DataKey::Issuer(issuer.clone());
+        if !env.storage().instance().has(&key) {
+            let count: u32 = env.storage().instance().get(&DataKey::IssuerCount).unwrap_or(0);
+            env.storage().instance().set(&DataKey::IssuerCount, &(count + 1));
+
+            let mut issuers: Vec<Address> = env
+                .storage()
+                .instance()
+                .get(&DataKey::Issuers)
+                .unwrap_or(Vec::new(&env));
+            issuers.push_back(issuer.clone());
+            env.storage().instance().set(&DataKey::Issuers, &issuers);
+        }
+        env.storage().instance().set(&key, &true);
+    }
+
+    /// Check if an address is an authorized issuer
+    pub fn is_issuer(env: Env, address: Address) -> bool {
         env.storage()
             .instance()
-            .set(&DataKey::Issuer(issuer), &true);
+            .get(&DataKey::Issuer(address))
+            .unwrap_or(false)
+    }
+
+    /// Get the total number of authorized issuers
+    pub fn get_issuer_count(env: Env) -> u32 {
+        env.storage()
+            .instance()
+            .get(&DataKey::IssuerCount)
+            .unwrap_or(0)
+    }
+
+    /// Get the list of all authorized issuers
+    pub fn get_issuers(env: Env) -> Vec<Address> {
+        env.storage()
+            .instance()
+            .get(&DataKey::Issuers)
+            .unwrap_or(Vec::new(&env))
     }
 
     /// Issue a new certificate
