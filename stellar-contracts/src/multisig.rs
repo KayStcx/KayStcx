@@ -143,6 +143,7 @@ impl MultisigCertificateContract {
             proposer: issuer.clone(),
             approvals: Vec::new(&env),
             rejections: Vec::new(&env),
+            rejection_reason: None,
             created_at: env.ledger().timestamp(),
             expires_at: env.ledger().timestamp() + (expiration_days as u64 * 24 * 60 * 60), // Convert days to seconds
             status: RequestStatus::Pending,
@@ -242,7 +243,7 @@ impl MultisigCertificateContract {
         env: Env,
         request_id: String,
         rejector: Address,
-        _reason: Option<String>,
+        reason: Option<String>,
     ) -> SignatureResult {
         rejector.require_auth();
 
@@ -288,6 +289,9 @@ impl MultisigCertificateContract {
 
         // Add rejection
         request.rejections.push_back(rejector);
+        if reason.is_some() {
+            request.rejection_reason = reason;
+        }
 
         let remaining_eligible_approvers = config
             .signers

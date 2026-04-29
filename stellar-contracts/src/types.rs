@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Address, String, Vec};
+use soroban_sdk::{contracttype, Address, BytesN, String, Vec};
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -35,6 +35,16 @@ pub enum DataKey {
     PendingRequest(String),
     IssuerRequestIds(Address),
     SignerRequestIds(Address),
+    IssuerCertIds(Address),
+    OwnerCertIds(Address),
+    ContractVersion,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ContractVersion {
+    pub version: u32,
+    pub last_wasm_hash: BytesN<32>,
 }
 
 #[contracttype]
@@ -112,6 +122,7 @@ pub struct PendingRequest {
     pub proposer: Address,
     pub approvals: Vec<Address>,
     pub rejections: Vec<Address>,
+    pub rejection_reason: Option<String>,
     pub created_at: u64,
     pub expires_at: u64,
     pub status: RequestStatus,
@@ -159,4 +170,14 @@ pub struct VerificationReport {
     pub failed: u32,
     pub total_cost: u64,
     pub results: Vec<VerificationResult>,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CertPaginatedResult {
+    pub data: Vec<Certificate>,
+    pub total: u32,
+    pub page: u32,
+    pub limit: u32,
+    pub has_next: bool,
 }
