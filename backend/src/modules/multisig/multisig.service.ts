@@ -41,6 +41,7 @@ export interface PendingRequest {
   proposer: string;
   approvals: string[];
   rejections: string[];
+  rejection_reason?: string;
   created_at: number;
   expires_at: number;
   status: RequestStatus;
@@ -817,6 +818,9 @@ export class MultisigService {
       proposer: r['proposer'] as string,
       approvals: (r['approvals'] as string[]) ?? [],
       rejections: (r['rejections'] as string[]) ?? [],
+      rejection_reason: r['rejection_reason'] != null
+        ? String(r['rejection_reason'])
+        : undefined,
       created_at: Number(r['created_at']),
       expires_at: Number(r['expires_at']),
       status: Number(r['status']) as RequestStatus,

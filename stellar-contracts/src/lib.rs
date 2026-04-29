@@ -21,7 +21,9 @@ mod admin_multisig_test;
 #[cfg(test)]
 mod multisig_test;
 #[cfg(test)]
-mod test;
+mod issuer_test;
+#[cfg(test)]
+mod status_test;
 
 #[contract]
 pub struct CertificateContract;
@@ -36,7 +38,6 @@ impl CertificateContract {
         env.storage().instance().set(&DataKey::Admin, &admin);
     }
 
-    /// Add an authorized issuer (only admin can call)
     pub fn add_issuer(env: Env, issuer: Address) {
         let admin: Address = env
             .storage()
@@ -44,9 +45,56 @@ impl CertificateContract {
             .get(&DataKey::Admin)
             .expect("Contract not initialized");
         admin.require_auth();
+
+        let key = DataKey::Issuer(issuer.clone());
+        if !env.storage().instance().has(&key) {
+            let count: u32 = env.storage().instance().get(&DataKey::IssuerCount).unwrap_or(0);
+            env.storage().instance().set(&DataKey::IssuerCount, &(count + 1));
+
+            let mut issuers: Vec<Address> = env
+                .storage()
+                .instance()
+                .get(&DataKey::Issuers)
+                .unwrap_or(Vec::new(&env));
+            issuers.push_back(issuer.clone());
+            env.storage().instance().set(&DataKey::Issuers, &issuers);
+        }
+        env.storage().instance().set(&key, &true);
+    }
+
+    /// Check if an address is an authorized issuer
+    pub fn is_issuer(env: Env, address: Address) -> bool {
         env.storage()
             .instance()
-            .set(&DataKey::Issuer(issuer), &true);
+            .get(&DataKey::Issuer(address))
+            .unwrap_or(false)
+    }
+
+    /// Get the total number of authorized issuers
+    pub fn get_issuer_count(env: Env) -> u32 {
+        env.storage()
+            .instance()
+            .get(&DataKey::IssuerCount)
+            .unwrap_or(0)
+    }
+
+    /// Get the list of all authorized issuers
+    pub fn get_issuers(env: Env) -> Vec<Address> {
+        env.storage()
+            .instance()
+            .get(&DataKey::Issuers)
+            .unwrap_or(Vec::new(&env))
+    }
+
+    /// Remove an authorized issuer (only admin can call)
+    pub fn remove_issuer(env: Env, issuer: Address) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Contract not initialized");
+        admin.require_auth();
+        env.storage().instance().remove(&DataKey::Issuer(issuer));
     }
 
     /// Issue a new certificate
@@ -102,6 +150,10 @@ impl CertificateContract {
         env.storage()
             .instance()
             .set(&DataKey::Certificate(id.clone()), &cert);
+
+        // Track cert ID by issuer and owner
+        Self::append_cert_id(&env, DataKey::IssuerCertIds(issuer.clone()), id.clone());
+        Self::append_cert_id(&env, DataKey::OwnerCertIds(owner.clone()), id.clone());
 
         // Emit and publish issuance event
         env.events().publish(
@@ -166,6 +218,12 @@ impl CertificateContract {
         env.storage()
             .instance()
             .set(&DataKey::Certificate(id.clone()), &cert);
+
+        // Emit and publish suspension event
+        env.events().publish(
+            (symbol_short!("suspend"), id.clone()),
+            CertificateSuspendedEvent { id },
+        );
     }
 
     /// Reinstate a suspended certificate
@@ -182,10 +240,65 @@ impl CertificateContract {
         }
 
         cert.status = CertificateStatus::Active;
-        cert.status_reason = Some(reason);
         env.storage()
             .instance()
             .set(&DataKey::Certificate(id.clone()), &cert);
+
+        // Emit and publish reinstatement event
+        env.events().publish(
+            (symbol_short!("reinstat"), id.clone()),
+            CertificateReinstatedEvent { id },
+        );
+    }
+
+    /// Freeze a certificate
+    pub fn freeze_certificate(env: Env, id: String) {
+        let mut cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&DataKey::Certificate(id.clone()))
+            .expect("Certificate not found");
+        cert.issuer.require_auth();
+
+        if cert.status == CertificateStatus::Frozen {
+            panic!("Certificate is already frozen");
+        }
+
+        cert.status = CertificateStatus::Frozen;
+        env.storage()
+            .instance()
+            .set(&DataKey::Certificate(id.clone()), &cert);
+
+        // Emit and publish freeze event
+        env.events().publish(
+            (symbol_short!("frozen"), id.clone()),
+            CertificateFrozenEvent { id },
+        );
+    }
+
+    /// Unfreeze a certificate
+    pub fn unfreeze_certificate(env: Env, id: String) {
+        let mut cert: Certificate = env
+            .storage()
+            .instance()
+            .get(&DataKey::Certificate(id.clone()))
+            .expect("Certificate not found");
+        cert.issuer.require_auth();
+
+        if cert.status != CertificateStatus::Frozen {
+            panic!("Certificate is not frozen");
+        }
+
+        cert.status = CertificateStatus::Active;
+        env.storage()
+            .instance()
+            .set(&DataKey::Certificate(id.clone()), &cert);
+
+        // Emit and publish unfreeze event
+        env.events().publish(
+            (symbol_short!("unfrozen"), id.clone()),
+            CertificateUnfrozenEvent { id },
+        );
     }
 
     /// Verify if a certificate is valid (active and not expired)
@@ -706,6 +819,7 @@ impl CertificateContract {
             proposer: issuer.clone(),
             approvals: Vec::new(&env),
             rejections: Vec::new(&env),
+            rejection_reason: None,
             created_at: env.ledger().timestamp(),
             expires_at: env.ledger().timestamp() + (expiration_days as u64 * 24 * 60 * 60),
             status: RequestStatus::Pending,
@@ -793,7 +907,7 @@ impl CertificateContract {
         env: Env,
         request_id: String,
         rejector: Address,
-        _reason: Option<String>,
+        reason: Option<String>,
     ) -> SignatureResult {
         rejector.require_auth();
         let mut request: PendingRequest = env
@@ -818,6 +932,9 @@ impl CertificateContract {
 
         if !request.rejections.contains(&rejector) {
             request.rejections.push_back(rejector);
+            if reason.is_some() {
+                request.rejection_reason = reason;
+            }
         }
 
         let remaining_eligible_approvers = config
@@ -866,17 +983,48 @@ impl CertificateContract {
     }
 
     pub fn get_multisig_config(env: Env, issuer: Address) -> MultisigConfig {
+        // Only the issuer or the contract admin may read the multisig config
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Contract not initialized");
+        let caller_is_admin = issuer == admin;
+        if !caller_is_admin {
+            issuer.require_auth();
+        }
         env.storage()
             .instance()
             .get(&DataKey::MultisigConfig(issuer))
             .expect("Multisig.config not found")
     }
 
-    pub fn get_pending_request(env: Env, request_id: String) -> PendingRequest {
-        env.storage()
+    pub fn get_pending_request(env: Env, request_id: String, caller: Address) -> PendingRequest {
+        caller.require_auth();
+        let request: PendingRequest = env
+            .storage()
             .instance()
             .get(&DataKey::PendingRequest(request_id))
-            .expect("Request not found")
+            .expect("Request not found");
+        // Only the issuer, proposer, or an authorized signer may read the request
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Contract not initialized");
+        let is_authorized = caller == request.issuer
+            || caller == request.proposer
+            || caller == admin
+            || env
+                .storage()
+                .instance()
+                .get::<_, MultisigConfig>(&DataKey::MultisigConfig(request.issuer.clone()))
+                .map(|c| c.signers.contains(&caller))
+                .unwrap_or(false);
+        if !is_authorized {
+            panic!("Not authorized to view this request");
+        }
+        request
     }
 
     pub fn is_expired(env: Env, request_id: String) -> bool {
@@ -937,7 +1085,29 @@ impl CertificateContract {
             .get(&DataKey::Admin)
             .expect("Contract not initialized");
         admin.require_auth();
+
+        // Bump version counter and record the new wasm hash
+        let mut ver: ContractVersion = env
+            .storage()
+            .instance()
+            .get(&DataKey::ContractVersion)
+            .unwrap_or(ContractVersion { version: 0, last_wasm_hash: new_wasm_hash.clone() });
+        ver.version += 1;
+        ver.last_wasm_hash = new_wasm_hash.clone();
+        env.storage().instance().set(&DataKey::ContractVersion, &ver);
+
         env.deployer().update_current_contract_wasm(new_wasm_hash);
+    }
+
+    /// Get the current contract version info
+    pub fn get_version(env: Env) -> ContractVersion {
+        env.storage()
+            .instance()
+            .get(&DataKey::ContractVersion)
+            .unwrap_or(ContractVersion {
+                version: 0,
+                last_wasm_hash: BytesN::from_array(&env, &[0u8; 32]),
+            })
     }
 
     /// Batch verify multiple certificates
@@ -1034,6 +1204,89 @@ impl CertificateContract {
         }
     }
 
+    /// Get all certificates issued by a given issuer (paginated)
+    pub fn get_certificates_by_issuer(
+        env: Env,
+        issuer: Address,
+        pagination: Pagination,
+    ) -> CertPaginatedResult {
+        let ids: Vec<String> = env
+            .storage()
+            .instance()
+            .get(&DataKey::IssuerCertIds(issuer))
+            .unwrap_or(Vec::<String>::new(&env));
+        Self::paginate_certificates(&env, ids, pagination)
+    }
+
+    /// Get all certificates owned by a given address (paginated)
+    pub fn get_certificates_by_owner(
+        env: Env,
+        owner: Address,
+        pagination: Pagination,
+    ) -> CertPaginatedResult {
+        let ids: Vec<String> = env
+            .storage()
+            .instance()
+            .get(&DataKey::OwnerCertIds(owner))
+            .unwrap_or(Vec::<String>::new(&env));
+        Self::paginate_certificates(&env, ids, pagination)
+    }
+
+    fn paginate_certificates(
+        env: &Env,
+        cert_ids: Vec<String>,
+        pagination: Pagination,
+    ) -> CertPaginatedResult {
+        let total = cert_ids.len();
+        let mut page_data = Vec::<Certificate>::new(env);
+
+        if pagination.limit == 0 {
+            return CertPaginatedResult {
+                data: page_data,
+                total,
+                page: pagination.page,
+                limit: pagination.limit,
+                has_next: false,
+            };
+        }
+
+        let start = pagination.page.saturating_mul(pagination.limit);
+        let end = total.min(start.saturating_add(pagination.limit));
+        let mut index = start;
+        while index < end {
+            if let Some(id) = cert_ids.get(index) {
+                if let Some(cert) = env
+                    .storage()
+                    .instance()
+                    .get::<_, Certificate>(&DataKey::Certificate(id))
+                {
+                    page_data.push_back(cert);
+                }
+            }
+            index += 1;
+        }
+
+        CertPaginatedResult {
+            data: page_data,
+            total,
+            page: pagination.page,
+            limit: pagination.limit,
+            has_next: end < total,
+        }
+    }
+
+    fn append_cert_id(env: &Env, key: DataKey, cert_id: String) {
+        let mut ids: Vec<String> = env
+            .storage()
+            .instance()
+            .get(&key)
+            .unwrap_or(Vec::<String>::new(env));
+        if !ids.contains(&cert_id) {
+            ids.push_back(cert_id);
+            env.storage().instance().set(&key, &ids);
+        }
+    }
+
     fn append_request_id(env: &Env, key: DataKey, request_id: String) {
         let mut request_ids = Self::get_request_ids(env, key.clone());
 
@@ -1082,7 +1335,8 @@ impl CertificateContract {
             };
         }
 
-        let start = pagination.page.saturating_mul(pagination.limit);
+        // Page is 1-indexed. Calculate start index (0-indexed)
+        let start = pagination.page.saturating_sub(1).saturating_mul(pagination.limit);
         let end = total.min(start.saturating_add(pagination.limit));
 
         let mut index = start;

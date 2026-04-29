@@ -124,12 +124,15 @@ fn test_reject_request() {
     client.propose_certificate(&request_id, &issuer, &recipient, &metadata, &7);
 
     // Reject by one signer
-    let result = client.reject_request(&request_id, &signer1, &None);
+    let rejection_reason = String::from_str(&env, "Insufficient supporting documentation");
+    let result = client.reject_request(&request_id, &signer1, &Some(rejection_reason.clone()));
     assert!(result.success);
     assert_eq!(
         result.final_status,
         OptionalRequestStatus::Some(RequestStatus::Pending)
     );
+    let request = client.get_pending_request(&request_id);
+    assert_eq!(request.rejection_reason, Some(rejection_reason));
 
     // Approve by another signer
     let result = client.approve_request(&request_id, &signer2);
@@ -412,13 +415,13 @@ fn test_get_pending_requests_for_issuer_returns_paginated_results() {
     client.approve_request(&String::from_str(&env, "req-issuer-2"), &signer2);
 
     let first_page =
-        client.get_pending_requests_for_issuer(&issuer, &Pagination { page: 0, limit: 1 });
+        client.get_pending_requests_for_issuer(&issuer, &Pagination { page: 1, limit: 1 });
     assert_eq!(first_page.total, 2);
     assert_eq!(first_page.data.len(), 1);
     assert!(first_page.has_next);
 
     let second_page =
-        client.get_pending_requests_for_issuer(&issuer, &Pagination { page: 1, limit: 1 });
+        client.get_pending_requests_for_issuer(&issuer, &Pagination { page: 2, limit: 1 });
     assert_eq!(second_page.total, 2);
     assert_eq!(second_page.data.len(), 1);
     assert!(!second_page.has_next);
@@ -456,7 +459,7 @@ fn test_get_pending_requests_for_signer_returns_only_pending_requests() {
     client.reject_request(&String::from_str(&env, "req-signer-2"), &signer2, &None);
 
     let requests =
-        client.get_pending_requests_for_signer(&signer3, &Pagination { page: 0, limit: 10 });
+        client.get_pending_requests_for_signer(&signer3, &Pagination { page: 1, limit: 10 });
 
     assert_eq!(requests.total, 2);
     assert_eq!(requests.data.len(), 2);
