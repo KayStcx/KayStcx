@@ -1,5 +1,5 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, symbol_short, Address, BytesN, Env, String, Vec};
+use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, String, Vec};
 
 mod types;
 pub use types::*;
@@ -23,13 +23,22 @@ mod multisig_test;
 #[cfg(test)]
 mod issuer_test;
 #[cfg(test)]
-mod status_test;
+mod status_test
+
+// 1. Define the compound type for batch collection elements
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CertBatchItem {
+    pub recipient: Address,
+    pub cert_hash: BytesN<32>, // The cryptographic hash of the certificate data
+}
 
 #[contract]
 pub struct CertificateContract;
 
 #[contractimpl]
 impl CertificateContract {
+
     /// Initialize the contract with an admin account
     pub fn initialize(env: Env, admin: Address) {
         if env.storage().instance().has(&DataKey::Admin) {
@@ -152,7 +161,35 @@ impl CertificateContract {
             CertificateIssuedEvent { id, issuer, owner },
         );
     }
+    
+    // Existing reference function: 
+    // pub fn issue_certificate(env: Env, issuer: Address, recipient: Address, cert_hash: BytesN<32>) { ... }
 
+    /// Issues multiple certificates at once, significantly reducing gas costs for batch operators.
+    pub fn batch_issue_certificates(env: Env, issuer: Address, certificates: Vec<CertBatchItem>) {
+        // 2. Enforce authentication once at the top to cover the entire batch execution loop
+        issuer.require_auth();
+
+        // 3. Process the sequence
+        for item in certificates.into_iter() {
+            let storage_key = item.cert_hash.clone();
+
+            // Guard against unintended overwrites or duplicates
+            if env.storage().persistent().has(&storage_key) {
+                panic!("One or more certificate hashes in this batch already exist");
+            }
+
+            // Write the key-value map to persistent ledger storage
+            env.storage().persistent().set(&storage_key, &item.recipient);
+        }
+
+        // 4. Emit a single aggregated event to optimize execution fee efficiency
+        env.events().publish(
+            (symbol_short!("batch_iss"), issuer),
+            certificates.len(), // Emit total quantity issued in this ledger invocation
+        );
+    }
+    
     /// Revoke an existing certificate (only the original issuer can revoke)
     pub fn revoke_certificate(env: Env, id: String, reason: String) {
         let mut cert: Certificate = env
