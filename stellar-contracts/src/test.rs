@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use super::*;
-use soroban_sdk::{testutils::Address as _, Address, Bytes, BytesN, Env, Vec};
+use soroban_sdk::{testutils::{Address as _, Events}, vec, Address, BytesN, Env, IntoVal};
 use soroban_sdk::{Env, testutils::Address as _, Address, String};
 
 // Helper function to create a certificate version
@@ -1071,7 +1071,47 @@ fn test_certificate_status_active_on_issue() {
     // Verify is_revoked returns false
     assert!(!client.is_revoked(&id));
 }
+ 
+#[test]
+fn test_batch_issue_certificates_success() {
+    let env = Env::default();
+    env.mock_all_auths(); // Bypass explicit cryptography signatures during execution testing
 
+    let contract_id = env.register_contract(None, StellarCertContract);
+    let client = StellarCertContractClient::new(&env, &contract_id);
+
+    let issuer = Address::generate(&env);
+    let recipient_alpha = Address::generate(&env);
+    let recipient_beta = Address::generate(&env);
+    
+    // Create distinct test hashes
+    let hash_alpha = BytesN::from_array(&env, &[1; 32]);
+    let hash_beta = BytesN::from_array(&env, &[2; 32]);
+
+    // Build the collection array matching our contract input type
+    let certificates_batch = vec![
+        &env,
+        CertBatchItem { recipient: recipient_alpha.clone(), cert_hash: hash_alpha.clone() },
+        CertBatchItem { recipient: recipient_beta.clone(), cert_hash: hash_beta.clone() },
+    ];
+
+    // Execute transaction execution call
+    client.batch_issue_certificates(&issuer, &certificates_batch);
+
+    // Verify event logs
+    let events = env.events().all();
+    let final_emitted_event = events.last().expect("Batch event was not logged");
+    
+    assert_eq!(
+        final_emitted_event.1, // Topics
+        (symbol_short!("batch_iss"), issuer).into_val(&env)
+    );
+    assert_eq!(
+        final_emitted_event.2, // Data (Expected Vector length: 2)
+        2u32.into_val(&env)
+    );
+}
+    
 #[test]
 fn test_status_transition_active_to_revoked() {
     let env = Env::default();
