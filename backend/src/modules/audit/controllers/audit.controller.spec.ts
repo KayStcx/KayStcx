@@ -245,4 +245,33 @@ describe('AuditController', () => {
       );
     });
   });
+
+  describe('getCertificateHistory', () => {
+    it('should retrieve certificate history', async () => {
+      jest
+        .spyOn(service, 'getResourceAudits')
+        .mockResolvedValue([mockAuditLog]);
+
+      const result = await controller.getCertificateHistory('cert-123', 50);
+
+      expect(service.getResourceAudits).toHaveBeenCalledWith(
+        'cert-123',
+        50,
+      );
+      expect(result).toEqual([mockAuditLog]);
+    });
+
+    it('should use default limit if not provided', async () => {
+      jest
+        .spyOn(service, 'getResourceAudits')
+        .mockResolvedValue([mockAuditLog]);
+
+      await controller.getCertificateHistory('cert-123');
+
+      expect(service.getResourceAudits).toHaveBeenCalledWith(
+        'cert-123',
+        50,
+      );
+    });
+  });
 });
