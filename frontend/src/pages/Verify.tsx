@@ -1,21 +1,6 @@
 import React, { useState } from 'react';
 import { certificateApi } from '../api/endpoints';
-
-interface VerificationResult {
-  isValid: boolean;
-  status: 'authentic' | 'invalid' | 'revoked' | 'expired';
-  certificate?: {
-    id: string;
-    title: string;
-    recipientName: string;
-    issuerName: string;
-    issuedDate: string;
-    expiryDate?: string;
-    credentialHash: string;
-  };
-  message?: string;
-  verifiedAt?: string;
-}
+import type { VerificationResult } from '../api/types';
 
 const Verify: React.FC = () => {
   const [certificateId, setCertificateId] = useState('');
@@ -25,6 +10,7 @@ const Verify: React.FC = () => {
 
   const handleVerify = async () => {
     const trimmed = certificateId.trim();
+
     if (!trimmed) {
       setError('Please enter a Certificate ID or Hash.');
       return;
@@ -36,7 +22,7 @@ const Verify: React.FC = () => {
 
     try {
       const data = await certificateApi.verify(trimmed);
-      setResult(data as VerificationResult);
+      setResult(data);
     } catch (err: unknown) {
       setError(
         err instanceof Error
@@ -48,23 +34,19 @@ const Verify: React.FC = () => {
     }
   };
 
+  const verificationTimestamp =
+    result?.verifiedAt ?? result?.verificationDate;
+
   const styles: Record<
-    VerificationResult['status'],
+    NonNullable<VerificationResult['status']>,
     { bg: string; border: string; text: string; icon: string; label: string }
   > = {
-    authentic: {
+    valid: {
       bg: 'bg-green-50',
       border: 'border-green-400',
       text: 'text-green-800',
       icon: 'OK',
-      label: 'Authentic',
-    },
-    invalid: {
-      bg: 'bg-red-50',
-      border: 'border-red-400',
-      text: 'text-red-800',
-      icon: 'NO',
-      label: 'Invalid',
+      label: 'Valid',
     },
     revoked: {
       bg: 'bg-orange-50',
@@ -80,9 +62,19 @@ const Verify: React.FC = () => {
       icon: 'EX',
       label: 'Expired',
     },
+    not_found: {
+      bg: 'bg-red-50',
+      border: 'border-red-400',
+      text: 'text-red-800',
+      icon: 'NO',
+      label: 'Not Found',
+    },
   };
 
-  const statusStyle = result ? styles[result.status] ?? styles.invalid : null;
+  const statusStyle =
+    result?.status && styles[result.status]
+      ? styles[result.status]
+      : null;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-12">
@@ -109,6 +101,7 @@ const Verify: React.FC = () => {
             placeholder="e.g. CERT-2024-XXXXXXXX"
             className="flex-1 border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+
           <button
             onClick={() => void handleVerify()}
             disabled={loading}
@@ -129,48 +122,69 @@ const Verify: React.FC = () => {
             className={`mt-6 ${statusStyle.bg} border-2 ${statusStyle.border} rounded-xl p-6`}
           >
             <div className="flex items-center gap-3 mb-4">
-              <span className="text-2xl font-semibold">{statusStyle.icon}</span>
+              <span className="text-2xl font-semibold">
+                {statusStyle.icon}
+              </span>
+
               <div>
                 <h3 className={`text-xl font-bold ${statusStyle.text}`}>
                   {statusStyle.label}
                 </h3>
-                {result.verifiedAt && (
+
+                {verificationTimestamp && (
                   <p className="text-xs text-gray-500">
-                    Verified at {new Date(result.verifiedAt).toLocaleString()}
+                    Verified at{' '}
+                    {new Date(verificationTimestamp).toLocaleString()}
                   </p>
                 )}
               </div>
             </div>
 
             {result.message && (
-              <p className="text-gray-700 text-sm mb-4">{result.message}</p>
+              <p className="text-gray-700 text-sm mb-4">
+                {result.message}
+              </p>
             )}
 
             {result.certificate && (
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                 <div>
-                  <span className="font-medium text-gray-600">Title</span>
+                  <span className="font-medium text-gray-600">
+                    Title
+                  </span>
                   <p>{result.certificate.title}</p>
                 </div>
+
                 <div>
-                  <span className="font-medium text-gray-600">Issuer</span>
+                  <span className="font-medium text-gray-600">
+                    Issuer
+                  </span>
                   <p>{result.certificate.issuerName}</p>
                 </div>
+
                 <div>
-                  <span className="font-medium text-gray-600">Recipient</span>
+                  <span className="font-medium text-gray-600">
+                    Recipient
+                  </span>
                   <p>{result.certificate.recipientName}</p>
                 </div>
+
                 <div>
-                  <span className="font-medium text-gray-600">Issued</span>
+                  <span className="font-medium text-gray-600">
+                    Issued
+                  </span>
                   <p>
                     {new Date(
-                      result.certificate.issuedDate,
+                      result.certificate.issueDate,
                     ).toLocaleDateString()}
                   </p>
                 </div>
+
                 {result.certificate.expiryDate && (
                   <div>
-                    <span className="font-medium text-gray-600">Expires</span>
+                    <span className="font-medium text-gray-600">
+                      Expires
+                    </span>
                     <p>
                       {new Date(
                         result.certificate.expiryDate,
@@ -178,14 +192,30 @@ const Verify: React.FC = () => {
                     </p>
                   </div>
                 )}
-                <div className="col-span-2 pt-2 border-t border-gray-200">
-                  <span className="font-medium text-gray-600 text-xs">
-                    Credential Hash
-                  </span>
-                  <p className="font-mono text-xs text-gray-500 break-all mt-1">
-                    {result.certificate.credentialHash}
-                  </p>
-                </div>
+
+                {result.certificate.txHash && (
+                  <div className="col-span-2 pt-2 border-t border-gray-200">
+                    <span className="font-medium text-gray-600 text-xs">
+                      Transaction Hash
+                    </span>
+
+                    <p className="font-mono text-xs text-gray-500 break-all mt-1">
+                      {result.certificate.txHash}
+                    </p>
+                  </div>
+                )}
+
+                {result.certificate.cid && (
+                  <div className="col-span-2">
+                    <span className="font-medium text-gray-600 text-xs">
+                      IPFS CID
+                    </span>
+
+                    <p className="font-mono text-xs text-gray-500 break-all mt-1">
+                      {result.certificate.cid}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
