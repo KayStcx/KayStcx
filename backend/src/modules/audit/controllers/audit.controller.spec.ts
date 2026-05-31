@@ -30,7 +30,7 @@ describe('AuditController', () => {
   };
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    const moduleRef: TestingModule = await Test.createTestingModule({
       controllers: [AuditController],
       providers: [
         {
@@ -46,8 +46,8 @@ describe('AuditController', () => {
       ],
     }).compile();
 
-    controller = module.get<AuditController>(AuditController);
-    service = module.get<AuditService>(AuditService);
+    controller = moduleRef.get<AuditController>(AuditController);
+    service = moduleRef.get<AuditService>(AuditService);
   });
 
   describe('searchLogs', () => {
