@@ -133,7 +133,6 @@ export default function VerifyCertificate(): JSX.Element {
           qrScannerRef.current = null;
         },
         (error) => {
-          console.log('QR scan error:', error);
         }
       );
     }

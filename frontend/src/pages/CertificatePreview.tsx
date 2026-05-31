@@ -11,11 +11,11 @@ const CertificatePreview = () => {
   };
 
   const handleDownload = () => {
-    console.log('Download PDF functionality here');
+  
   };
 
   const handleShare = () => {
-    console.log('Share via email functionality here');
+  
   };
 
   return (
