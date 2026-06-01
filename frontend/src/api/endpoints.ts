@@ -279,7 +279,7 @@ export const fetchUserByEmail = async (email: string): Promise<User | null> => {
   if (USE_DUMMY_DATA) {
     await simulateDelay();
     const user = dummyData.users.find((user) => user.email === email);
-    console.log("Dummy User Data:", user);
+    
     return user || null;
   }
 
