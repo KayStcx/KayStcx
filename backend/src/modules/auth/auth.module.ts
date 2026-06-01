@@ -24,12 +24,12 @@ import { AuthRateLimitMiddleware } from './middleware/auth-rate-limit.middleware
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const secret = configService.get<string>('JWT_SECRET');
-        const expiresIn = (configService.get<string>('JWT_EXPIRES_IN') ||
-          '24h') as any;
+        const secret = configService.get<string>('JWT_ACCESS_SECRET');
+        const expiresIn = (configService.get<string>('JWT_ACCESS_EXPIRES_IN') ||
+          '15m') as any;
 
         if (!secret) {
-          throw new Error('JWT_SECRET must be configured');
+          throw new Error('JWT_ACCESS_SECRET must be configured');
         }
 
         return {

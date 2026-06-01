@@ -43,16 +43,36 @@ class EnvironmentVariables {
   @IsString()
   DB_NAME: string;
 
+  @IsOptional()
+  @IsString()
+  JWT_SECRET?: string;
+
   @IsString()
   @ValidateIf((o) => o.NODE_ENV === 'production')
   @MinLength(32, {
     message:
-      'JWT_SECRET must be at least 32 characters long in production environment',
+      'JWT_ACCESS_SECRET must be at least 32 characters long in production environment',
   })
-  JWT_SECRET: string;
+  JWT_ACCESS_SECRET: string;
+
+  @IsString()
+  @ValidateIf((o) => o.NODE_ENV === 'production')
+  @MinLength(32, {
+    message:
+      'JWT_REFRESH_SECRET must be at least 32 characters long in production environment',
+  })
+  JWT_REFRESH_SECRET: string;
 
   @IsString()
   JWT_EXPIRES_IN: string;
+
+  @IsOptional()
+  @IsString()
+  JWT_ACCESS_EXPIRES_IN?: string;
+
+  @IsOptional()
+  @IsString()
+  JWT_REFRESH_EXPIRES_IN?: string;
 
   @IsString()
   STELLAR_NETWORK: string;
@@ -213,7 +233,11 @@ export function validateEnv(): EnvironmentVariables {
       DB_PASSWORD: process.env.DB_PASSWORD || 'password',
       DB_NAME: process.env.DB_NAME || 'stellarcert',
       JWT_SECRET: process.env.JWT_SECRET,
+      JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET,
+      JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
       JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '24h',
+      JWT_ACCESS_EXPIRES_IN: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
+      JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
       STELLAR_NETWORK: process.env.STELLAR_NETWORK || 'testnet',
       STELLAR_HORIZON_URL:
         process.env.STELLAR_HORIZON_URL ||

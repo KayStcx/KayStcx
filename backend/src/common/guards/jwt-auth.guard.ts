@@ -46,7 +46,7 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     try {
-      const secret = this.configService.get<string>('JWT_SECRET');
+      const secret = this.configService.get<string>('JWT_ACCESS_SECRET');
 
       if (!secret) {
         throw new AuthException(
