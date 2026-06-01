@@ -15,6 +15,7 @@ import { SearchCertificatesDto } from './dto/search-certificates.dto';
 import { Certificate } from './entities/certificate.entity';
 import { Verification } from './entities/verification.entity';
 import { CertificateStatus } from './constants/certificate-status.enum';
+import { User } from '../users/entities/user.entity';
 import { DuplicateDetectionService } from './services/duplicate-detection.service';
 import { DuplicateDetectionConfig } from './interfaces/duplicate-detection.interface';
 import { WebhooksService } from '../webhooks/webhooks.service';
@@ -32,6 +33,8 @@ export class CertificateService {
     private readonly certificateRepository: Repository<Certificate>,
     @InjectRepository(Verification)
     private readonly verificationRepository: Repository<Verification>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     private readonly duplicateDetectionService: DuplicateDetectionService,
     private readonly webhooksService: WebhooksService,
     private readonly metadataSchemaService: MetadataSchemaService,
@@ -45,6 +48,17 @@ export class CertificateService {
     ipAddress = 'unknown',
     userAgent = 'unknown',
   ): Promise<Certificate> {
+    // Look up recipientId from email if not provided
+    let recipientId = dto.recipientId;
+    if (!recipientId && dto.recipientEmail) {
+      const user = await this.userRepository.findOne({
+        where: { email: dto.recipientEmail },
+      });
+      if (user) {
+        recipientId = user.id;
+      }
+    }
+
     // Check for duplicates if config is provided
     if (duplicateConfig?.enabled) {
       const duplicateCheck =
@@ -96,6 +110,7 @@ export class CertificateService {
     try {
       const certificate = queryRunner.manager.create(Certificate, {
         ...dto,
+        recipientId,
         expiresAt:
           dto.expiresAt || this.calculateDefaultExpiry(),
         verificationCode:

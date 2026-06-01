@@ -47,6 +47,10 @@ export class Certificate {
   @Index()
   issuerId: string;
 
+  @Column({ nullable: true })
+  @Index()
+  recipientId?: string;
+
   @Column()
   @Index()
   recipientEmail: string;
