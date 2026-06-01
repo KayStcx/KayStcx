@@ -2,6 +2,8 @@ use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, IntoVal, String,
     Vec,
 };
+use crate::storage::TtlInstanceExt;
+
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -87,7 +89,7 @@ impl AdminMultisigContract {
             panic!("Admin multisig already initialized");
         }
 
-        env.storage().instance().set(
+        env.ttl_instance().set(
             &AdminMultisigDataKey::AdminConfig,
             &AdminMultisigConfig {
                 threshold,
@@ -116,7 +118,7 @@ impl AdminMultisigContract {
         Self::require_signer(&config.signers, &proposer);
 
         let proposal_key = AdminMultisigDataKey::AdminProposal(proposal_id.clone());
-        if env.storage().instance().has(&proposal_key) {
+        if env.ttl_instance().has(&proposal_key) {
             panic!("Proposal already exists");
         }
 
@@ -133,7 +135,7 @@ impl AdminMultisigContract {
             status: AdminProposalStatus::Pending,
         };
 
-        env.storage().instance().set(&proposal_key, &proposal);
+        env.ttl_instance().set(&proposal_key, &proposal);
         env.events().publish(
             (symbol_short!("proposal"), symbol_short!("created")),
             ProposalCreatedEvent {
@@ -166,7 +168,7 @@ impl AdminMultisigContract {
         let current_ledger = env.ledger().sequence();
         if current_ledger > proposal.expires_at_ledger {
             proposal.status = AdminProposalStatus::Expired;
-            env.storage().instance().set(&proposal_key, &proposal);
+            env.ttl_instance().set(&proposal_key, &proposal);
             return AdminProposalStatus::Expired;
         }
 
@@ -197,7 +199,7 @@ impl AdminMultisigContract {
             status = AdminProposalStatus::Approved;
         }
 
-        env.storage().instance().set(&proposal_key, &proposal);
+        env.ttl_instance().set(&proposal_key, &proposal);
 
         if status == AdminProposalStatus::Approved {
             status = Self::execute_action(env, proposal_id);
@@ -225,7 +227,7 @@ impl AdminMultisigContract {
         }
 
         proposal.status = AdminProposalStatus::Rejected;
-        env.storage().instance().set(&proposal_key, &proposal);
+        env.ttl_instance().set(&proposal_key, &proposal);
 
         env.events().publish(
             (symbol_short!("proposal"), symbol_short!("canceled")),
@@ -321,7 +323,7 @@ impl AdminMultisigContract {
             }
             AdminAction::UpdateConfig(threshold, signers, proposal_window) => {
                 Self::validate_config(signers, *threshold, *proposal_window);
-                env.storage().instance().set(
+                env.ttl_instance().set(
                     &AdminMultisigDataKey::AdminConfig,
                     &AdminMultisigConfig {
                         threshold: *threshold,
@@ -334,7 +336,7 @@ impl AdminMultisigContract {
         }
 
         proposal.status = AdminProposalStatus::Executed;
-        env.storage().instance().set(&proposal_key, &proposal);
+        env.ttl_instance().set(&proposal_key, &proposal);
         env.events().publish(
             (symbol_short!("proposal"), symbol_short!("executed")),
             proposal_id,

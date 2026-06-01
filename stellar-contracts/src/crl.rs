@@ -1,4 +1,6 @@
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, IntoVal, String, Vec};
+use crate::storage::TtlInstanceExt;
+
 
 const DEFAULT_UPDATE_WINDOW_SECONDS: u64 = 7 * 24 * 60 * 60;
 
@@ -52,7 +54,7 @@ pub struct CRLContract;
 #[contractimpl]
 impl CRLContract {
     pub fn initialize(env: Env, issuer: Address, certificate_contract: Address) {
-        if env.storage().instance().has(&DataKey::Issuer) {
+        if env.ttl_instance().has(&DataKey::Issuer) {
             panic!("CRL already initialized");
         }
 
@@ -68,14 +70,14 @@ impl CRLContract {
             merkle_root: Self::build_merkle_root(&env, 1),
         };
 
-        env.storage().instance().set(&DataKey::Issuer, &issuer);
+        env.ttl_instance().set(&DataKey::Issuer, &issuer);
         env.storage()
             .instance()
             .set(&DataKey::CertContract, &certificate_contract);
         env.storage()
             .instance()
             .set(&DataKey::RevokedCertificates, &Vec::<String>::new(&env));
-        env.storage().instance().set(&DataKey::Info, &crl_info);
+        env.ttl_instance().set(&DataKey::Info, &crl_info);
     }
 
     pub fn revoke_certificate(
@@ -103,7 +105,7 @@ impl CRLContract {
         }
 
         let revocation_key = DataKey::Revocation(certificate_id.clone());
-        if env.storage().instance().has(&revocation_key) {
+        if env.ttl_instance().has(&revocation_key) {
             panic!("Certificate already revoked");
         }
 
@@ -128,7 +130,7 @@ impl CRLContract {
 
         crl_info.revoked_count += 1;
         Self::refresh_crl_info(&env, &mut crl_info);
-        env.storage().instance().set(&DataKey::Info, &crl_info);
+        env.ttl_instance().set(&DataKey::Info, &crl_info);
     }
 
     pub fn is_revoked(env: Env, certificate_id: String) -> bool {
@@ -207,7 +209,7 @@ impl CRLContract {
         }
 
         Self::refresh_crl_info(&env, &mut crl_info);
-        env.storage().instance().set(&DataKey::Info, &crl_info);
+        env.ttl_instance().set(&DataKey::Info, &crl_info);
     }
 
     pub fn needs_update(env: Env) -> bool {
@@ -229,7 +231,7 @@ impl CRLContract {
     }
 
     fn get_revoked_certificate_ids(env: &Env) -> Vec<String> {
-        match env.storage().instance().get(&DataKey::RevokedCertificates) {
+        match env.ttl_instance().get(&DataKey::RevokedCertificates) {
             Some(revoked_certificates) => revoked_certificates,
             None => Vec::new(env),
         }

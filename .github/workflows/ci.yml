@@ -1,96 +1,133 @@
-name: CI
+name: Main CI/CD Pipeline
 
 on:
   push:
     branches:
       - main
       - develop
-      - 'feature/**'
   pull_request:
+    branches:
+      - main
+      - develop
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  changes:
+  lint_typecheck:
+    name: Lint and Type Check
     runs-on: ubuntu-latest
-    outputs:
-      frontend: ${{ steps.filter.outputs.frontend }}
-      backend: ${{ steps.filter.outputs.backend }}
-      contracts: ${{ steps.filter.outputs.contracts }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            frontend:
-              - 'frontend/**'
-            backend:
-              - 'backend/**'
-            contracts:
-              - 'stellar-contracts/**'
-
-  frontend:
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true'
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            frontend/package-lock.json
-      - name: Install frontend dependencies
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
         run: npm ci
-      - name: Build frontend
-        run: npm run build
-
-  backend:
-    needs: changes
-    if: needs.changes.outputs.backend == 'true'
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            backend/package-lock.json
-      - name: Install backend dependencies
-        run: npm ci
-      - name: Typecheck backend
+      - name: Run lint
+        run: npm run lint
+      - name: Run type check
         run: npm run typecheck
-      - name: Build backend
-        run: npm run build
 
-  contracts:
-    needs: changes
-    if: needs.changes.outputs.contracts == 'true'
+  build:
+    name: Build All Components
+    needs: lint_typecheck
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: stellar-contracts
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
         with:
-          workspaces: stellar-contracts
-      - name: Build contracts
-        run: cargo build
-      - name: Test contracts
-        run: cargo test
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Build frontend, backend, and contracts
+        run: npm run ci:build
+      - name: Upload frontend build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/dist
+      - name: Upload backend build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-build
+          path: backend/dist
+      - name: Upload contracts build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stellar-contracts
+          path: stellar-contracts/target
+
+  test:
+    name: Run Tests
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Run all tests
+        run: npm test
+
+  security_scan:
+    name: Security Scan
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install Node dependencies
+        run: npm ci
+      - name: Run npm security audit
+        run: npm run security:audit
+      - name: Install Rust tooling
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+      - name: Install Rust security tools
+        run: |
+          rustup component add clippy rustfmt
+          cargo install cargo-audit --locked --force
+          cargo install cargo-deny --locked --force
+      - name: Run contract security scans
+        working-directory: stellar-contracts
+        run: |
+          cargo audit
+          cargo deny check
+
+  docker_build:
+    name: Docker Build
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker images
+        run: docker compose build
+
+  deploy_preview:
+    name: Deploy Preview
+    if: github.event_name == 'pull_request'
+    needs:
+      - build
+      - test
+    runs-on: ubuntu-latest
+    environment: preview
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preview deployment placeholder
+        run: echo "Preview deployment placeholder for PR #${{ github.event.number }}"

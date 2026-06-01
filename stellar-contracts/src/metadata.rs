@@ -1,6 +1,8 @@
 #![no_std]
 
 use soroban_sdk::{Address, Env, String, Vec};
+use crate::storage::TtlInstanceExt;
+
 
 /// Metadata field types supported by the schema
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -196,7 +198,7 @@ pub fn register_schema(env: &Env, schema: MetadataSchemaRecord) -> Result<(), Me
 
 /// Get a schema by ID
 pub fn get_schema(env: &Env, id: &String) -> Option<MetadataSchemaRecord> {
-    env.storage().instance().get(id)
+    env.ttl_instance().get(id)
 }
 
 /// Get the total number of schemas

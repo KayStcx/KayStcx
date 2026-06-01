@@ -1,4 +1,6 @@
 use soroban_sdk::{contracttype, Address};
+pub mod ttl;
+pub use ttl::{extend_ttl, extend_instance_ttl, TtlInstanceExt, DEFAULT_TTL};
 
 /// Storage keys for the admin multisig contract.
 /// Named `StorageKey` to avoid conflict with the `DataKey` enum in `types.rs`.

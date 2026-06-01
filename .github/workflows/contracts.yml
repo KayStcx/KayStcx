@@ -1,0 +1,122 @@
+name: Stellar Contracts CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'stellar-contracts/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'stellar-contracts/**'
+
+concurrency:
+  group: contracts-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract_lint:
+    name: Contract Linting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+      - name: Install Rust tooling
+        run: |
+          rustup component add rustfmt clippy
+          cargo install cargo-audit --locked --force
+          cargo install cargo-deny --locked --force
+          cargo install soroban-cli --locked --force
+      - name: Run fmt check
+        working-directory: stellar-contracts
+        run: cargo fmt --all -- --check
+      - name: Run clippy
+        working-directory: stellar-contracts
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  contract_test:
+    name: Contract Testing
+    needs: contract_lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+      - name: Install Rust tooling
+        run: |
+          rustup component add rustfmt clippy
+      - name: Run contract tests
+        working-directory: stellar-contracts
+        run: cargo test
+
+  contract_build:
+    name: Contract Build
+    needs: contract_test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+      - name: Build contracts in release mode
+        working-directory: stellar-contracts
+        run: cargo build --release
+      - name: Upload contract binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: stellar-contracts
+          path: stellar-contracts/target/release
+
+  contract_security:
+    name: Contract Security Scan
+    needs: contract_test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+      - name: Install Rust security tooling
+        run: |
+          cargo install cargo-audit --locked --force
+          cargo install cargo-deny --locked --force
+      - name: Run cargo audits
+        working-directory: stellar-contracts
+        run: |
+          cargo audit
+          cargo deny check
+
+  contract_deploy:
+    name: Contract Deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs:
+      - contract_build
+      - contract_security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+      - name: Install deployment tooling
+        run: |
+          rustup component add rustfmt clippy
+          cargo install soroban-cli --locked --force
+      - name: Deploy contracts to Stellar network
+        env:
+          SOROBAN_ADMIN_SECRET: ${{ secrets.SOROBAN_ADMIN_SECRET }}
+          SOROBAN_RPC_URL: ${{ secrets.SOROBAN_RPC_URL }}
+          SOROBAN_NETWORK: ${{ secrets.SOROBAN_NETWORK }}
+        run: bash ./deploy-contracts.sh

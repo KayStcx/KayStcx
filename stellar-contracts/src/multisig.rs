@@ -1,4 +1,6 @@
 use soroban_sdk::{contract, contractimpl, Address, Env, String, Vec};
+use crate::storage::TtlInstanceExt;
+
 
 use crate::{
     DataKey, MultisigConfig, OptionalRequestStatus, PaginatedResult, Pagination, PendingRequest,
@@ -41,7 +43,7 @@ impl MultisigCertificateContract {
         }
 
         // Store configuration
-        env.storage().instance().set(
+        env.ttl_instance().set(
             &DataKey::MultisigConfig(issuer.clone()),
             &MultisigConfig {
                 threshold,
@@ -407,7 +409,7 @@ impl MultisigCertificateContract {
 
         if !request_ids.contains(&request_id) {
             request_ids.push_back(request_id);
-            env.storage().instance().set(&key, &request_ids);
+            env.ttl_instance().set(&key, &request_ids);
         }
     }
 

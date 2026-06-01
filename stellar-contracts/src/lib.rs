@@ -1,5 +1,6 @@
 #![no_std]
 use soroban_sdk::{contract, contractimpl, symbol_short, Address, BytesN, Env, String, Vec};
+use crate::storage::TtlInstanceExt;
 
 mod types;
 pub use types::*;
@@ -32,34 +33,32 @@ pub struct CertificateContract;
 impl CertificateContract {
     /// Initialize the contract with an admin account
     pub fn initialize(env: Env, admin: Address) {
-        if env.storage().instance().has(&DataKey::Admin) {
+        if env.ttl_instance().has(&DataKey::Admin) {
             panic!("Admin already initialized");
         }
-        env.storage().instance().set(&DataKey::Admin, &admin);
+        env.ttl_instance().set(&DataKey::Admin, &admin);
     }
 
     pub fn add_issuer(env: Env, issuer: Address) {
         let admin: Address = env
-            .storage()
-            .instance()
+            .ttl_instance()
             .get(&DataKey::Admin)
             .expect("Contract not initialized");
         admin.require_auth();
 
         let key = DataKey::Issuer(issuer.clone());
-        if !env.storage().instance().has(&key) {
-            let count: u32 = env.storage().instance().get(&DataKey::IssuerCount).unwrap_or(0);
-            env.storage().instance().set(&DataKey::IssuerCount, &(count + 1));
+        if !env.ttl_instance().has(&key) {
+            let count: u32 = env.ttl_instance().get(&DataKey::IssuerCount).unwrap_or(0);
+            env.ttl_instance().set(&DataKey::IssuerCount, &(count + 1));
 
             let mut issuers: Vec<Address> = env
-                .storage()
-                .instance()
+                .ttl_instance()
                 .get(&DataKey::Issuers)
                 .unwrap_or(Vec::new(&env));
             issuers.push_back(issuer.clone());
-            env.storage().instance().set(&DataKey::Issuers, &issuers);
+            env.ttl_instance().set(&DataKey::Issuers, &issuers);
         }
-        env.storage().instance().set(&key, &true);
+        env.ttl_instance().set(&key, &true);
     }
 
     /// Check if an address is an authorized issuer
