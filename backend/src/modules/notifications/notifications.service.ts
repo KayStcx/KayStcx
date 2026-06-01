@@ -57,12 +57,18 @@ export class NotificationsService {
     return savedNotification;
   }
 
-  async getUserNotifications(userId: string): Promise<Notification[]> {
-    return this.notificationRepository.find({
+  async getUserNotifications(
+    userId: string,
+    page = 1,
+    limit = 20,
+  ): Promise<{ data: Notification[]; total: number; page: number; limit: number }> {
+    const [data, total] = await this.notificationRepository.findAndCount({
       where: { userId },
       order: { createdAt: 'DESC' },
-      take: 50,
+      skip: (page - 1) * limit,
+      take: limit,
     });
+    return { data, total, page, limit };
   }
 
   async markAsRead(

@@ -38,8 +38,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         try {
             const token = tokenStorage.getAccessToken();
             if (!token) return;
-            const data = await apiClient<Notification[]>('/notifications');
-            setNotifications(data);
+            const response = await apiClient<{ data: Notification[]; total: number; page: number; limit: number }>('/notifications');
+            setNotifications(response.data);
         } catch (error) {
             console.error('Failed to fetch notifications:', error);
         }
