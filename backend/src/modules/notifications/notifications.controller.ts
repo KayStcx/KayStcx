@@ -5,6 +5,7 @@ import {
   Body,
   Patch,
   Param,
+  Query,
   UseGuards,
   Request,
 } from '@nestjs/common';
@@ -20,9 +21,17 @@ export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get user recent notifications' })
-  getUserNotifications(@Request() req: any) {
-    return this.notificationsService.getUserNotifications(req.user.id);
+  @ApiOperation({ summary: 'Get user notifications (paginated)' })
+  getUserNotifications(
+    @Request() req: any,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+  ) {
+    return this.notificationsService.getUserNotifications(
+      req.user.id,
+      Number(page),
+      Number(limit),
+    );
   }
 
   @Patch('read-all')
