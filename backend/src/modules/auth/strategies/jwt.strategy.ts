@@ -13,10 +13,10 @@ export interface JwtPayload {
 }
 
 function requireJwtSecret(configService: ConfigService): string {
-  const secret = configService.get<string>('JWT_SECRET');
+  const secret = configService.get<string>('JWT_ACCESS_SECRET');
 
   if (!secret) {
-    throw new Error('JWT_SECRET must be configured');
+    throw new Error('JWT_ACCESS_SECRET must be configured');
   }
 
   return secret;

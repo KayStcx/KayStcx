@@ -26,7 +26,8 @@ export class JwtManagementService {
     const expiresIn = (this.configService.get<string>(
       'JWT_ACCESS_EXPIRES_IN',
     ) || '15m') as any;
-    return this.nestJwtService.signAsync(payload as any, { expiresIn });
+    const secret = this.configService.get<string>('JWT_ACCESS_SECRET');
+    return this.nestJwtService.signAsync(payload as any, { expiresIn, secret });
   }
 
   /**
@@ -36,7 +37,8 @@ export class JwtManagementService {
     const expiresIn = (this.configService.get<string>(
       'JWT_REFRESH_EXPIRES_IN',
     ) || '7d') as any;
-    return this.nestJwtService.signAsync(payload as any, { expiresIn });
+    const secret = this.configService.get<string>('JWT_REFRESH_SECRET');
+    return this.nestJwtService.signAsync(payload as any, { expiresIn, secret });
   }
 
   /**
@@ -51,7 +53,7 @@ export class JwtManagementService {
       }
 
       return await this.nestJwtService.verifyAsync(token, {
-        secret: this.configService.get<string>('JWT_SECRET'),
+        secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
       });
     } catch (error) {
       throw new Error(`Invalid access token: ${error.message}`);
@@ -70,9 +72,7 @@ export class JwtManagementService {
       }
 
       return await this.nestJwtService.verifyAsync(token, {
-        secret:
-          this.configService.get<string>('JWT_REFRESH_SECRET') ||
-          this.configService.get<string>('JWT_SECRET'),
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
       });
     } catch (error) {
       throw new Error(`Invalid refresh token: ${error.message}`);

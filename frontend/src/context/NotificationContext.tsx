@@ -41,9 +41,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         try {
             const token = tokenStorage.getAccessToken();
             if (!token) return;
-
-            const data = await apiClient<Notification[]>('/notifications');
-            setNotifications(data);
+            const response = await apiClient<{ data: Notification[]; total: number; page: number; limit: number }>('/notifications');
+            setNotifications(response.data);
         } catch (error) {
             console.error('Failed to fetch notifications:', error);
         }
@@ -79,7 +78,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         });
 
         newSocket.on('newNotification', (notification: Notification) => {
-            setNotifications((prev) => [notification, ...prev]);
+            setNotifications(prev => [notification, ...prev]);
         });
 
         newSocket.on('connect_error', (error) => {
@@ -98,12 +97,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     const markAsRead = async (id: string) => {
         try {
-            await apiClient(`/notifications/${id}/read`, {
-                method: 'PATCH',
-            });
-            setNotifications((prev) =>
-                prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
-            );
+            await apiClient(`/notifications/${id}/read`, { method: 'PATCH' });
+            setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
         } catch (error) {
             console.error('Failed to mark as read:', error);
         }
@@ -111,21 +106,17 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     const markAllAsRead = async () => {
         try {
-            await apiClient(`/notifications/read-all`, {
-                method: 'PATCH',
-            });
-            setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+            await apiClient(`/notifications/read-all`, { method: 'PATCH' });
+            setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
         } catch (error) {
             console.error('Failed to mark all as read:', error);
         }
     };
 
-    const unreadCount = notifications.filter((n) => !n.isRead).length;
+    const unreadCount = notifications.filter(n => !n.isRead).length;
 
     return (
-        <NotificationContext.Provider
-            value={{ notifications, unreadCount, markAsRead, markAllAsRead, fetchNotifications }}
-        >
+        <NotificationContext.Provider value={{ notifications, unreadCount, markAsRead, markAllAsRead, fetchNotifications }}>
             {children}
         </NotificationContext.Provider>
     );
