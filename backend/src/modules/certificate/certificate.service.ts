@@ -3,6 +3,7 @@ import {
   ConflictException,
   Logger,
   NotFoundException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -22,6 +23,7 @@ import { WebhooksService } from '../webhooks/webhooks.service';
 import { WebhookEvent } from '../webhooks/entities/webhook-subscription.entity';
 import { MetadataSchemaService } from '../metadata-schema/services/metadata-schema.service';
 import { UserRole } from '../users/entities/user.entity';
+import { SorobanService } from '../stellar/services/soroban.service';
 
 @Injectable()
 export class CertificateService {
@@ -39,6 +41,7 @@ export class CertificateService {
     private readonly webhooksService: WebhooksService,
     private readonly metadataSchemaService: MetadataSchemaService,
     private readonly dataSource: DataSource,
+    private readonly sorobanService: SorobanService,
   ) {}
 
   async create(
@@ -134,6 +137,73 @@ export class CertificateService {
       this.logger.log(
         `Certificate created: ${savedCertificate.id} for ${dto.recipientEmail}`,
       );
+
+      // ── Issue on-chain ────────────────────────────────────────────────────
+      // Attempt to record the certificate on the Soroban contract.  The DB
+      // record is committed first so it is never lost on a transient RPC
+      // error.  If Soroban is not configured (e.g. in test/dev environments)
+      // the call is skipped and a warning is logged.  If the on-chain call
+      // fails we surface the error to the caller so they are aware the DB and
+      // the chain are out of sync — callers can retry via the dedicated
+      // stellar endpoint.
+      if (this.sorobanService.isConfigured()) {
+        try {
+          const metadataUri = savedCertificate.verificationCode ?? savedCertificate.id;
+          const issuerAddress = savedCertificate.issuerStellarAddress ?? '';
+          const ownerAddress = savedCertificate.recipientStellarAddress ?? '';
+
+          if (!issuerAddress || !ownerAddress) {
+            this.logger.warn(
+              `Certificate ${savedCertificate.id}: missing Stellar addresses — skipping on-chain issuance`,
+            );
+          } else {
+            const expiresAtUnix = savedCertificate.expiresAt
+              ? Math.floor(savedCertificate.expiresAt.getTime() / 1000)
+              : undefined;
+
+            const txHash = await this.sorobanService.issueCertificate(
+              savedCertificate.id,
+              issuerAddress,
+              ownerAddress,
+              metadataUri,
+              expiresAtUnix,
+            );
+
+            if (!txHash) {
+              throw new InternalServerErrorException(
+                `On-chain issuance failed for certificate ${savedCertificate.id}`,
+              );
+            }
+
+            // Persist the Stellar transaction hash so callers can verify on-chain
+            await this.certificateRepository.update(savedCertificate.id, {
+              stellarTransactionHash: typeof txHash === 'string' ? txHash : undefined,
+            });
+
+            if (typeof txHash === 'string') {
+              savedCertificate.stellarTransactionHash = txHash;
+            }
+
+            this.logger.log(
+              `Certificate ${savedCertificate.id} issued on-chain`,
+            );
+          }
+        } catch (blockchainError: any) {
+          // Log the failure but do NOT silently swallow it — the certificate
+          // exists in the DB without a corresponding on-chain record, which is
+          // the bug described in issue #523.  Re-throw so the caller knows.
+          this.logger.error(
+            `On-chain issuance failed for certificate ${savedCertificate.id}: ${blockchainError.message}`,
+            blockchainError.stack,
+          );
+          throw blockchainError;
+        }
+      } else {
+        this.logger.warn(
+          'SorobanService is not configured — certificate saved to DB only (no on-chain record)',
+        );
+      }
+      // ── End on-chain issuance ─────────────────────────────────────────────
 
       // Trigger webhook event (outside transaction)
       await this.webhooksService.triggerEvent(
