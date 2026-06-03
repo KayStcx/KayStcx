@@ -13,6 +13,8 @@ pub use multisig::*;
 mod crl;
 pub use crl::*;
 
+pub mod persistent;
+
 mod admin_multisig;
 pub use admin_multisig::*;
 
