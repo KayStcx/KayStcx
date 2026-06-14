@@ -1,4 +1,4 @@
-export interface KaystcxificateData {
+export interface KaystcxCertificateData {
   certificateId: string;
   recipientName: string;
   recipientEmail: string;

@@ -145,7 +145,7 @@ Friendbot (for testnet funding)
 
 1. Clone the Repository
    bash
-   git clone https://github.com/Servora/Kaystcx.git
+   git clone https://github.com/Kaystcx/Kaystcx.git
    cd kaystcx
 2. Setup Backend
    bash
