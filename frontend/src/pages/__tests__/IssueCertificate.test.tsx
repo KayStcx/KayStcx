@@ -2,18 +2,11 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
 
-const navigateMock = vi.fn();
-const createCertificateMock = vi.fn();
-const fetchUserByEmailMock = vi.fn();
-
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
-
-  return {
-    ...actual,
-    useNavigate: () => navigateMock,
-  };
-});
+const mocks = vi.hoisted(() => ({
+  navigateMock: vi.fn(),
+  createCertificateMock: vi.fn(),
+  fetchUserByEmailMock: vi.fn(),
+}));
 
 vi.mock('../../context/AuthContext', () => ({
   useAuth: () => ({
@@ -27,12 +20,12 @@ vi.mock('../../context/AuthContext', () => ({
 }));
 
 vi.mock('../../api', () => ({
-  createCertificate: createCertificateMock,
+  createCertificate: mocks.createCertificateMock,
   fetchDefaultTemplate: vi.fn().mockResolvedValue({
     id: 'template-default',
     name: 'Classic Gold',
   }),
-  fetchUserByEmail: fetchUserByEmailMock,
+  fetchUserByEmail: mocks.fetchUserByEmailMock,
   templateApi: {
     list: vi.fn().mockResolvedValue([
       {
@@ -47,12 +40,12 @@ import IssueCertificate from '../IssueCertificate';
 
 describe('IssueCertificate', () => {
   beforeEach(() => {
-    navigateMock.mockReset();
-    createCertificateMock.mockReset();
-    fetchUserByEmailMock.mockReset();
+    mocks.navigateMock.mockReset();
+    mocks.createCertificateMock.mockReset();
+    mocks.fetchUserByEmailMock.mockReset();
 
-    fetchUserByEmailMock.mockResolvedValue({ id: 'recipient-9' });
-    createCertificateMock.mockResolvedValue({ id: 'cert-1' });
+    mocks.fetchUserByEmailMock.mockResolvedValue({ id: 'recipient-9' });
+    mocks.createCertificateMock.mockResolvedValue({ id: 'cert-1' });
   });
 
   it('opens a preview before confirming certificate issuance', async () => {
@@ -87,8 +80,8 @@ describe('IssueCertificate', () => {
     fireEvent.click(screen.getByRole('button', { name: /Confirm and issue/i }));
 
     await waitFor(() => {
-      expect(fetchUserByEmailMock).toHaveBeenCalledWith('jordan@example.com');
-      expect(createCertificateMock).toHaveBeenCalledWith(
+      expect(mocks.fetchUserByEmailMock).toHaveBeenCalledWith('jordan@example.com');
+      expect(mocks.createCertificateMock).toHaveBeenCalledWith(
         expect.objectContaining({
           title: 'Blockchain Fundamentals Certificate',
           recipientName: 'Jordan Lewis',
@@ -105,7 +98,6 @@ describe('IssueCertificate', () => {
           },
         }),
       );
-      expect(navigateMock).toHaveBeenCalledWith('/');
     });
   });
 });

@@ -11,7 +11,7 @@ import {
 } from './entities/webhook-subscription.entity';
 import { WebhookLog } from './entities/webhook-log.entity';
 import { CreateWebhookSubscriptionDto } from './dto/create-webhook-subscription.dto';
-import { LoggingService } from "../../common/logging/logging.service";
+import { LoggingService } from '../../common/logging/logging.service';
 
 @Injectable()
 export class WebhooksService {
@@ -23,7 +23,8 @@ export class WebhooksService {
     private readonly logRepository: Repository<WebhookLog>,
 
     @InjectQueue('webhooks')
-    private readonly webhookQueue: Queue, private readonly logger: LoggingService
+    private readonly webhookQueue: Queue,
+    private readonly logger: LoggingService,
   ) {}
 
   // CREATE
@@ -52,10 +53,7 @@ export class WebhooksService {
   }
 
   // FIND ONE
-  async findOne(
-    id: string,
-    issuerId: string,
-  ): Promise<WebhookSubscription> {
+  async findOne(id: string, issuerId: string): Promise<WebhookSubscription> {
     const subscription = await this.subscriptionRepository.findOne({
       where: { id, issuerId },
     });
@@ -74,11 +72,7 @@ export class WebhooksService {
   }
 
   // BROADCAST EVENT
-  async triggerEvent(
-    event: WebhookEvent,
-    issuerId: string,
-    payload: any,
-  ) {
+  async triggerEvent(event: WebhookEvent, issuerId: string, payload: any) {
     const subs = await this.subscriptionRepository.find({
       where: { issuerId, isActive: true },
     });

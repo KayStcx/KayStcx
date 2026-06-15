@@ -9,7 +9,7 @@ import { SendVerificationDto } from './dto/send-verification.dto';
 import { SendPasswordResetDto } from './dto/send-password-reset.dto';
 import { SendRevocationNoticeDto } from './dto/send-revocation-notice.dto';
 import { SendEmailDto } from './dto/send-email.dto';
-import { LoggingService } from "../../common/logging/logging.service";
+import { LoggingService } from '../../common/logging/logging.service';
 
 interface EmailConfig {
   service?: string;
@@ -27,7 +27,10 @@ export class EmailService {
   private transporter: nodemailer.Transporter;
   private templates: Map<string, HandlebarsTemplateDelegate> = new Map();
 
-  constructor(private configService: ConfigService, private readonly logger: LoggingService) {
+  constructor(
+    private configService: ConfigService,
+    private readonly logger: LoggingService,
+  ) {
     this.initializeTransporter();
     this.loadTemplates();
   }
@@ -109,8 +112,7 @@ export class EmailService {
 
       const htmlContent = template(dto.data || {});
       const emailFrom =
-        this.configService.get<string>('EMAIL_FROM') ||
-        'noreply@kaystcx.com';
+        this.configService.get<string>('EMAIL_FROM') || 'noreply@kaystcx.com';
 
       const mailOptions = {
         from: emailFrom,

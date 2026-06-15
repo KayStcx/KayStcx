@@ -3,7 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import * as fs from 'fs';
 import * as path from 'path';
 import { promisify } from 'util';
-import { LoggingService } from "../../../common/logging/logging.service";
+import { LoggingService } from '../../../common/logging/logging.service';
 
 const readdir = promisify(fs.readdir);
 const stat = promisify(fs.stat);
@@ -40,6 +40,5 @@ export class CleanupService {
     }
   }
 
-    constructor(private readonly logger: LoggingService) {
-    }
+  constructor(private readonly logger: LoggingService) {}
 }

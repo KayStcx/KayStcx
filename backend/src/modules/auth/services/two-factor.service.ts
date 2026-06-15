@@ -79,7 +79,10 @@ export class TwoFactorService {
       throw new BadRequestException('2FA is not enabled');
     }
 
-    if (!user.twoFactorSecret || !this.verifyToken(token, user.twoFactorSecret)) {
+    if (
+      !user.twoFactorSecret ||
+      !this.verifyToken(token, user.twoFactorSecret)
+    ) {
       throw new UnauthorizedException('Invalid TOTP token');
     }
 
@@ -147,7 +150,10 @@ export class TwoFactorService {
       throw new BadRequestException('2FA is not enabled');
     }
 
-    if (!user.twoFactorSecret || !this.verifyToken(token, user.twoFactorSecret)) {
+    if (
+      !user.twoFactorSecret ||
+      !this.verifyToken(token, user.twoFactorSecret)
+    ) {
       throw new UnauthorizedException('Invalid TOTP token');
     }
 

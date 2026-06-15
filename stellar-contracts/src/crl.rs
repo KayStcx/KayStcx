@@ -82,18 +82,18 @@ impl CRLContract {
 
     pub fn revoke_certificate(
         env: Env,
+        caller: Address,
         certificate_id: String,
         reason: RevocationReason,
         _serial_number: Option<String>,
     ) {
         let issuer = Self::get_issuer(&env);
         // Allow either the configured issuer or an admin to authorize revocations
-        let invoker = env.invoker();
         let mut authorized = false;
-        if invoker == issuer {
+        if caller == issuer {
             authorized = true;
         } else if let Some(admin) = Self::get_admin(&env) {
-            if invoker == admin {
+            if caller == admin {
                 authorized = true;
             }
         }
@@ -102,8 +102,7 @@ impl CRLContract {
             panic!("Only issuer or admin can revoke");
         }
 
-        // Require auth from the invoker
-        invoker.require_auth();
+        caller.require_auth();
 
         // Verify the certificate exists in the CertificateContract (#414)
         let cert_contract: Address = env
@@ -131,7 +130,7 @@ impl CRLContract {
             reason: reason as u32,
             issuer: issuer.clone(),
             revocation_date: env.ledger().timestamp(),
-            revoked_by: invoker.clone(),
+            revoked_by: caller.clone(),
         };
 
         env.storage()
@@ -273,7 +272,7 @@ impl CRLContract {
 
     fn build_merkle_root(env: &Env, revoked_ids: &Vec<String>) -> String {
         fn sha256_bytes(env: &Env, data: &Bytes) -> BytesN<32> {
-            env.crypto().sha256(data)
+            env.crypto().sha256(data).into()
         }
 
         fn pair_hash(env: &Env, left: &BytesN<32>, right: &BytesN<32>) -> BytesN<32> {

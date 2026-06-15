@@ -16,7 +16,7 @@ import { AuditService } from '../../audit/services/audit.service';
 import { AuditAction, AuditResourceType } from '../../audit/constants';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { NotificationType } from '../../notifications/entities/notification.entity';
-import { LoggingService } from "../../../common/logging/logging.service";
+import { LoggingService } from '../../../common/logging/logging.service';
 
 @Injectable()
 export class CertificateTransferService {
@@ -26,7 +26,8 @@ export class CertificateTransferService {
     @InjectRepository(Certificate)
     private readonly certificateRepository: Repository<Certificate>,
     private readonly auditService: AuditService,
-    private readonly notificationsService: NotificationsService, private readonly logger: LoggingService
+    private readonly notificationsService: NotificationsService,
+    private readonly logger: LoggingService,
   ) {}
 
   async initiateTransfer(

@@ -2,6 +2,13 @@ import React from "react";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { vi } from "vitest";
 
+// Mock useAuth
+vi.mock("../../context/AuthContext", () => ({
+  useAuth: () => ({
+    user: { id: "u1" },
+  }),
+}));
+
 // Mock API and QR modal
 vi.mock("../../api", () => {
   return {
@@ -26,28 +33,24 @@ vi.mock("../../api", () => {
 });
 
 vi.mock("../../components/QRCodeModal", () => ({
-  default: ({ isOpen }: any) =>
+  default: ({ isOpen }: { isOpen: boolean }) =>
     isOpen ? <div data-testid="qr-modal">QR</div> : null,
 }));
 
 import CertificateWallet from "../CertificateWallet";
 
 describe("CertificateWallet", () => {
-  beforeEach(() => {
-    // Ensure a user is present in localStorage as the component reads it
-    localStorage.setItem("user", JSON.stringify({ id: "u1" }));
-  });
-
   afterEach(() => {
-    localStorage.clear();
     vi.restoreAllMocks();
   });
 
   it("renders certificates and opens QR modal and copies share link", async () => {
     // mock clipboard
     const writeText = vi.fn();
-    // @ts-ignore
-    navigator.clipboard = { writeText };
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      writable: true,
+    });
 
     render(<CertificateWallet />);
 
@@ -59,7 +62,7 @@ describe("CertificateWallet", () => {
     const qrButton = screen.getByRole("button", { name: /QR/i });
     fireEvent.click(qrButton);
 
-    expect(await screen.findByTestId("qr-modal")).toBeInTheDocument();
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
 
     // Share button copies link
     const shareButton = screen.getByRole("button", { name: /Share|Copied!/i });
@@ -67,22 +70,4 @@ describe("CertificateWallet", () => {
 
     await waitFor(() => expect(writeText).toHaveBeenCalled());
   });
-});
-
-it('clears previous error before retrying', async () => {
-  render(<CertificateWallet />);
-
-  await user.click(claimButton);
-
-  expect(
-    screen.getByText(/failed/i),
-  ).toBeInTheDocument();
-
-  mockedClaim.mockResolvedValueOnce({});
-
-  await user.click(claimButton);
-
-  expect(
-    screen.queryByText(/failed/i),
-  ).not.toBeInTheDocument();
 });

@@ -44,7 +44,9 @@ export class AuthService {
 
   async login(
     loginDto: LoginDto,
-  ): Promise<AuthResponseDto & { requires2FA?: boolean; preAuthToken?: string }> {
+  ): Promise<
+    AuthResponseDto & { requires2FA?: boolean; preAuthToken?: string }
+  > {
     const user = await this.validateUser(loginDto.email, loginDto.password);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -68,8 +70,10 @@ export class AuthService {
     }
 
     const payload = { email: user.email, sub: user.id, role: user.role };
-    const accessToken = await this.jwtManagementService.generateAccessToken(payload);
-    const refreshToken = await this.jwtManagementService.generateRefreshToken(payload);
+    const accessToken =
+      await this.jwtManagementService.generateAccessToken(payload);
+    const refreshToken =
+      await this.jwtManagementService.generateRefreshToken(payload);
 
     // Update the refresh token in the database
     const hashedRefreshToken = await bcrypt.hash(refreshToken, 12);
@@ -117,8 +121,10 @@ export class AuthService {
       sub: user.id,
       role: user.role,
     };
-    const accessToken = await this.jwtManagementService.generateAccessToken(payloadForToken);
-    const refreshToken = await this.jwtManagementService.generateRefreshToken(payloadForToken);
+    const accessToken =
+      await this.jwtManagementService.generateAccessToken(payloadForToken);
+    const refreshToken =
+      await this.jwtManagementService.generateRefreshToken(payloadForToken);
 
     // Update the refresh token in the database
     const hashedRefreshToken = await bcrypt.hash(refreshToken, 12);

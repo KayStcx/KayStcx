@@ -6,8 +6,6 @@
  * - Refresh tokens handled server-side via httpOnly cookies (not accessible to JavaScript)
  */
 
-const ACCESS_TOKEN_KEY = 'kaystcx_access_token';
-
 export const tokenStorage = {
     getAccessToken: (): string | null => localStorage.getItem('accessToken'),
     setAccessToken: (token: string): void => localStorage.setItem('accessToken', token),

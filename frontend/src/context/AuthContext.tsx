@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User } from '../api/types';
 import { tokenStorage } from '../api/tokens';
@@ -73,7 +74,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (user) {
       try {
         localStorage.setItem('user', JSON.stringify(user));
-      } catch {}
+      } catch { /* Ignored */ }
       return;
     }
 

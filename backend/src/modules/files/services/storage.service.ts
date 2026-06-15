@@ -9,7 +9,7 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuidv4 } from 'uuid';
 import { extname } from 'path';
-import { LoggingService } from "../../../common/logging/logging.service";
+import { LoggingService } from '../../../common/logging/logging.service';
 
 @Injectable()
 export class StorageService implements OnModuleInit {
@@ -17,7 +17,10 @@ export class StorageService implements OnModuleInit {
   private readonly bucket: string;
   private readonly isStorageRequired: boolean;
 
-  constructor(private readonly configService: ConfigService, private readonly logger: LoggingService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly logger: LoggingService,
+  ) {
     this.bucket = this.configService.get<string>('STORAGE_BUCKET') ?? '';
     this.isStorageRequired =
       this.configService.get<string>('STORAGE_REQUIRED') !== 'false';

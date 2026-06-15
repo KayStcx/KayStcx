@@ -254,10 +254,7 @@ describe('AuditController', () => {
 
       const result = await controller.getCertificateHistory('cert-123', 50);
 
-      expect(service.getResourceAudits).toHaveBeenCalledWith(
-        'cert-123',
-        50,
-      );
+      expect(service.getResourceAudits).toHaveBeenCalledWith('cert-123', 50);
       expect(result).toEqual([mockAuditLog]);
     });
 
@@ -268,10 +265,7 @@ describe('AuditController', () => {
 
       await controller.getCertificateHistory('cert-123');
 
-      expect(service.getResourceAudits).toHaveBeenCalledWith(
-        'cert-123',
-        50,
-      );
+      expect(service.getResourceAudits).toHaveBeenCalledWith('cert-123', 50);
     });
   });
 });

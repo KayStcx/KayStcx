@@ -87,10 +87,7 @@ export class CertificateService {
       }
     }
 
-    if (
-      dto.metadataSchemaId &&
-      dto.metadata
-    ) {
+    if (dto.metadataSchemaId && dto.metadata) {
       const validationResult = await this.metadataSchemaService.validate(
         dto.metadataSchemaId,
         dto.metadata,
@@ -114,11 +111,9 @@ export class CertificateService {
       const certificate = queryRunner.manager.create(Certificate, {
         ...dto,
         recipientId,
-        expiresAt:
-          dto.expiresAt || this.calculateDefaultExpiry(),
+        expiresAt: dto.expiresAt || this.calculateDefaultExpiry(),
         verificationCode:
-          dto.verificationCode ||
-          this.generateVerificationCode(),
+          dto.verificationCode || this.generateVerificationCode(),
         isDuplicate: false,
       });
 
@@ -148,7 +143,8 @@ export class CertificateService {
       // stellar endpoint.
       if (this.sorobanService.isConfigured()) {
         try {
-          const metadataUri = savedCertificate.verificationCode ?? savedCertificate.id;
+          const metadataUri =
+            savedCertificate.verificationCode ?? savedCertificate.id;
           const issuerAddress = savedCertificate.issuerStellarAddress ?? '';
           const ownerAddress = savedCertificate.recipientStellarAddress ?? '';
 
@@ -177,7 +173,8 @@ export class CertificateService {
 
             // Persist the Stellar transaction hash so callers can verify on-chain
             await this.certificateRepository.update(savedCertificate.id, {
-              stellarTransactionHash: typeof txHash === 'string' ? txHash : undefined,
+              stellarTransactionHash:
+                typeof txHash === 'string' ? txHash : undefined,
             });
 
             if (typeof txHash === 'string') {
@@ -682,15 +679,21 @@ export class CertificateService {
     }
 
     if ((dto as any).status) {
-      queryBuilder.andWhere('certificate.status = :status', { status: (dto as any).status });
+      queryBuilder.andWhere('certificate.status = :status', {
+        status: (dto as any).status,
+      });
     }
 
     if ((dto as any).issuerId) {
-      queryBuilder.andWhere('certificate.issuerId = :issuerId', { issuerId: (dto as any).issuerId });
+      queryBuilder.andWhere('certificate.issuerId = :issuerId', {
+        issuerId: (dto as any).issuerId,
+      });
     }
 
     if ((dto as any).page && (dto as any).limit) {
-      queryBuilder.skip(((dto as any).page - 1) * (dto as any).limit).take((dto as any).limit);
+      queryBuilder
+        .skip(((dto as any).page - 1) * (dto as any).limit)
+        .take((dto as any).limit);
     }
 
     return queryBuilder.orderBy('certificate.issuedAt', 'DESC').getMany();
@@ -714,7 +717,9 @@ export class CertificateService {
       where: { stellarTransactionHash: hash },
     });
     if (!certificate) {
-      throw new NotFoundException('Certificate not found for this Stellar transaction');
+      throw new NotFoundException(
+        'Certificate not found for this Stellar transaction',
+      );
     }
     return certificate;
   }

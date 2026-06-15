@@ -24,7 +24,7 @@ const CertificateManagementPage = lazy(
 const NotificationPreferences = lazy(
   () => import("./pages/NotificationPreferences"),
 );
-const NotFound = lazy(() => import("./pages/NotFound"));
+const NotFound = lazy(() => import("./pages/Notfound"));
 
 // Loading fallback component
 const PageLoader = () => (

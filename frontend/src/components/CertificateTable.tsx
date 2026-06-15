@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
     Search,
     ChevronUp,
@@ -93,7 +93,6 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
 
     // History modal state
     const [showHistoryModal, setShowHistoryModal] = useState(false);
-    const [selectedCertId, setSelectedCertId] = useState<string | null>(null);
     const [certHistory, setCertHistory] = useState<ActivityItem[]>([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
 
@@ -299,7 +298,6 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
 
     // Handle History
     const handleViewHistory = async (certId: string) => {
-        setSelectedCertId(certId);
         setShowHistoryModal(true);
         setLoadingHistory(true);
         try {

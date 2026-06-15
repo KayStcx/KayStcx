@@ -4,7 +4,7 @@ import {
   ConflictException,
   BadRequestException,
   UnauthorizedException,
-  ForbiddenException
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -36,7 +36,7 @@ export class UserAuthService {
     private readonly configService: ConfigService,
     private readonly emailQueueService: EmailQueueService,
     private readonly logger: LoggingService,
-    private readonly auditService: AuditService
+    private readonly auditService: AuditService,
   ) {}
 
   async findByEmailWithPassword(email: string): Promise<User | null> {

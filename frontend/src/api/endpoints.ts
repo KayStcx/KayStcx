@@ -97,7 +97,7 @@ interface RetryConfig {
   baseDelay: number;
   maxDelay: number;
   backoffFactor: number;
-  retryCondition?: (error: any) => boolean;
+  retryCondition?: (error: unknown) => boolean;
 }
 
 const DEFAULT_RETRY_CONFIG: RetryConfig = {
@@ -105,9 +105,10 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
   baseDelay: 300,
   maxDelay: 2000,
   backoffFactor: 2,
-  retryCondition: (error) => {
+  retryCondition: (error: unknown) => {
     // Retry on network errors and 5xx server errors
-    return !error.statusCode || (error.statusCode >= 500 && error.statusCode < 600);
+    const err = error as { statusCode?: number };
+    return !err.statusCode || (err.statusCode >= 500 && err.statusCode < 600);
   }
 };
 
@@ -1327,10 +1328,10 @@ export const auditApi = {
         },
       ];
     }
-    const response = await apiClient<any[]>(`/audit/certificates/${certificateId}/history`);
+    const response = await apiClient<Record<string, unknown>[]>(`/audit/certificates/${certificateId}/history`);
     return response.map((log) => {
       let type: "issue" | "verify" | "revoke" = "issue";
-      const actionLower = (log.action || "").toLowerCase();
+      const actionLower = String(log.action || "").toLowerCase();
       if (actionLower.includes("revoke")) {
         type = "revoke";
       } else if (actionLower.includes("verify") || actionLower.includes("check")) {
@@ -1338,8 +1339,8 @@ export const auditApi = {
       }
       return {
         type,
-        date: new Date(Number(log.timestamp) || log.createdAt).toISOString(),
-        description: log.description || log.errorMessage || `${String(log.action).replace(/_/g, " ")} by ${log.userEmail || "unknown"}`,
+        date: new Date(Number(log.timestamp) || Number(log.createdAt)).toISOString(),
+        description: String(log.description || log.errorMessage || `${String(log.action).replace(/_/g, " ")} by ${log.userEmail || "unknown"}`),
       };
     });
   },

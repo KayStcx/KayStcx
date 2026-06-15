@@ -4,6 +4,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { AddressValidationService } from './address-validation.service';
 import { StellarNetwork } from '../dto/address-validation.dto';
+import { LoggingService } from '../../../common/logging/logging.service';
 
 describe('AddressValidationService', () => {
   let service: AddressValidationService;
@@ -38,6 +39,15 @@ describe('AddressValidationService', () => {
         {
           provide: CACHE_MANAGER,
           useValue: mockCache,
+        },
+        {
+          provide: LoggingService,
+          useValue: {
+            log: jest.fn(),
+            error: jest.fn(),
+            warn: jest.fn(),
+            debug: jest.fn(),
+          },
         },
       ],
     }).compile();

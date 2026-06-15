@@ -178,16 +178,6 @@ const CertificateWallet = () => {
     }
   };
 
-  const handleClaim = async () => {
-  setError(null);
-
-  try {
-    await claimCertificate(id);
-  } catch {
-    setError('Unable to claim certificate');
-  }
-};
-
   // Helper function for PDF download with retry logic
   const handlePdfDownload = async (
     url: string,

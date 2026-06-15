@@ -18,17 +18,17 @@ interface ProtectedRouteProps {
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
   const currentPath: string = window.location.pathname;
 
-  // Allow public access to /verify
-  if (currentPath === "/verify") return <Outlet />;
-
   // Use centralized auth context instead of localStorage
   const { user } = useAuth();
+
+  // Allow public access to /verify
+  if (currentPath === "/verify") return <Outlet />;
 
   // If no user is logged in, redirect to login page
   if (!user) return <Navigate to="/login" replace />;
 
   // Get user role
-  const userRole: UserRole = (user as any).role;
+  const userRole: UserRole = user.role;
 
   // If a caller provided an explicit list of allowed roles, use that check first
   if (allowedRoles) {

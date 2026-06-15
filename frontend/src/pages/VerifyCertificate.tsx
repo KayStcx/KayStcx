@@ -132,8 +132,9 @@ export default function VerifyCertificate(): JSX.Element {
           qrScannerRef.current?.clear();
           qrScannerRef.current = null;
         },
-        (error) => {
-        }
+        () => {
+          /* QR scan errors are expected during continuous scanning */
+        },
       );
     }
 

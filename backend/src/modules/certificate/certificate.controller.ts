@@ -233,7 +233,10 @@ export class CertificateController {
     const certificate = await this.certificateService.findOne(id);
     const buffer = await this.pdfService.generate(certificate);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${certificate.certificateId}.pdf"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${certificate.certificateId}.pdf"`,
+    );
     res.end(buffer);
   }
 

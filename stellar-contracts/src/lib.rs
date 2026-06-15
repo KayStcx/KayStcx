@@ -8,14 +8,14 @@ pub use types::*;
 // pub use metadata::*;
 
 mod multisig;
+#[allow(ambiguous_glob_reexports)]
 pub use multisig::*;
 
 mod crl;
 pub use crl::*;
 
-pub mod persistent;
-
 mod admin_multisig;
+#[allow(ambiguous_glob_reexports)]
 pub use admin_multisig::*;
 
 #[cfg(test)]

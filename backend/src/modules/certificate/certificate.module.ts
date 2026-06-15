@@ -41,10 +41,7 @@ import { EmailModule } from '../email/email.module';
     NotificationsModule,
     EmailModule,
   ],
-  controllers: [
-    CertificateController,
-    DuplicateDetectionController,
-  ],
+  controllers: [CertificateController, DuplicateDetectionController],
   providers: [
     CertificateService,
     CertificateStatsService,
