@@ -1,4 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { Reflector } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { User, UserRole, UserStatus } from './entities/user.entity';
@@ -8,6 +11,8 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UserFilterDto } from './dto/pagination.dto';
 import { UpdateUserRoleDto, UpdateUserStatusDto } from './dto/admin-user.dto';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { StorageService } from '../files/services/storage.service';
 
 describe('UsersController', () => {
   let controller: UsersController;
@@ -57,6 +62,21 @@ describe('UsersController', () => {
     getUserStats: jest.fn(),
   };
 
+  const mockJwtService = {
+    verify: jest.fn(),
+    sign: jest.fn(),
+  };
+
+  const mockConfigService = {
+    get: jest.fn(),
+  };
+
+  const mockStorageService = {
+    uploadFile: jest.fn(),
+    getSignedUrl: jest.fn(),
+    deleteFile: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -67,6 +87,20 @@ describe('UsersController', () => {
           provide: UsersService,
           useValue: mockUsersService,
         },
+        {
+          provide: JwtService,
+          useValue: mockJwtService,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
+        },
+        {
+          provide: StorageService,
+          useValue: mockStorageService,
+        },
+        Reflector,
+        JwtAuthGuard,
       ],
     }).compile();
 
