@@ -671,29 +671,27 @@ export class CertificateService {
       .createQueryBuilder('certificate')
       .leftJoinAndSelect('certificate.issuer', 'issuer');
 
-    if ((dto as any).search) {
+    if (dto.search) {
       queryBuilder.andWhere(
         '(certificate.title ILIKE :search OR certificate.recipientName ILIKE :search OR certificate.recipientEmail ILIKE :search)',
-        { search: `%${(dto as any).search}%` },
+        { search: `%${dto.search}%` },
       );
     }
 
-    if ((dto as any).status) {
+    if (dto.status) {
       queryBuilder.andWhere('certificate.status = :status', {
-        status: (dto as any).status,
+        status: dto.status,
       });
     }
 
-    if ((dto as any).issuerId) {
+    if (dto.issuerId) {
       queryBuilder.andWhere('certificate.issuerId = :issuerId', {
-        issuerId: (dto as any).issuerId,
+        issuerId: dto.issuerId,
       });
     }
 
-    if ((dto as any).page && (dto as any).limit) {
-      queryBuilder
-        .skip(((dto as any).page - 1) * (dto as any).limit)
-        .take((dto as any).limit);
+    if (dto.page && dto.limit) {
+      queryBuilder.skip((dto.page - 1) * dto.limit).take(dto.limit);
     }
 
     return queryBuilder.orderBy('certificate.issuedAt', 'DESC').getMany();

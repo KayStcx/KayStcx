@@ -47,6 +47,14 @@ export class SearchCertificatesDto {
   title?: string;
 
   @ApiPropertyOptional({
+    description:
+      'Full-text search across title, recipientName, and recipientEmail (partial match)',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({
     description: 'Filter certificates issued on or after this date (ISO 8601)',
   })
   @IsOptional()
