@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use super::crl::*;
-use crate::{CertificateContract, CertificateContractClient};
+use crate::{CertificateContract, CertificateContractClient, ContractError};
 use soroban_sdk::{testutils::Address as _, Address, Env, String};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -415,4 +415,12 @@ fn test_set_admin_allows_revocation() {
         &None,
     );
     assert!(client.is_revoked(&cert_id));
+}
+
+#[test]
+fn test_get_crl_info_returns_error_when_not_initialized() {
+    let (env, _cert_contract, _issuer) = setup_env();
+    let (_, client) = make_client(&env);
+
+    assert_eq!(client.try_get_crl_info(), Err(Ok(ContractError::NotFound)));
 }

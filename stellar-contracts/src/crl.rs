@@ -1,5 +1,7 @@
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Bytes, BytesN, Env, IntoVal, String, Vec};
 
+use crate::ContractError;
+
 const DEFAULT_UPDATE_WINDOW_SECONDS: u64 = 7 * 24 * 60 * 60;
 
 #[contracttype]
@@ -86,8 +88,8 @@ impl CRLContract {
         certificate_id: String,
         reason: RevocationReason,
         _serial_number: Option<String>,
-    ) {
-        let issuer = Self::get_issuer(&env);
+    ) -> Result<(), ContractError> {
+        let issuer = Self::get_issuer(&env)?;
         // Allow either the configured issuer or an admin to authorize revocations
         let mut authorized = false;
         if caller == issuer {
@@ -109,7 +111,7 @@ impl CRLContract {
             .storage()
             .persistent()
             .get(&DataKey::CertContract)
-            .expect("CRL not initialized");
+            .ok_or(ContractError::NotInitialized)?;
         let cert_exists: bool = env.invoke_contract(
             &cert_contract,
             &soroban_sdk::Symbol::new(&env, "certificate_exists"),
@@ -124,7 +126,7 @@ impl CRLContract {
             panic!("Certificate already revoked");
         }
 
-        let mut crl_info = Self::get_crl_info_internal(&env);
+        let mut crl_info = Self::get_crl_info_internal(&env)?;
         let revocation_info = RevocationInfo {
             certificate_id: certificate_id.clone(),
             reason: reason as u32,
@@ -146,6 +148,8 @@ impl CRLContract {
         crl_info.revoked_count += 1;
         Self::refresh_crl_info(&env, &mut crl_info, &revoked_certificates);
         env.storage().persistent().set(&DataKey::Info, &crl_info);
+
+        Ok(())
     }
 
     pub fn is_revoked(env: Env, certificate_id: String) -> bool {
@@ -160,11 +164,11 @@ impl CRLContract {
             .get(&DataKey::Revocation(certificate_id))
     }
 
-    pub fn get_revoked_count(env: Env) -> u32 {
-        Self::get_crl_info_internal(&env).revoked_count
+    pub fn get_revoked_count(env: Env) -> Result<u32, ContractError> {
+        Ok(Self::get_crl_info_internal(&env)?.revoked_count)
     }
 
-    pub fn get_crl_info(env: Env) -> CRLInfo {
+    pub fn get_crl_info(env: Env) -> Result<CRLInfo, ContractError> {
         Self::get_crl_info_internal(&env)
     }
 
@@ -200,25 +204,29 @@ impl CRLContract {
         page_of_revocations
     }
 
-    pub fn verify_certificate(env: Env, certificate_id: String) -> (bool, u64) {
-        let crl_info = Self::get_crl_info_internal(&env);
+    pub fn verify_certificate(env: Env, certificate_id: String) -> Result<(bool, u64), ContractError> {
+        let crl_info = Self::get_crl_info_internal(&env)?;
         let is_revoked = env
             .storage()
             .persistent()
             .has(&DataKey::Revocation(certificate_id));
 
-        (is_revoked, crl_info.crl_number)
+        Ok((is_revoked, crl_info.crl_number))
     }
 
-    pub fn get_merkle_root(env: Env) -> String {
-        Self::get_crl_info_internal(&env).merkle_root
+    pub fn get_merkle_root(env: Env) -> Result<String, ContractError> {
+        Ok(Self::get_crl_info_internal(&env)?.merkle_root)
     }
 
-    pub fn update_crl_metadata(env: Env, next_update: Option<u64>, _issuer: Option<Address>) {
-        let issuer = Self::get_issuer(&env);
+    pub fn update_crl_metadata(
+        env: Env,
+        next_update: Option<u64>,
+        _issuer: Option<Address>,
+    ) -> Result<(), ContractError> {
+        let issuer = Self::get_issuer(&env)?;
         issuer.require_auth();
 
-        let mut crl_info = Self::get_crl_info_internal(&env);
+        let mut crl_info = Self::get_crl_info_internal(&env)?;
         if let Some(new_next_update) = next_update {
             crl_info.next_update = new_next_update;
         }
@@ -226,31 +234,35 @@ impl CRLContract {
         let revoked_ids = Self::get_revoked_certificate_ids(&env);
         Self::refresh_crl_info(&env, &mut crl_info, &revoked_ids);
         env.storage().persistent().set(&DataKey::Info, &crl_info);
+
+        Ok(())
     }
 
     /// Set an admin address that can authorize revocations/unrevocations
-    pub fn set_admin(env: Env, admin: Address) {
-        let issuer = Self::get_issuer(&env);
+    pub fn set_admin(env: Env, admin: Address) -> Result<(), ContractError> {
+        let issuer = Self::get_issuer(&env)?;
         issuer.require_auth();
         env.storage().instance().set(&DataKey::Admin, &admin);
+
+        Ok(())
     }
 
-    pub fn needs_update(env: Env) -> bool {
-        env.ledger().timestamp() >= Self::get_crl_info_internal(&env).next_update
+    pub fn needs_update(env: Env) -> Result<bool, ContractError> {
+        Ok(env.ledger().timestamp() >= Self::get_crl_info_internal(&env)?.next_update)
     }
 
-    fn get_issuer(env: &Env) -> Address {
+    fn get_issuer(env: &Env) -> Result<Address, ContractError> {
         env.storage()
             .persistent()
             .get(&DataKey::Issuer)
-            .expect("CRL not initialized")
+            .ok_or(ContractError::NotInitialized)
     }
 
-    fn get_crl_info_internal(env: &Env) -> CRLInfo {
+    fn get_crl_info_internal(env: &Env) -> Result<CRLInfo, ContractError> {
         env.storage()
             .persistent()
             .get(&DataKey::Info)
-            .expect("CRL info not found")
+            .ok_or(ContractError::NotFound)
     }
 
     fn get_admin(env: &Env) -> Option<Address> {

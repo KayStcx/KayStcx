@@ -1,6 +1,9 @@
 #![cfg(test)]
 use super::multisig::*;
-use crate::{CertificateContract, CertificateContractClient, OptionalRequestStatus, Pagination, RequestStatus};
+use crate::{
+    CertificateContract, CertificateContractClient, ContractError, OptionalRequestStatus,
+    Pagination, RequestStatus,
+};
 use soroban_sdk::{testutils::Address as _, vec, Address, Env, String};
 
 #[test]
@@ -477,4 +480,30 @@ fn test_get_pending_requests_for_signer_returns_only_pending_requests() {
         .data
         .iter()
         .all(|request| request.status == RequestStatus::Pending));
+}
+
+#[test]
+fn test_get_pending_request_returns_not_found_error() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, MultisigCertificateContract);
+    let client = MultisigCertificateContractClient::new(&env, &contract_id);
+
+    let request_id = String::from_str(&env, "missing-request");
+    assert_eq!(
+        client.try_get_pending_request(&request_id),
+        Err(Ok(ContractError::NotFound))
+    );
+}
+
+#[test]
+fn test_get_multisig_config_returns_not_found_error() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, MultisigCertificateContract);
+    let client = MultisigCertificateContractClient::new(&env, &contract_id);
+
+    let issuer = Address::generate(&env);
+    assert_eq!(
+        client.try_get_multisig_config(&issuer),
+        Err(Ok(ContractError::NotFound))
+    );
 }
