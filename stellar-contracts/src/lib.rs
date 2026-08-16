@@ -4,9 +4,6 @@ use soroban_sdk::{contract, contractimpl, symbol_short, Address, BytesN, Env, St
 mod types;
 pub use types::*;
 
-// mod metadata;
-// pub use metadata::*;
-
 mod multisig;
 #[allow(ambiguous_glob_reexports)]
 pub use multisig::*;

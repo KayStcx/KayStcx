@@ -6,6 +6,7 @@ import { RolesGuard } from '../../users/guards/roles.guard';
 import { Roles } from '../../users/decorators/roles.decorator';
 import { UserRole } from '../../users/entities/user.entity';
 import { LoggingService } from '../../../common/logging/logging.service';
+import { SorobanException } from '../exceptions/soroban.exception';
 
 @ApiTags('Soroban')
 @Controller('soroban')
@@ -16,6 +17,24 @@ export class SorobanController {
     private readonly sorobanService: SorobanService,
     private readonly logger: LoggingService,
   ) {}
+
+  /**
+   * Extract a human-readable message from either a typed Soroban exception or
+   * any other thrown value.
+   */
+  private extractErrorMessage(error: unknown): string {
+    if (error instanceof SorobanException) {
+      const response = error.getResponse();
+      if (
+        typeof response === 'object' &&
+        response !== null &&
+        'message' in response
+      ) {
+        return String((response as { message: unknown }).message);
+      }
+    }
+    return error instanceof Error ? error.message : String(error);
+  }
 
   @Post('initialize-contract')
   @ApiOperation({ summary: 'Initialize the certificate contract' })
@@ -42,10 +61,11 @@ export class SorobanController {
         };
       }
     } catch (error) {
-      this.logger.error(`Contract initialization error: ${error.message}`);
+      const message = this.extractErrorMessage(error);
+      this.logger.error(`Contract initialization error: ${message}`);
       return {
         success: false,
-        message: `Contract initialization failed: ${error.message}`,
+        message: `Contract initialization failed: ${message}`,
       };
     }
   }
@@ -69,10 +89,11 @@ export class SorobanController {
         };
       }
     } catch (error) {
-      this.logger.error(`Add issuer error: ${error.message}`);
+      const message = this.extractErrorMessage(error);
+      this.logger.error(`Add issuer error: ${message}`);
       return {
         success: false,
-        message: `Add issuer failed: ${error.message}`,
+        message: `Add issuer failed: ${message}`,
       };
     }
   }
@@ -112,10 +133,11 @@ export class SorobanController {
         };
       }
     } catch (error) {
-      this.logger.error(`Multisig initialization error: ${error.message}`);
+      const message = this.extractErrorMessage(error);
+      this.logger.error(`Multisig initialization error: ${message}`);
       return {
         success: false,
-        message: `Multisig initialization failed: ${error.message}`,
+        message: `Multisig initialization failed: ${message}`,
       };
     }
   }
@@ -139,10 +161,11 @@ export class SorobanController {
         };
       }
     } catch (error) {
-      this.logger.error(`Get certificate error: ${error.message}`);
+      const message = this.extractErrorMessage(error);
+      this.logger.error(`Get certificate error: ${message}`);
       return {
         success: false,
-        message: `Get certificate failed: ${error.message}`,
+        message: `Get certificate failed: ${message}`,
       };
     }
   }

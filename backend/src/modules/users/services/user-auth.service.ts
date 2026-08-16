@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
   ForbiddenException,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
@@ -22,6 +22,7 @@ import { IAuthTokens, IUserPublic } from '../interfaces/user.interface';
 import { EmailQueueService } from '../../email/email-queue.service';
 import { LoggingService } from '../../../common/logging/logging.service';
 import { AuditService } from '../../audit/services/audit.service';
+import { durationToMs, durationToSeconds } from '../../../common/utils/duration.utils';
 
 @Injectable()
 export class UserAuthService {
@@ -288,17 +289,27 @@ export class UserAuthService {
       role: user.role,
     };
 
+    // Token lifetimes are configurable so operators can adjust them without
+    // a code change. Sensible defaults match the previous hardcoded values.
+    const accessExpiry = this.configService.get<string>(
+      'JWT_ACCESS_EXPIRES_IN',
+      this.configService.get<string>('JWT_EXPIRES_IN', '1h'),
+    );
+    const refreshExpiry = this.configService.get<string>(
+      'JWT_REFRESH_EXPIRES_IN',
+      '7d',
+    );
+
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: this.configService.get('JWT_EXPIRES_IN', '1h'),
+      expiresIn: accessExpiry as JwtSignOptions['expiresIn'],
     });
 
     const refreshToken = this.jwtService.sign(payload, {
-      expiresIn: '7d',
+      expiresIn: refreshExpiry as JwtSignOptions['expiresIn'],
     });
 
     // Store refresh token
-    const refreshTokenExpires = new Date();
-    refreshTokenExpires.setDate(refreshTokenExpires.getDate() + 7);
+    const refreshTokenExpires = new Date(Date.now() + durationToMs(refreshExpiry));
 
     const hashedRefreshToken = await bcrypt.hash(
       refreshToken,
@@ -313,7 +324,7 @@ export class UserAuthService {
     return {
       accessToken,
       refreshToken,
-      expiresIn: 3600, // 1 hour in seconds
+      expiresIn: durationToSeconds(accessExpiry),
     };
   }
 

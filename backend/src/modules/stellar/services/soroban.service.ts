@@ -6,12 +6,18 @@ import {
   Networks,
   Keypair,
   Address,
-  xdr,
+  rpc,
   nativeToScVal,
   scValToNative,
-  StrKey,
 } from '@stellar/stellar-sdk';
 import { LoggingService } from '../../../common/logging/logging.service';
+import {
+  SorobanConfigurationException,
+  SorobanNetworkException,
+  SorobanNotFoundException,
+  SorobanTransactionException,
+  SorobanException,
+} from '../exceptions/soroban.exception';
 
 export interface ContractDeploymentResult {
   contractId: string;
@@ -44,12 +50,12 @@ export interface MultisigRequest {
 
 @Injectable()
 export class SorobanService implements OnModuleInit {
-  private server: any;
-  private networkPassphrase: string;
-  private adminKeypair: Keypair;
-  private certificateContractId: string;
-  private multisigContractId: string;
-  private crlContractId: string;
+  private server!: rpc.Server;
+  private networkPassphrase!: string;
+  private adminKeypair!: Keypair;
+  private certificateContractId = '';
+  private multisigContractId = '';
+  private crlContractId = '';
 
   constructor(
     private readonly configService: ConfigService,
@@ -78,7 +84,7 @@ export class SorobanService implements OnModuleInit {
       return;
     }
 
-    this.server = new (require('@stellar/stellar-sdk').rpc.Server)(rpcUrl, {
+    this.server = new rpc.Server(rpcUrl, {
       allowHttp: rpcUrl.includes('localhost'),
     });
     this.networkPassphrase =
@@ -94,14 +100,54 @@ export class SorobanService implements OnModuleInit {
   }
 
   /**
+   * Throw a typed configuration error if the service has not been initialized
+   * with a reachable RPC server and a valid admin keypair.
+   */
+  private assertConfigured(): void {
+    if (!this.server) {
+      throw new SorobanConfigurationException(
+        'Soroban is not configured. Set SOROBAN_RPC_URL, STELLAR_NETWORK and SOROBAN_ADMIN_SECRET.',
+      );
+    }
+    if (!this.adminKeypair) {
+      throw new SorobanConfigurationException(
+        'Soroban admin keypair is not configured.',
+      );
+    }
+  }
+
+  private requireContractId(contractId: string, name: string): string {
+    if (!contractId) {
+      throw new SorobanConfigurationException(
+        `${name} contract ID not configured.`,
+      );
+    }
+    return contractId;
+  }
+
+  /**
+   * Convert an unknown thrown value into a typed Soroban exception and rethrow.
+   * Callers can then distinguish between configuration problems, network
+   * failures, and on-chain transaction failures.
+   */
+  private logAndThrow(operation: string, error: unknown): never {
+    if (error instanceof SorobanException) {
+      throw error;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    this.logger.error(`${operation} failed: ${message}`);
+    if (/network|econn|etimedout|timeout|fetch|socket/i.test(message)) {
+      throw new SorobanNetworkException(`${operation} failed: ${message}`);
+    }
+    throw new SorobanTransactionException(`${operation} failed: ${message}`);
+  }
+
+  /**
    * Deploy a new contract instance
    */
   async deployContract(wasmHash: string): Promise<ContractDeploymentResult> {
+    this.assertConfigured();
     try {
-      if (!this.adminKeypair) {
-        throw new Error('Admin keypair not configured.');
-      }
-
       const sourceAccount = await this.server.getAccount(
         this.adminKeypair.publicKey(),
       );
@@ -125,14 +171,18 @@ export class SorobanService implements OnModuleInit {
       const result = await this.server.sendTransaction(transaction);
 
       if (result.status !== 'PENDING') {
-        throw new Error(`Transaction failed: ${result.status}`);
+        throw new SorobanTransactionException(
+          `Transaction failed: ${result.status}`,
+        );
       }
 
       // Poll until the ledger confirms the transaction
       const txResponse = await this.pollTransaction(result.hash);
 
       if (txResponse.status !== 'SUCCESS') {
-        throw new Error(`Transaction failed: ${txResponse.status}`);
+        throw new SorobanTransactionException(
+          `Transaction failed: ${txResponse.status}`,
+        );
       }
 
       const contractId =
@@ -143,14 +193,8 @@ export class SorobanService implements OnModuleInit {
         transactionHash: result.hash,
         successful: true,
       };
-    } catch (error: any) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Contract deployment failed: ${message}`);
-      return {
-        contractId: '',
-        transactionHash: '',
-        successful: false,
-      };
+    } catch (error) {
+      this.logAndThrow('Contract deployment', error);
     }
   }
 
@@ -158,10 +202,9 @@ export class SorobanService implements OnModuleInit {
    * Initialize the certificate contract
    */
   async initializeCertificateContract(adminAddress: string): Promise<boolean> {
+    this.assertConfigured();
     try {
-      if (!this.certificateContractId) {
-        throw new Error('Certificate contract ID not configured.');
-      }
+      this.requireContractId(this.certificateContractId, 'Certificate');
 
       const contract = new Contract(this.certificateContractId);
       const admin = Address.fromString(adminAddress);
@@ -183,19 +226,22 @@ export class SorobanService implements OnModuleInit {
       const result = await this.server.sendTransaction(transaction);
 
       if (result.status !== 'PENDING') {
-        throw new Error(`Transaction failed: ${result.status}`);
+        throw new SorobanTransactionException(
+          `Transaction failed: ${result.status}`,
+        );
       }
 
-      // Poll until the ledger confirms the transaction
       const txResponse = await this.pollTransaction(result.hash);
 
-      return txResponse.status === 'SUCCESS';
-    } catch (error: any) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        `Certificate contract initialization failed: ${message}`,
-      );
-      return false;
+      if (txResponse.status !== 'SUCCESS') {
+        throw new SorobanTransactionException(
+          `Transaction failed: ${txResponse.status}`,
+        );
+      }
+
+      return true;
+    } catch (error) {
+      this.logAndThrow('Certificate contract initialization', error);
     }
   }
 
@@ -203,10 +249,9 @@ export class SorobanService implements OnModuleInit {
    * Add an authorized issuer to the certificate contract
    */
   async addIssuer(issuerAddress: string): Promise<boolean> {
+    this.assertConfigured();
     try {
-      if (!this.certificateContractId) {
-        throw new Error('Certificate contract ID not configured.');
-      }
+      this.requireContractId(this.certificateContractId, 'Certificate');
 
       const contract = new Contract(this.certificateContractId);
       const issuer = Address.fromString(issuerAddress);
@@ -228,22 +273,28 @@ export class SorobanService implements OnModuleInit {
       const result = await this.server.sendTransaction(transaction);
 
       if (result.status !== 'PENDING') {
-        throw new Error(`Transaction failed: ${result.status}`);
+        throw new SorobanTransactionException(
+          `Transaction failed: ${result.status}`,
+        );
       }
 
-      // Poll until the ledger confirms the transaction
       const txResponse = await this.pollTransaction(result.hash);
 
-      return txResponse.status === 'SUCCESS';
-    } catch (error: any) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Add issuer failed: ${message}`);
-      return false;
+      if (txResponse.status !== 'SUCCESS') {
+        throw new SorobanTransactionException(
+          `Transaction failed: ${txResponse.status}`,
+        );
+      }
+
+      return true;
+    } catch (error) {
+      this.logAndThrow('Add issuer', error);
     }
   }
 
   /**
-   * Issue a certificate on-chain
+   * Issue a certificate on-chain. Returns the Stellar transaction hash on
+   * success; throws a typed Soroban exception on failure.
    */
   async issueCertificate(
     id: string,
@@ -251,11 +302,10 @@ export class SorobanService implements OnModuleInit {
     ownerAddress: string,
     metadataUri: string,
     expiresAt?: number,
-  ): Promise<boolean> {
+  ): Promise<string> {
+    this.assertConfigured();
     try {
-      if (!this.certificateContractId) {
-        throw new Error('Certificate contract ID not configured.');
-      }
+      this.requireContractId(this.certificateContractId, 'Certificate');
 
       const contract = new Contract(this.certificateContractId);
       const issuer = Address.fromString(issuerAddress);
@@ -288,17 +338,22 @@ export class SorobanService implements OnModuleInit {
       const result = await this.server.sendTransaction(transaction);
 
       if (result.status !== 'PENDING') {
-        throw new Error(`Transaction failed: ${result.status}`);
+        throw new SorobanTransactionException(
+          `Transaction failed: ${result.status}`,
+        );
       }
 
-      // Poll until the ledger confirms the transaction
       const txResponse = await this.pollTransaction(result.hash);
 
-      return txResponse.status === 'SUCCESS';
-    } catch (error: any) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Certificate issuance failed: ${message}`);
-      return false;
+      if (txResponse.status !== 'SUCCESS') {
+        throw new SorobanTransactionException(
+          `Transaction failed: ${txResponse.status}`,
+        );
+      }
+
+      return result.hash;
+    } catch (error) {
+      this.logAndThrow('Certificate issuance', error);
     }
   }
 
@@ -310,10 +365,9 @@ export class SorobanService implements OnModuleInit {
     issuerAddress: string,
     reason: string,
   ): Promise<boolean> {
+    this.assertConfigured();
     try {
-      if (!this.certificateContractId) {
-        throw new Error('Certificate contract ID not configured.');
-      }
+      this.requireContractId(this.certificateContractId, 'Certificate');
 
       const contract = new Contract(this.certificateContractId);
 
@@ -337,28 +391,32 @@ export class SorobanService implements OnModuleInit {
       const result = await this.server.sendTransaction(transaction);
 
       if (result.status !== 'PENDING') {
-        throw new Error(`Transaction failed: ${result.status}`);
+        throw new SorobanTransactionException(
+          `Transaction failed: ${result.status}`,
+        );
       }
 
-      // Poll until the ledger confirms the transaction
       const txResponse = await this.pollTransaction(result.hash);
 
-      return txResponse.status === 'SUCCESS';
-    } catch (error: any) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Certificate revocation failed: ${message}`);
-      return false;
+      if (txResponse.status !== 'SUCCESS') {
+        throw new SorobanTransactionException(
+          `Transaction failed: ${txResponse.status}`,
+        );
+      }
+
+      return true;
+    } catch (error) {
+      this.logAndThrow('Certificate revocation', error);
     }
   }
 
   /**
    * Get certificate data from the contract
    */
-  async getCertificate(id: string): Promise<CertificateContractData | null> {
+  async getCertificate(id: string): Promise<CertificateContractData> {
+    this.assertConfigured();
     try {
-      if (!this.certificateContractId) {
-        throw new Error('Certificate contract ID not configured.');
-      }
+      this.requireContractId(this.certificateContractId, 'Certificate');
 
       const contract = new Contract(this.certificateContractId);
 
@@ -379,14 +437,17 @@ export class SorobanService implements OnModuleInit {
       const result = await this.server.sendTransaction(transaction);
 
       if (result.status !== 'PENDING') {
-        throw new Error(`Transaction failed: ${result.status}`);
+        throw new SorobanTransactionException(
+          `Transaction failed: ${result.status}`,
+        );
       }
 
-      // Poll until the ledger confirms the transaction
       const txResponse = await this.pollTransaction(result.hash);
 
       if (txResponse.status !== 'SUCCESS' || !txResponse.returnValue) {
-        return null;
+        throw new SorobanNotFoundException(
+          `Certificate ${id} not found on-chain`,
+        );
       }
 
       const certificateData = scValToNative(txResponse.returnValue);
@@ -400,10 +461,8 @@ export class SorobanService implements OnModuleInit {
         issuedAt: certificateData.issued_at,
         expiresAt: certificateData.expires_at,
       };
-    } catch (error: any) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Get certificate failed: ${message}`);
-      return null;
+    } catch (error) {
+      this.logAndThrow('Get certificate', error);
     }
   }
 
@@ -416,10 +475,9 @@ export class SorobanService implements OnModuleInit {
     signers: string[],
     maxSigners: number,
   ): Promise<boolean> {
+    this.assertConfigured();
     try {
-      if (!this.multisigContractId) {
-        throw new Error('Multisig contract ID not configured.');
-      }
+      this.requireContractId(this.multisigContractId, 'Multisig');
 
       const contract = new Contract(this.multisigContractId);
       const issuer = Address.fromString(issuerAddress);
@@ -451,17 +509,22 @@ export class SorobanService implements OnModuleInit {
       const result = await this.server.sendTransaction(transaction);
 
       if (result.status !== 'PENDING') {
-        throw new Error(`Transaction failed: ${result.status}`);
+        throw new SorobanTransactionException(
+          `Transaction failed: ${result.status}`,
+        );
       }
 
-      // Poll until the ledger confirms the transaction
       const txResponse = await this.pollTransaction(result.hash);
 
-      return txResponse.status === 'SUCCESS';
-    } catch (error: any) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Multisig config initialization failed: ${message}`);
-      return false;
+      if (txResponse.status !== 'SUCCESS') {
+        throw new SorobanTransactionException(
+          `Transaction failed: ${txResponse.status}`,
+        );
+      }
+
+      return true;
+    } catch (error) {
+      this.logAndThrow('Multisig config initialization', error);
     }
   }
 
@@ -477,19 +540,6 @@ export class SorobanService implements OnModuleInit {
   /**
    * Poll getTransaction until the transaction leaves the NOT_FOUND / PENDING
    * state, or until the retry limit is exhausted.
-   *
-   * Soroban transactions are processed asynchronously: a PENDING status from
-   * sendTransaction only means the node accepted the submission — the ledger
-   * may not have closed yet.  Calling getTransaction immediately after
-   * sendTransaction therefore returns NOT_FOUND or PENDING for valid
-   * transactions, making a single-shot check unreliable.
-   *
-   * @param hash       Transaction hash returned by sendTransaction.
-   * @param maxRetries Maximum number of polling attempts (default 10).
-   * @param delayMs    Milliseconds to wait between attempts (default 1 000).
-   * @returns          The final transaction response once it settles.
-   * @throws           If the transaction does not settle within the retry
-   *                   window or if the node returns an unexpected status.
    */
   private async pollTransaction(
     hash: string,
@@ -498,20 +548,17 @@ export class SorobanService implements OnModuleInit {
   ): Promise<any> {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       const txResponse = await this.server.getTransaction(hash);
+      // Normalize to a plain string so the discriminated union does not
+      // narrow `txResponse` to `never` inside the branch below.
+      const status: string = txResponse.status;
 
-      // SUCCESS or FAILED are terminal states — stop polling.
-      if (txResponse.status === 'SUCCESS' || txResponse.status === 'FAILED') {
+      if (status === 'SUCCESS' || status === 'FAILED') {
         return txResponse;
       }
 
-      // NOT_FOUND means the ledger hasn't closed yet; PENDING is the same.
-      // Any other unexpected status should surface as an error immediately.
-      if (
-        txResponse.status !== 'NOT_FOUND' &&
-        txResponse.status !== 'PENDING'
-      ) {
-        throw new Error(
-          `Unexpected transaction status on attempt ${attempt}: ${txResponse.status}`,
+      if (status !== 'NOT_FOUND' && status !== 'PENDING') {
+        throw new SorobanTransactionException(
+          `Unexpected transaction status on attempt ${attempt}: ${status}`,
         );
       }
 
@@ -520,7 +567,7 @@ export class SorobanService implements OnModuleInit {
       }
     }
 
-    throw new Error(
+    throw new SorobanNetworkException(
       `Transaction ${hash} did not settle after ${maxRetries} polling attempts`,
     );
   }

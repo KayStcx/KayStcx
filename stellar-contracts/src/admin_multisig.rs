@@ -3,6 +3,8 @@ use soroban_sdk::{
     Vec,
 };
 
+use crate::ContractError;
+
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AdminAction {
@@ -76,15 +78,15 @@ impl AdminMultisigContract {
         threshold: u32,
         signers: Vec<Address>,
         proposal_window: u32,
-    ) {
-        Self::validate_config(&signers, threshold, proposal_window);
+    ) -> Result<(), ContractError> {
+        Self::validate_config(&signers, threshold, proposal_window)?;
 
         if env
             .storage()
             .instance()
             .has(&AdminMultisigDataKey::AdminConfig)
         {
-            panic!("Admin multisig already initialized");
+            return Err(ContractError::AlreadyExists);
         }
 
         env.storage().instance().set(
@@ -95,13 +97,15 @@ impl AdminMultisigContract {
                 proposal_window,
             },
         );
+
+        Ok(())
     }
 
-    pub fn get_config(env: Env) -> AdminMultisigConfig {
+    pub fn get_config(env: Env) -> Result<AdminMultisigConfig, ContractError> {
         env.storage()
             .instance()
             .get(&AdminMultisigDataKey::AdminConfig)
-            .expect("Admin multisig not initialized")
+            .ok_or(ContractError::NotInitialized)
     }
 
     pub fn propose_action(
@@ -109,15 +113,15 @@ impl AdminMultisigContract {
         proposal_id: String,
         proposer: Address,
         action: AdminAction,
-    ) -> AdminProposal {
+    ) -> Result<AdminProposal, ContractError> {
         proposer.require_auth();
 
-        let config = Self::get_config(env.clone());
-        Self::require_signer(&config.signers, &proposer);
+        let config = Self::get_config(env.clone())?;
+        Self::require_signer(&config.signers, &proposer)?;
 
         let proposal_key = AdminMultisigDataKey::AdminProposal(proposal_id.clone());
         if env.storage().instance().has(&proposal_key) {
-            panic!("Proposal already exists");
+            return Err(ContractError::AlreadyExists);
         }
 
         let created_ledger = env.ledger().sequence();
@@ -143,39 +147,43 @@ impl AdminMultisigContract {
             },
         );
 
-        proposal
+        Ok(proposal)
     }
 
-    pub fn approve_action(env: Env, proposal_id: String, approver: Address) -> AdminProposalStatus {
+    pub fn approve_action(
+        env: Env,
+        proposal_id: String,
+        approver: Address,
+    ) -> Result<AdminProposalStatus, ContractError> {
         approver.require_auth();
 
-        let config = Self::get_config(env.clone());
-        Self::require_signer(&config.signers, &approver);
+        let config = Self::get_config(env.clone())?;
+        Self::require_signer(&config.signers, &approver)?;
 
         let proposal_key = AdminMultisigDataKey::AdminProposal(proposal_id.clone());
         let mut proposal: AdminProposal = env
             .storage()
             .instance()
             .get(&proposal_key)
-            .expect("Proposal not found");
+            .ok_or(ContractError::NotFound)?;
 
         if proposal.status != AdminProposalStatus::Pending {
-            panic!("Proposal is not pending");
+            return Err(ContractError::InvalidState);
         }
 
         let current_ledger = env.ledger().sequence();
         if current_ledger > proposal.expires_at_ledger {
             proposal.status = AdminProposalStatus::Expired;
             env.storage().instance().set(&proposal_key, &proposal);
-            return AdminProposalStatus::Expired;
+            return Ok(AdminProposalStatus::Expired);
         }
 
         if proposal.proposer == approver {
-            panic!("Proposer cannot approve their own action");
+            return Err(ContractError::Unauthorized);
         }
 
         if proposal.approvals.contains(&approver) {
-            panic!("Already approved by this signer");
+            return Err(ContractError::AlreadyExists);
         }
 
         proposal.approvals.push_back(approver.clone());
@@ -200,13 +208,17 @@ impl AdminMultisigContract {
         env.storage().instance().set(&proposal_key, &proposal);
 
         if status == AdminProposalStatus::Approved {
-            status = Self::execute_action(env, proposal_id);
+            status = Self::execute_action(env, proposal_id)?;
         }
 
-        status
+        Ok(status)
     }
 
-    pub fn cancel_proposal(env: Env, proposal_id: String, proposer: Address) {
+    pub fn cancel_proposal(
+        env: Env,
+        proposal_id: String,
+        proposer: Address,
+    ) -> Result<(), ContractError> {
         proposer.require_auth();
 
         let proposal_key = AdminMultisigDataKey::AdminProposal(proposal_id.clone());
@@ -214,14 +226,14 @@ impl AdminMultisigContract {
             .storage()
             .instance()
             .get(&proposal_key)
-            .expect("Proposal not found");
+            .ok_or(ContractError::NotFound)?;
 
         if proposal.proposer != proposer {
-            panic!("Only proposer can cancel");
+            return Err(ContractError::Unauthorized);
         }
 
         if proposal.status != AdminProposalStatus::Pending {
-            panic!("Proposal is not pending");
+            return Err(ContractError::InvalidState);
         }
 
         proposal.status = AdminProposalStatus::Rejected;
@@ -234,13 +246,15 @@ impl AdminMultisigContract {
                 proposer,
             },
         );
+
+        Ok(())
     }
 
-    pub fn get_proposal(env: Env, proposal_id: String) -> AdminProposal {
+    pub fn get_proposal(env: Env, proposal_id: String) -> Result<AdminProposal, ContractError> {
         env.storage()
             .instance()
             .get(&AdminMultisigDataKey::AdminProposal(proposal_id))
-            .expect("Proposal not found")
+            .ok_or(ContractError::NotFound)
     }
 
     pub fn is_issuer_removed(env: Env, issuer: Address) -> bool {
@@ -255,7 +269,7 @@ impl AdminMultisigContract {
         proposal_id: String,
         proposer: Address,
         action: AdminAction,
-    ) -> AdminProposal {
+    ) -> Result<AdminProposal, ContractError> {
         Self::propose_action(env, proposal_id, proposer, action)
     }
 
@@ -263,38 +277,44 @@ impl AdminMultisigContract {
         env: Env,
         proposal_id: String,
         approver: Address,
-    ) -> AdminProposalStatus {
+    ) -> Result<AdminProposalStatus, ContractError> {
         Self::approve_action(env, proposal_id, approver)
     }
 
-    pub fn set_certificate_contract(env: Env, signer: Address, certificate_contract: Address) {
+    pub fn set_certificate_contract(
+        env: Env,
+        signer: Address,
+        certificate_contract: Address,
+    ) -> Result<(), ContractError> {
         signer.require_auth();
 
-        let config = Self::get_config(env.clone());
-        Self::require_signer(&config.signers, &signer);
+        let config = Self::get_config(env.clone())?;
+        Self::require_signer(&config.signers, &signer)?;
 
         env.storage()
             .instance()
             .set(&AdminMultisigDataKey::CertificateContractId, &certificate_contract);
+
+        Ok(())
     }
 
-    pub fn get_certificate_contract(env: Env) -> Address {
+    pub fn get_certificate_contract(env: Env) -> Result<Address, ContractError> {
         env.storage()
             .instance()
             .get(&AdminMultisigDataKey::CertificateContractId)
-            .expect("Certificate contract not configured")
+            .ok_or(ContractError::NotInitialized)
     }
 
-    fn execute_action(env: Env, proposal_id: String) -> AdminProposalStatus {
+    fn execute_action(env: Env, proposal_id: String) -> Result<AdminProposalStatus, ContractError> {
         let proposal_key = AdminMultisigDataKey::AdminProposal(proposal_id.clone());
         let mut proposal: AdminProposal = env
             .storage()
             .instance()
             .get(&proposal_key)
-            .expect("Proposal not found");
+            .ok_or(ContractError::NotFound)?;
 
         if proposal.status != AdminProposalStatus::Approved {
-            panic!("Proposal is not approved");
+            return Err(ContractError::InvalidState);
         }
 
         match &proposal.action {
@@ -311,7 +331,7 @@ impl AdminMultisigContract {
                     .storage()
                     .instance()
                     .get(&AdminMultisigDataKey::CertificateContractId)
-                    .expect("Certificate contract not configured");
+                    .ok_or(ContractError::NotInitialized)?;
 
                 let _: () = env.invoke_contract(
                     &certificate_contract,
@@ -320,7 +340,7 @@ impl AdminMultisigContract {
                 );
             }
             AdminAction::UpdateConfig(threshold, signers, proposal_window) => {
-                Self::validate_config(signers, *threshold, *proposal_window);
+                Self::validate_config(signers, *threshold, *proposal_window)?;
                 env.storage().instance().set(
                     &AdminMultisigDataKey::AdminConfig,
                     &AdminMultisigConfig {
@@ -340,24 +360,31 @@ impl AdminMultisigContract {
             proposal_id,
         );
 
-        AdminProposalStatus::Executed
+        Ok(AdminProposalStatus::Executed)
     }
 
-    fn require_signer(signers: &Vec<Address>, signer: &Address) {
+    fn require_signer(signers: &Vec<Address>, signer: &Address) -> Result<(), ContractError> {
         if !signers.contains(signer) {
-            panic!("Not an authorized admin signer");
+            return Err(ContractError::Unauthorized);
         }
+        Ok(())
     }
 
-    fn validate_config(signers: &Vec<Address>, threshold: u32, proposal_window: u32) {
+    fn validate_config(
+        signers: &Vec<Address>,
+        threshold: u32,
+        proposal_window: u32,
+    ) -> Result<(), ContractError> {
         #[allow(clippy::unnecessary_cast)]
         if signers.is_empty() || threshold == 0 || threshold > signers.len() as u32 {
-            panic!("Invalid admin multisig configuration");
+            return Err(ContractError::InvalidConfig);
         }
 
         if proposal_window == 0 {
-            panic!("Proposal window must be greater than zero");
+            return Err(ContractError::InvalidConfig);
         }
+
+        Ok(())
     }
 }
 
