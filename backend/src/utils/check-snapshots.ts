@@ -10,12 +10,18 @@
 
 import { statSync, readdirSync } from 'fs';
 import { join, extname } from 'path';
+import { ConfigService } from '@nestjs/config';
+import { LoggingService } from '../common/logging/logging.service';
 
 const SNAPSHOT_PATH = join(
   __dirname,
   '../../../stellar-contracts/test_snapshots/test',
 );
 const CONTRACT_SRC_PATH = join(__dirname, '../../../stellar-contracts/src');
+
+// Standalone script: construct LoggingService directly so output keeps the
+// same structured format as the rest of the application.
+const logger = new LoggingService(new ConfigService(process.env));
 
 function getLatestMtime(dir: string, ext: string): number {
   let latest = 0;
@@ -44,17 +50,17 @@ function checkSnapshotFreshness(): void {
   const oldestSnapshot = getOldestSnapshotMtime(SNAPSHOT_PATH);
 
   if (latestContractChange === 0) {
-    console.warn('No Rust source files found in', CONTRACT_SRC_PATH);
+    logger.warn('No Rust source files found in ' + CONTRACT_SRC_PATH);
     process.exit(0);
   }
 
   if (oldestSnapshot === 0) {
-    console.error('No snapshot JSON files found in', SNAPSHOT_PATH);
+    logger.error('No snapshot JSON files found in ' + SNAPSHOT_PATH);
     process.exit(1);
   }
 
   if (latestContractChange > oldestSnapshot) {
-    console.error(
+    logger.error(
       'Soroban test snapshots are outdated.\n' +
         'Contract sources were modified after the snapshots were generated.\n' +
         'Run `cargo test -- --update-snapshots` to regenerate them.',
@@ -62,7 +68,7 @@ function checkSnapshotFreshness(): void {
     process.exit(1);
   }
 
-  console.log('Soroban test snapshots are up to date.');
+  logger.log('Soroban test snapshots are up to date.');
 }
 
 checkSnapshotFreshness();

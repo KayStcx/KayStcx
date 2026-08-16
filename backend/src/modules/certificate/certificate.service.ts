@@ -387,7 +387,7 @@ export class CertificateService {
 
     // Trigger webhook event
     await this.webhooksService.triggerEvent(
-      WebhookEvent.CERTIFICATE_REVOKED, // Using existing revoked event, could add new freeze event
+      WebhookEvent.CERTIFICATE_FROZEN,
       savedCertificate.issuerId,
       {
         id: savedCertificate.id,
@@ -422,7 +422,7 @@ export class CertificateService {
 
     // Trigger webhook event
     await this.webhooksService.triggerEvent(
-      WebhookEvent.CERTIFICATE_ISSUED, // Using existing issued event, could add new unfreeze event
+      WebhookEvent.CERTIFICATE_UNFROZEN,
       savedCertificate.issuerId,
       {
         id: savedCertificate.id,
