@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, MoreThanOrEqual } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -6,10 +6,12 @@ import type { Cache } from 'cache-manager';
 import { Certificate } from '../entities/certificate.entity';
 import { StatsQueryDto, CertificateStatsDto } from '../dto/stats.dto';
 import { Verification } from '../entities/verification.entity';
+import { settlePromise } from '../../../common/utils/promise.utils';
 
 @Injectable()
 export class CertificateStatsService {
   private readonly CACHE_TTL = 300; // 5 minutes in seconds
+  private readonly logger = new Logger(CertificateStatsService.name);
 
   constructor(
     @InjectRepository(Certificate)
@@ -33,13 +35,19 @@ export class CertificateStatsService {
     const dateFilter = this.buildDateFilter(query);
     const issuerFilter = query.issuerId ? { issuerId: query.issuerId } : {};
 
-    // Fetch all statistics in parallel
+    // Fetch all statistics in parallel. Sub-queries are isolated so a single
+    // failure returns a safe default rather than breaking the whole response.
+    const onError = (label: string) => (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Certificate stats sub-query failed (${label}): ${message}`);
+    };
+
     const [totalStats, issuanceTrend, topIssuers, verificationStats] =
       await Promise.all([
-        this.getTotalStats(dateFilter, issuerFilter),
-        this.getIssuanceTrend(dateFilter, issuerFilter),
-        this.getTopIssuers(dateFilter),
-        this.getVerificationStats(dateFilter, issuerFilter),
+        settlePromise(this.getTotalStats(dateFilter, issuerFilter), { totalCertificates: 0, activeCertificates: 0, revokedCertificates: 0, expiredCertificates: 0 }, onError('totalStats')),
+        settlePromise(this.getIssuanceTrend(dateFilter, issuerFilter), [], onError('issuanceTrend')),
+        settlePromise(this.getTopIssuers(dateFilter), [], onError('topIssuers')),
+        settlePromise(this.getVerificationStats(dateFilter, issuerFilter), { totalVerifications: 0, successfulVerifications: 0, failedVerifications: 0, dailyVerifications: 0, weeklyVerifications: 0 }, onError('verificationStats')),
       ]);
 
     const result: CertificateStatsDto = {

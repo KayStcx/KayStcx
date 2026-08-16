@@ -69,6 +69,32 @@ const handleError = (error: unknown, endpointName: string): never => {
   throw apiError;
 };
 
+type ApiEndpointOptions<T> = {
+  name: string;
+  realCall: () => Promise<T>;
+  dummyFallback?: () => Promise<T> | T;
+};
+
+/**
+ * Wraps an API endpoint with the dummy-data fallback and shared error handling,
+ * removing the repetitive `USE_DUMMY_DATA` / try-catch boilerplate that was
+ * previously duplicated across 20+ endpoint functions.
+ */
+const apiEndpoint = async <T>({
+  name,
+  realCall,
+  dummyFallback,
+}: ApiEndpointOptions<T>): Promise<T> => {
+  if (USE_DUMMY_DATA && dummyFallback) {
+    return await dummyFallback();
+  }
+  try {
+    return await realCall();
+  } catch (error) {
+    return handleError(error, name);
+  }
+};
+
 /**
  * Sleep utility for retry delays
  */
@@ -277,20 +303,13 @@ const dummyData = {
 
 // ==================== USER MANAGEMENT ====================
 
-export const fetchUserByEmail = async (email: string): Promise<User | null> => {
-  if (USE_DUMMY_DATA) {
-    await simulateDelay();
-    const user = dummyData.users.find((user) => user.email === email);
-    
-    return user || null;
-  }
-
-  try {
-    return await apiClient<User | null>(`/users/email/${email}`);
-  } catch (error) {
-    return handleError(error, "fetchUserByEmail");
-  }
-};
+export const fetchUserByEmail = (email: string): Promise<User | null> =>
+  apiEndpoint<User | null>({
+    name: "fetchUserByEmail",
+    realCall: () => apiClient<User | null>(`/users/email/${email}`),
+    dummyFallback: () =>
+      dummyData.users.find((user) => user.email === email) || null,
+  });
 
 export const userApi = {
   getProfile: async (): Promise<User> => {
@@ -341,20 +360,12 @@ export const userApi = {
 
 // ==================== TEMPLATE MANAGEMENT ====================
 
-export const fetchDefaultTemplate = async (): Promise<CertificateTemplate> => {
-  if (USE_DUMMY_DATA) {
-    await simulateDelay();
-    const template = dummyData.templates[0];
-    console.log("Dummy Template Data:", template);
-    return template;
-  }
-
-  try {
-    return await apiClient<CertificateTemplate>("/templates/default");
-  } catch (error) {
-    return handleError(error, "fetchDefaultTemplate");
-  }
-};
+export const fetchDefaultTemplate = (): Promise<CertificateTemplate> =>
+  apiEndpoint<CertificateTemplate>({
+    name: "fetchDefaultTemplate",
+    realCall: () => apiClient<CertificateTemplate>("/templates/default"),
+    dummyFallback: () => dummyData.templates[0],
+  });
 
 export const templateApi = {
   list: async (): Promise<CertificateTemplate[]> => {
@@ -369,185 +380,147 @@ export const templateApi = {
 
 // ==================== CERTIFICATE MANAGEMENT ====================
 
-export const verifyCertificate = async (
+export const verifyCertificate = (
   serialNumber: string,
-): Promise<VerificationResult> => {
-  if (USE_DUMMY_DATA) {
-    await simulateDelay();
-    const certificate = dummyData.certificates.find(
-      (cert) => cert.serialNumber === serialNumber,
-    );
-    const result: VerificationResult = certificate
-      ? {
-          isValid: certificate.status === "active",
-          status: certificate.status === "active" ? "valid" : "revoked",
-          certificate,
-          verificationDate: new Date().toISOString(),
-          verifiedAt: new Date().toISOString(),
-          message:
-            certificate.status === "active"
-              ? "Certificate is valid and active"
-              : "Certificate has been revoked.",
-          verificationId: `ver_${Date.now()}`,
-        }
-      : {
-          isValid: false,
-          status: "not_found",
-          verificationDate: new Date().toISOString(),
-          verifiedAt: new Date().toISOString(),
-          message: "Certificate not found",
-          verificationId: `ver_${Date.now()}`,
-        };
-    console.log("Dummy Verification:", result);
-    return result;
-  }
+): Promise<VerificationResult> =>
+  apiEndpoint<VerificationResult>({
+    name: "verifyCertificate",
+    realCall: () =>
+      apiClient<VerificationResult>(`/certificates/${serialNumber}/verify`),
+    dummyFallback: () => {
+      const certificate = dummyData.certificates.find(
+        (cert) => cert.serialNumber === serialNumber,
+      );
+      return certificate
+        ? {
+            isValid: certificate.status === "active",
+            status: certificate.status === "active" ? "valid" : "revoked",
+            certificate,
+            verificationDate: new Date().toISOString(),
+            verifiedAt: new Date().toISOString(),
+            message:
+              certificate.status === "active"
+                ? "Certificate is valid and active"
+                : "Certificate has been revoked.",
+            verificationId: `ver_${Date.now()}`,
+          }
+        : {
+            isValid: false,
+            status: "not_found",
+            verificationDate: new Date().toISOString(),
+            verifiedAt: new Date().toISOString(),
+            message: "Certificate not found",
+            verificationId: `ver_${Date.now()}`,
+          };
+    },
+  });
 
-  try {
-    return await apiClient<VerificationResult>(
-      `/certificates/${serialNumber}/verify`,
-    );
-  } catch (error) {
-    return handleError(error, "verifyCertificate");
-  }
-};
-
-export const createCertificate = async (
+export const createCertificate = (
   data: CreateCertificateData,
-): Promise<Certificate> => {
-  if (USE_DUMMY_DATA) {
-    await simulateDelay();
-    const newCertificate: Certificate = {
-      id: `cert-${Date.now()}`,
-      serialNumber: `CERT-${new Date().getFullYear()}-${Math.floor(
-        Math.random() * 1000,
-      )
-        .toString()
-        .padStart(3, "0")}`,
-      recipientName: data.recipientName,
-      recipientEmail: data.recipientEmail,
-      title: "New Certificate",
-      courseName: data.courseName,
-      issuerName: "Kaystcx Academy",
-      issueDate: new Date().toISOString(),
-      status: "active",
-    };
-    dummyData.certificates.push(newCertificate);
-    console.log("Dummy certificate created:", newCertificate);
-    return newCertificate;
-  }
+): Promise<Certificate> =>
+  apiEndpoint<Certificate>({
+    name: "createCertificate",
+    realCall: () =>
+      apiClient<Certificate>("/certificates", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    dummyFallback: () => {
+      const newCertificate: Certificate = {
+        id: `cert-${Date.now()}`,
+        serialNumber: `CERT-${new Date().getFullYear()}-${Math.floor(
+          Math.random() * 1000,
+        )
+          .toString()
+          .padStart(3, "0")}`,
+        recipientName: data.recipientName,
+        recipientEmail: data.recipientEmail,
+        title: "New Certificate",
+        courseName: data.courseName,
+        issuerName: "Kaystcx Academy",
+        issueDate: new Date().toISOString(),
+        status: "active",
+      };
+      dummyData.certificates.push(newCertificate);
+      return newCertificate;
+    },
+  });
 
-  try {
-    return await apiClient<Certificate>("/certificates", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  } catch (error) {
-    return handleError(error, "createCertificate");
-  }
-};
-
-export const revokeCertificate = async (
+export const revokeCertificate = (
   id: string,
   reason: string,
-): Promise<Certificate> => {
-  if (USE_DUMMY_DATA) {
-    await simulateDelay();
-    const certificate = dummyData.certificates.find((cert) => cert.id === id);
-    if (certificate) {
-      certificate.status = "revoked";
-      console.log("Dummy certificate revoked:", certificate);
-      return certificate;
-    }
-    throw new Error("Certificate not found");
-  }
+): Promise<Certificate> =>
+  apiEndpoint<Certificate>({
+    name: "revokeCertificate",
+    realCall: () =>
+      apiClient<Certificate>(`/certificates/${id}/revoke`, {
+        method: "PATCH",
+        body: JSON.stringify({ reason }),
+      }),
+    dummyFallback: () => {
+      const certificate = dummyData.certificates.find((cert) => cert.id === id);
+      if (certificate) {
+        certificate.status = "revoked";
+        return certificate;
+      }
+      throw new Error("Certificate not found");
+    },
+  });
 
-  try {
-    return await apiClient<Certificate>(`/certificates/${id}/revoke`, {
-      method: "PATCH",
-      body: JSON.stringify({ reason }),
-    });
-  } catch (error) {
-    return handleError(error, "revokeCertificate");
-  }
-};
-
-export const findCertBySerialNumber = async (
+export const findCertBySerialNumber = (
   serialNumber: string,
-): Promise<Certificate | null> => {
-  if (USE_DUMMY_DATA) {
-    await simulateDelay();
-    const certificate = dummyData.certificates.find(
-      (cert) => cert.serialNumber === serialNumber,
-    );
-    console.log("Dummy Certificate:", certificate);
-    return certificate || null;
-  }
+): Promise<Certificate | null> =>
+  apiEndpoint<Certificate | null>({
+    name: "findCertBySerialNumber",
+    realCall: () =>
+      apiClient<Certificate | null>(`/certificates/serial/${serialNumber}`),
+    dummyFallback: () =>
+      dummyData.certificates.find(
+        (cert) => cert.serialNumber === serialNumber,
+      ) || null,
+  });
 
-  try {
-    return await apiClient<Certificate | null>(
-      `/certificates/serial/${serialNumber}`,
-    );
-  } catch (error) {
-    return handleError(error, "findCertBySerialNumber");
-  }
-};
-
-export const getCertificatePdfUrl = async (
+export const getCertificatePdfUrl = (
   certificateId: string,
-): Promise<string | null> => {
-  if (USE_DUMMY_DATA) {
-    await simulateDelay();
-    const certificate = dummyData.certificates.find(
-      (cert) => cert.id === certificateId,
-    );
-    return certificate ? `/api/dummy-pdf/${certificateId}` : null;
-  }
+): Promise<string | null> =>
+  apiEndpoint<string | null>({
+    name: "getCertificatePdfUrl",
+    realCall: async () => {
+      const data = await apiClient<{ pdfUrl: string }>(
+        `/certificates/${certificateId}/pdf`,
+      );
+      return data.pdfUrl;
+    },
+    dummyFallback: () => {
+      const certificate = dummyData.certificates.find(
+        (cert) => cert.id === certificateId,
+      );
+      return certificate ? `/api/dummy-pdf/${certificateId}` : null;
+    },
+  });
 
-  try {
-    const data = await apiClient<{ pdfUrl: string }>(
-      `/certificates/${certificateId}/pdf`,
-    );
-    return data.pdfUrl;
-  } catch (error) {
-    return handleError(error, "getCertificatePdfUrl");
-  }
-};
+export const getUserCertificates = (userId: string): Promise<Certificate[]> =>
+  apiEndpoint<Certificate[]>({
+    name: "getUserCertificates",
+    realCall: () => apiClient<Certificate[]>(`/certificates/user/${userId}`),
+    dummyFallback: () =>
+      dummyData.certificates.filter(
+        (cert) => cert.recipientEmail === userId || cert.id === userId,
+      ),
+  });
 
-export const getUserCertificates = async (
-  userId: string,
-): Promise<Certificate[]> => {
-  if (USE_DUMMY_DATA) {
-    await simulateDelay();
-    return dummyData.certificates.filter(
-      (cert) => cert.recipientEmail === userId || cert.id === userId,
-    );
-  }
-
-  try {
-    return await apiClient<Certificate[]>(`/certificates/user/${userId}`);
-  } catch (error) {
-    return handleError(error, "getUserCertificates");
-  }
-};
-
-export const getCertificateQR = async (
-  certificateId: string,
-): Promise<string> => {
-  if (USE_DUMMY_DATA) {
-    await simulateDelay();
-    // Return a dummy QR code URL
-    return `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzMzMyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkJJIENvZGU6ICR7Y2VydGlmaWNhdGVJZH08L3RleHQ+Cjwvc3ZnPg==`;
-  }
-
-  try {
-    const data = await apiClient<{ qrCode: string }>(
-      `/certificates/${certificateId}/qr`,
-    );
-    return data.qrCode;
-  } catch (error) {
-    return handleError(error, "getCertificateQR");
-  }
-};
+export const getCertificateQR = (certificateId: string): Promise<string> =>
+  apiEndpoint<string>({
+    name: "getCertificateQR",
+    realCall: async () => {
+      const data = await apiClient<{ qrCode: string }>(
+        `/certificates/${certificateId}/qr`,
+      );
+      return data.qrCode;
+    },
+    dummyFallback: () =>
+      `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzMzMyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkJJIENvZGU6ICR7Y2VydGlmaWNhdGVJZH08L3RleHQ+Cjwvc3ZnPg==`,
+  });
 
 export const certificateApi = {
   list: async (params?: {
@@ -842,19 +815,17 @@ export const loginApi = async (
         refreshToken: "dummy-refresh-token",
       };
       tokenStorage.setAccessToken(response.accessToken);
-      // Note: refreshToken is handled server-side via httpOnly cookies
+      tokenStorage.setRefreshToken(response.refreshToken);
       return response;
     }
     throw new Error("Invalid credentials");
-  }
-
-  try {
+  }    try {
     const response = await apiClient<AuthResponse>("/auth/login", {
       method: "POST",
       body: JSON.stringify(credentials),
     });
     tokenStorage.setAccessToken(response.accessToken);
-    // Note: refreshToken is handled server-side via httpOnly cookies
+    tokenStorage.setRefreshToken(response.refreshToken);
     return response;
   } catch (error) {
     return handleError(error, "loginApi");
@@ -879,7 +850,7 @@ export const registerApi = async (
       refreshToken: "dummy-refresh-token",
     };
     tokenStorage.setAccessToken(response.accessToken);
-    // Note: refreshToken is handled server-side via httpOnly cookies
+    tokenStorage.setRefreshToken(response.refreshToken);
     return response;
   }
 
@@ -889,7 +860,7 @@ export const registerApi = async (
       body: JSON.stringify(data),
     });
     tokenStorage.setAccessToken(response.accessToken);
-    // Note: refreshToken is handled server-side via httpOnly cookies
+    tokenStorage.setRefreshToken(response.refreshToken);
     return response;
   } catch (error) {
     return handleError(error, "registerApi");

@@ -1,8 +1,9 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThanOrEqual, Between } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
+import { settlePromise } from '../../../common/utils/promise.utils';
 import { User, UserRole, UserStatus } from '../../users/entities/user.entity';
 import { Certificate } from '../../certificate/entities/certificate.entity';
 import { Verification } from '../../certificate/entities/verification.entity';
@@ -22,6 +23,7 @@ import {
 @Injectable()
 export class AdminAnalyticsService {
   private readonly CACHE_TTL = 120; // 2 minutes in seconds
+  private readonly logger = new Logger(AdminAnalyticsService.name);
 
   constructor(
     @InjectRepository(User)
@@ -53,7 +55,14 @@ export class AdminAnalyticsService {
     // Build date filters
     const dateFilter = this.buildDateFilter(query);
 
-    // Fetch all analytics data in parallel
+    // Fetch all analytics data in parallel. Each sub-query is isolated so a
+    // single transient failure (e.g. a DB hiccup) returns a sensible default
+    // instead of failing the whole dashboard render.
+    const onError = (label: string) => (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Admin analytics sub-query failed (${label}): ${message}`);
+    };
+
     const [
       usersByRole,
       usersByStatus,
@@ -64,14 +73,14 @@ export class AdminAnalyticsService {
       certificateIssuanceTrend,
       totalIssuers,
     ] = await Promise.all([
-      this.getUsersByRole(),
-      this.getUsersByStatus(),
-      this.getCertificatesByStatus(dateFilter),
-      this.getTopIssuers(dateFilter),
-      this.getVerificationTrends(dateFilter),
-      this.getUserRegistrationTrend(dateFilter),
-      this.getCertificateIssuanceTrend(dateFilter),
-      this.issuerRepo.count({ where: { isActive: true } }),
+      settlePromise(this.getUsersByRole(), { users: 0, issuers: 0, admins: 0, total: 0 }, onError('usersByRole')),
+      settlePromise(this.getUsersByStatus(), { active: 0, inactive: 0, suspended: 0, pendingVerification: 0 }, onError('usersByStatus')),
+      settlePromise(this.getCertificatesByStatus(dateFilter), { active: 0, revoked: 0, expired: 0, total: 0 }, onError('certificatesByStatus')),
+      settlePromise(this.getTopIssuers(dateFilter), [], onError('topIssuers')),
+      settlePromise(this.getVerificationTrends(dateFilter), { total: 0, successful: 0, failed: 0, successRate: 0, last24Hours: 0, last7Days: 0, last30Days: 0 }, onError('verificationTrends')),
+      settlePromise(this.getUserRegistrationTrend(dateFilter), [], onError('userRegistrationTrend')),
+      settlePromise(this.getCertificateIssuanceTrend(dateFilter), [], onError('certificateIssuanceTrend')),
+      settlePromise(this.issuerRepo.count({ where: { isActive: true } }), 0, onError('totalIssuers')),
     ]);
 
     const result: AdminAnalyticsDto = {

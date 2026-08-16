@@ -1,4 +1,28 @@
-use soroban_sdk::{contracttype, Address, BytesN, String, Vec};
+use soroban_sdk::{contracterror, contracttype, Address, BytesN, String, Vec};
+
+/// Canonical error type for the certificate contracts.
+///
+/// Contract methods that can fail on *expected* conditions (missing state, bad
+/// authorization, duplicate IDs, invalid configuration) return
+/// `Result<T, ContractError>` instead of panicking via `.expect()`/`panic!()`.
+/// This lets callers distinguish failure modes without burning the whole gas
+/// budget on a contract abort.
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum ContractError {
+    /// Contract state has not been initialized yet.
+    NotInitialized,
+    /// A requested entity (certificate, proposal, config, …) does not exist.
+    NotFound,
+    /// The caller is not authorized to perform this action.
+    Unauthorized,
+    /// The entity being created already exists.
+    AlreadyExists,
+    /// The entity is in a state that disallows the requested transition.
+    InvalidState,
+    /// A configuration value failed validation.
+    InvalidConfig,
+}
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]

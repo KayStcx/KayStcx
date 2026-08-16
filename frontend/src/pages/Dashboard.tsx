@@ -12,12 +12,12 @@ import {
   Wallet,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { analyticsApi, certificateApi, getUserCertificates, UserRole } from "../api";
+import { certificateApi, getUserCertificates, UserRole } from "../api";
 import { useAuth } from "../context/AuthContext";
+import { useDashboardData } from "../hooks/useDashboardData";
 import type {
   Certificate,
   ActivityItem,
-  DashboardStats,
   IssuanceTrendPoint,
   StatusDistribution,
 } from "../api";
@@ -800,36 +800,11 @@ const VerifierDashboard = () => {
 };
 
 const IssuerDashboard = () => {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(createInitialDateRange);
   const [filterDirty, setFilterDirty] = useState(false);
-  const [revokedCount, setRevokedCount] = useState(0);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setLoading(true);
-        const data = await analyticsApi.getDashboardSummary({
-          startDate: dateRange.startDate,
-          endDate: dateRange.endDate,
-        });
-        setStats(data);
-        setRevokedCount(data?.revokedCertificates ?? 0);
-      } catch (err) {
-        const message =
-          err && typeof err === "object" && "message" in err
-            ? String((err as { message?: string }).message)
-            : "Failed to load analytics";
-        setError(message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void load();
-  }, [dateRange]);
+  const { stats, loading, error, load } = useDashboardData(dateRange);
+  const revokedCount = stats?.revokedCertificates ?? 0;
 
   const statusDistribution: StatusDistribution = useMemo(() => {
     if (stats?.statusDistribution) {
@@ -852,50 +827,15 @@ const IssuerDashboard = () => {
   };
 
   const handleApplyFilters = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await analyticsApi.getDashboardSummary({
-        startDate: dateRange.startDate,
-        endDate: dateRange.endDate,
-      });
-      setStats(data);
-      setRevokedCount(data?.revokedCertificates ?? 0);
-      setFilterDirty(false);
-    } catch (err) {
-      const message =
-        err && typeof err === "object" && "message" in err
-          ? String((err as { message?: string }).message)
-          : "Failed to load analytics";
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
+    await load(dateRange);
+    setFilterDirty(false);
   };
 
   const handleResetFilters = async () => {
     const initial = createInitialDateRange();
     setDateRange(initial);
     setFilterDirty(false);
-
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await analyticsApi.getDashboardSummary({
-        startDate: initial.startDate,
-        endDate: initial.endDate,
-      });
-      setStats(data);
-      setRevokedCount(data?.revokedCertificates ?? 0);
-    } catch (err) {
-      const message =
-        err && typeof err === "object" && "message" in err
-          ? String((err as { message?: string }).message)
-          : "Failed to load analytics";
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
+    await load(initial);
   };
 
   const handleExportCsv = () => {

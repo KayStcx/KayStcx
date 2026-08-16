@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User } from '../api/types';
+import { User, UserRole } from '../api/types';
 import { tokenStorage } from '../api/tokens';
 
 // Helper function to check if JWT token is expired
@@ -14,13 +14,48 @@ const isTokenExpired = (token: string): boolean => {
   }
 };
 
+/**
+ * Minimal, non-sensitive user fields persisted to localStorage. Sensitive
+ * fields (email, stellarPublicKey, phone, metadata, profilePicture) are
+ * intentionally excluded and must be re-fetched from the API when needed.
+ */
+interface StoredUser {
+  id: string;
+  firstName: string;
+  lastName: string;
+  username?: string;
+  role: UserRole;
+}
+
+const STORED_USER_KEY = 'user';
+
+const toStoredUser = (user: User): StoredUser => ({
+  id: user.id,
+  firstName: user.firstName,
+  lastName: user.lastName,
+  username: user.username,
+  role: user.role,
+});
+
+const fromStoredUser = (stored: StoredUser): User =>
+  ({
+    id: stored.id,
+    email: '',
+    firstName: stored.firstName,
+    lastName: stored.lastName,
+    username: stored.username,
+    role: stored.role,
+    createdAt: '',
+    updatedAt: '',
+  }) as User;
+
 interface AuthContextValue {
   user: User | null;
   setUser: (user: User | null) => void;
   isAuthenticated: boolean;
   isLoading: boolean;
   clearAuth: () => void;
-  login: (accessToken: string, refreshToken: string, user: User) => void;
+  login: (accessToken: string, user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -34,8 +69,9 @@ export const useAuth = (): AuthContextValue => {
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUserState] = useState<User | null>(() => {
     try {
-      const raw = localStorage.getItem('user');
-      return raw ? (JSON.parse(raw) as User) : null;
+      const raw = localStorage.getItem(STORED_USER_KEY);
+      if (!raw) return null;
+      return fromStoredUser(JSON.parse(raw) as StoredUser);
     } catch {
       return null;
     }
@@ -46,19 +82,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Check token expiration on app load
     const checkTokenExpiration = () => {
       const accessToken = tokenStorage.getAccessToken();
-      
+
       if (accessToken && isTokenExpired(accessToken)) {
         // Token is expired, clear auth state
-        console.warn('Access token expired, clearing authentication state');
         tokenStorage.clearTokens();
         setUserState(null);
-        localStorage.removeItem('user');
+        localStorage.removeItem(STORED_USER_KEY);
       } else if (!accessToken) {
         // No token, clear user state
         setUserState(null);
-        localStorage.removeItem('user');
+        localStorage.removeItem(STORED_USER_KEY);
       }
-      
+
       setIsLoading(false);
     };
 
@@ -73,12 +108,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     if (user) {
       try {
-        localStorage.setItem('user', JSON.stringify(user));
+        // Persist only the minimal, non-sensitive subset.
+        localStorage.setItem(STORED_USER_KEY, JSON.stringify(toStoredUser(user)));
       } catch { /* Ignored */ }
       return;
     }
 
-    localStorage.removeItem('user');
+    localStorage.removeItem(STORED_USER_KEY);
     tokenStorage.clearTokens();
   }, [user]);
 
@@ -87,18 +123,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const clearAuth = () => {
     setUserState(null);
     tokenStorage.clearTokens();
-    localStorage.removeItem('user');
+    localStorage.removeItem(STORED_USER_KEY);
   };
 
-  const login = (accessToken: string, refreshToken: string, nextUser: User) => {
+  // The refresh token is managed by the API layer (and, in future, by an
+  // httpOnly cookie); the auth context only owns the access token + user.
+  const login = (accessToken: string, nextUser: User) => {
     // Validate token before setting
     if (isTokenExpired(accessToken)) {
       console.error('Attempted to login with expired token');
       return;
     }
-    
+
     tokenStorage.setAccessToken(accessToken);
-    tokenStorage.setRefreshToken(refreshToken);
     setUserState(nextUser);
   };
 
