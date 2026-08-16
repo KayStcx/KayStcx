@@ -4,6 +4,9 @@ use soroban_sdk::{contract, contractimpl, symbol_short, Address, BytesN, Env, St
 mod types;
 pub use types::*;
 
+/// Storage layer: key types, generic access helpers, and TTL management.
+pub mod storage;
+
 // mod metadata;
 // pub use metadata::*;
 

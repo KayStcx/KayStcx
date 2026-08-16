@@ -2,45 +2,24 @@ import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { UserRole } from "../api/types";
 
-// Define allowed routes based on user roles
-const roleRoutes: Record<UserRole, string[]> = {
-  [UserRole.RECIPIENT]: ["/wallet"],
-  [UserRole.VERIFIER]: ["/wallet", "/verify"],
-  [UserRole.ISSUER]: ["/issue", "/wallet", "/revoke", "/verify"],
-  [UserRole.ADMIN]: ["/issue", "/wallet", "/revoke", "/verify"],
-};
-
-// Define props type for ProtectedRoute
+// Route authorization is configured centrally in App.tsx, where each
+// protected <Route> passes an explicit `allowedRoles` list. This component
+// only enforces that list — there is no hardcoded path → role mapping here
+// that could fall out of sync with the route configuration.
 interface ProtectedRouteProps {
   allowedRoles?: UserRole[];
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
-  const currentPath: string = window.location.pathname;
-
-  // Use centralized auth context instead of localStorage
   const { user } = useAuth();
-
-  // Allow public access to /verify
-  if (currentPath === "/verify") return <Outlet />;
 
   // If no user is logged in, redirect to login page
   if (!user) return <Navigate to="/login" replace />;
 
-  // Get user role
-  const userRole: UserRole = user.role;
-
-  // If a caller provided an explicit list of allowed roles, use that check first
-  if (allowedRoles) {
-    if (!allowedRoles.includes(userRole)) {
-      return <Navigate to="/" replace />;
-    }
-  } else {
-    // Fallback: use hard-coded route map for backwards compatibility
-    const allowedRoutes: string[] = roleRoutes[userRole] || [];
-    if (!allowedRoutes.includes(currentPath)) {
-      return <Navigate to="/" replace />;
-    }
+  // If the caller provided an explicit list of allowed roles, enforce it.
+  // Routes without `allowedRoles` default to allowing any authenticated user.
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/" replace />;
   }
 
   return <Outlet />;
