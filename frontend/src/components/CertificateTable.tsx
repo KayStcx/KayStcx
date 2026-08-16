@@ -8,7 +8,6 @@ import {
     Download,
     X,
     Snowflake,
-    AlertTriangle,
     FileText,
     Check,
     XCircle,
@@ -17,6 +16,12 @@ import {
 } from 'lucide-react';
 import { certificateApi, auditApi } from '../api';
 import type { Certificate, CertificateExportFilters, ActivityItem } from '../api';
+import {
+    FreezeCertificateModal,
+    RevokeCertificateModal,
+    TransferCertificateModal,
+    CertificateHistoryModal,
+} from './CertificateTableModals';
 
 type SortField = 'recipientName' | 'title' | 'issuerName' | 'issueDate' | 'status' | 'serialNumber';
 type SortOrder = 'asc' | 'desc';
@@ -76,6 +81,8 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
     const [freezeReason, setFreezeReason] = useState('');
     const [freezeDuration, setFreezeDuration] = useState(7);
     const [freezingCertId, setFreezingCertId] = useState<string | null>(null);
+    const [isFreezing, setIsFreezing] = useState(false);
+    const [freezeError, setFreezeError] = useState<string | null>(null);
 
     // Revoke modal state
     const [showRevokeModal, setShowRevokeModal] = useState(false);
@@ -241,11 +248,14 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
     // Handle freeze
     const handleFreeze = (certId: string) => {
         setFreezingCertId(certId);
+        setFreezeError(null);
         setShowFreezeModal(true);
     };
 
     const confirmFreeze = async () => {
         if (!freezingCertId) return;
+        setIsFreezing(true);
+        setFreezeError(null);
         try {
             const durationDays = Math.max(1, Number.isFinite(freezeDuration) ? Math.trunc(freezeDuration) : 1);
             await certificateApi.freeze(freezingCertId, freezeReason, durationDays);
@@ -257,7 +267,11 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
             fetchCertificates();
         } catch (err) {
             console.error('Freeze failed:', err);
-            onError?.('Failed to freeze certificate');
+            setFreezeError(
+                err instanceof Error ? err.message : 'Failed to freeze certificate',
+            );
+        } finally {
+            setIsFreezing(false);
         }
     };
 
@@ -663,232 +677,46 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
 
             {/* Freeze Modal */}
             {showFreezeModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white dark:bg-slate-900 rounded-lg p-6 max-w-md w-full mx-4">
-                        <div className="flex items-center gap-2 mb-4">
-                            <Snowflake className="w-6 h-6 text-blue-600" />
-                            <h3 className="text-lg font-semibold dark:text-white">Freeze Certificate</h3>
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                            This will temporarily freeze the certificate during a dispute. You can unfreeze it at any time.
-                        </p>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Reason for freezing
-                                </label>
-                                <textarea
-                                    value={freezeReason}
-                                    onChange={(e) => setFreezeReason(e.target.value)}
-                                    rows={3}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600 dark:text-white"
-                                    placeholder="Enter the reason for freezing..."
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Freeze Duration (days)
-                                </label>
-                                <input
-                                    type="number"
-                                    min={1}
-                                    max={90}
-                                    value={freezeDuration}
-                                    onChange={(e) => setFreezeDuration(Number(e.target.value))}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600 dark:text-white"
-                                />
-                                <p className="text-xs text-gray-500 mt-1">Maximum 90 days. Leave empty for indefinite.</p>
-                            </div>
-                        </div>
-                        <div className="flex gap-3 mt-6">
-                            <button
-                                onClick={() => { setShowFreezeModal(false); setFreezeReason(''); setFreezingCertId(null); }}
-                                className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 dark:border-slate-600 dark:text-gray-300 dark:hover:bg-slate-700"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={confirmFreeze}
-                                disabled={!freezeReason}
-                                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-                            >
-                                Freeze
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <FreezeCertificateModal
+                    reason={freezeReason}
+                    duration={freezeDuration}
+                    isFreezing={isFreezing}
+                    error={freezeError}
+                    onReasonChange={setFreezeReason}
+                    onDurationChange={setFreezeDuration}
+                    onCancel={() => { setShowFreezeModal(false); setFreezeReason(''); setFreezingCertId(null); setFreezeError(null); }}
+                    onConfirm={confirmFreeze}
+                />
             )}
 
             {/* Revoke Modal */}
             {showRevokeModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white dark:bg-slate-900 rounded-lg p-6 max-w-md w-full mx-4">
-                        <div className="flex items-center gap-2 mb-4">
-                            <AlertTriangle className="w-6 h-6 text-red-600" />
-                            <h3 className="text-lg font-semibold dark:text-white">Revoke Certificate{revokingCertIds.length > 1 ? 's' : ''}</h3>
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                            Are you sure you want to revoke {revokingCertIds.length} certificate{revokingCertIds.length > 1 ? 's' : ''}? This action cannot be undone.
-                        </p>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                Reason for revocation
-                            </label>
-                            <textarea
-                                value={revokeReason}
-                                onChange={(e) => setRevokeReason(e.target.value)}
-                                rows={3}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 dark:bg-slate-800 dark:border-slate-600 dark:text-white"
-                                placeholder="Enter the reason for revocation..."
-                            />
-                        </div>
-                        <div className="flex gap-3 mt-6">
-                            <button
-                                onClick={() => { setShowRevokeModal(false); setRevokeReason(''); setRevokingCertIds([]); }}
-                                className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 dark:border-slate-600 dark:text-gray-300 dark:hover:bg-slate-700"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={confirmRevoke}
-                                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                            >
-                                Revoke
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <RevokeCertificateModal
+                    count={revokingCertIds.length}
+                    reason={revokeReason}
+                    onReasonChange={setRevokeReason}
+                    onCancel={() => { setShowRevokeModal(false); setRevokeReason(''); setRevokingCertIds([]); }}
+                    onConfirm={confirmRevoke}
+                />
             )}
 
             {/* Transfer Modal */}
             {showTransferModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white dark:bg-slate-900 rounded-lg p-6 max-w-md w-full mx-4">
-                        <div className="flex items-center gap-2 mb-4">
-                            <Send className="w-6 h-6 text-purple-600" />
-                            <h3 className="text-lg font-semibold dark:text-white">Initiate Transfer</h3>
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                            Transfer ownership of this certificate to a new recipient. The new owner will need to approve the transfer.
-                        </p>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    New Owner Name
-                                </label>
-                                <input
-                                    type="text"
-                                    value={transferData.newOwnerName}
-                                    onChange={(e) => setTransferData({ ...transferData, newOwnerName: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 dark:bg-slate-800 dark:border-slate-600 dark:text-white"
-                                    placeholder="Recipient's full name"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    New Owner Email
-                                </label>
-                                <input
-                                    type="email"
-                                    value={transferData.newOwnerEmail}
-                                    onChange={(e) => setTransferData({ ...transferData, newOwnerEmail: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 dark:bg-slate-800 dark:border-slate-600 dark:text-white"
-                                    placeholder="recipient@example.com"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Reason (Optional)
-                                </label>
-                                <textarea
-                                    value={transferData.reason}
-                                    onChange={(e) => setTransferData({ ...transferData, reason: e.target.value })}
-                                    rows={2}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 dark:bg-slate-800 dark:border-slate-600 dark:text-white"
-                                    placeholder="e.g., Correction of name, change of ownership..."
-                                />
-                            </div>
-                        </div>
-                        <div className="flex gap-3 mt-6">
-                            <button
-                                onClick={() => setShowTransferModal(false)}
-                                className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 dark:border-slate-600 dark:text-gray-300 dark:hover:bg-slate-700"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={confirmTransfer}
-                                disabled={!transferData.newOwnerEmail || !transferData.newOwnerName}
-                                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
-                            >
-                                Initiate Transfer
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <TransferCertificateModal
+                    data={transferData}
+                    onDataChange={setTransferData}
+                    onCancel={() => setShowTransferModal(false)}
+                    onConfirm={confirmTransfer}
+                />
             )}
 
             {/* History Modal */}
             {showHistoryModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white dark:bg-slate-900 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-2">
-                                <History className="w-6 h-6 text-blue-600" />
-                                <h3 className="text-lg font-semibold dark:text-white">Certificate History</h3>
-                            </div>
-                            <button 
-                                onClick={() => setShowHistoryModal(false)}
-                                className="text-gray-500 hover:text-gray-700 dark:text-gray-400"
-                            >
-                                <XCircle className="w-6 h-6" />
-                            </button>
-                        </div>
-
-                        {loadingHistory ? (
-                            <div className="flex justify-center py-8">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                            </div>
-                        ) : certHistory.length === 0 ? (
-                            <p className="text-center py-8 text-gray-500 dark:text-gray-400">No history found for this certificate.</p>
-                        ) : (
-                            <div className="space-y-6">
-                                {certHistory.map((item, index) => (
-                                    <div key={index} className="flex gap-4">
-                                        <div className="flex flex-col items-center">
-                                            <div className="w-3 h-3 bg-blue-600 rounded-full mt-1.5"></div>
-                                            {index !== certHistory.length - 1 && (
-                                                <div className="w-0.5 h-full bg-gray-200 dark:bg-slate-700 my-1"></div>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-medium dark:text-white capitalize">
-                                                {item.type.replace('_', ' ')}
-                                            </p>
-                                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                {item.description}
-                                            </p>
-                                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                                                {new Date(item.date).toLocaleString()}
-                                            </p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        <div className="mt-8">
-                            <button
-                                onClick={() => setShowHistoryModal(false)}
-                                className="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-white"
-                            >
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <CertificateHistoryModal
+                    loading={loadingHistory}
+                    history={certHistory}
+                    onClose={() => setShowHistoryModal(false)}
+                />
             )}
         </div>
     );

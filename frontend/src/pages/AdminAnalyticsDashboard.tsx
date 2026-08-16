@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Download, ShieldCheck, Users, FileText, Activity } from 'lucide-react';
-import { adminAnalyticsApi, auditApi, tokenStorage } from '../api';
-import type { AdminAnalytics, AuditLogItem, AuditStatistics } from '../api';
+import { auditApi, tokenStorage } from '../api';
+import { useAdminAnalytics } from '../hooks/useAdminAnalytics';
 
 type DateRange = {
   startDate: string;
@@ -65,45 +65,13 @@ export default function AdminAnalyticsDashboard() {
   const [dateRange, setDateRange] = useState<DateRange>(createInitialDateRange);
   const [filterDirty, setFilterDirty] = useState(false);
 
-  const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null);
-  const [auditStats, setAuditStats] = useState<AuditStatistics | null>(null);
-  const [recentAudit, setRecentAudit] = useState<AuditLogItem[]>([]);
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { analytics, auditStats, recentAudit, loading, error, setError, load } =
+    useAdminAnalytics(dateRange);
 
   const handleDateChange = (field: keyof DateRange, value: string) => {
     setDateRange((prev) => ({ ...prev, [field]: value }));
     setFilterDirty(true);
   };
-
-  const load = async (range: DateRange) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [analyticsData, auditStatistics, auditLogs] = await Promise.all([
-        adminAnalyticsApi.getAnalytics(range),
-        auditApi.getStatistics(range),
-        auditApi.searchLogs({ ...range, limit: 20 }),
-      ]);
-      setAnalytics(analyticsData);
-      setAuditStats(auditStatistics);
-      setRecentAudit(auditLogs.data ?? []);
-    } catch (err) {
-      const message =
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message?: string }).message)
-          : 'Failed to load admin analytics';
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void load(dateRange);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const topIssuers = useMemo(() => analytics?.topIssuers ?? [], [analytics]);
 

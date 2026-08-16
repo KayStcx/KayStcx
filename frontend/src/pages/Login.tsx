@@ -47,7 +47,7 @@ const Login = () => {
       const res = await authApi.login({ email: formData.email, password: formData.password });
       if (res.accessToken) {
         // Use AuthContext.login() to keep token storage and isAuthenticated in sync
-        login(res.accessToken, res.refreshToken, res.user);
+        login(res.accessToken, res.user);
         navigate("/");
       }
     } catch (err: unknown) {

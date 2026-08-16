@@ -94,7 +94,6 @@ fn test_remove_issuer_action_executes_after_threshold() {
 }
 
 #[test]
-#[should_panic(expected = "Proposer cannot approve their own action")]
 fn test_proposer_cannot_approve() {
     let env = Env::default();
     let contract_id = env.register_contract(None, AdminMultisigContract);
@@ -113,7 +112,8 @@ fn test_proposer_cannot_approve() {
     let action = AdminAction::Other(String::from_str(&env, "fail_action"));
 
     client.propose_action(&proposal_id, &admin1, &action);
-    client.approve_action(&proposal_id, &admin1);
+    let result = client.try_approve_action(&proposal_id, &admin1);
+    assert!(result.is_err());
 }
 
 #[test]

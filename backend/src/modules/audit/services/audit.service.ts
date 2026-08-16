@@ -38,6 +38,10 @@ export interface LogAuditParams {
 
 @Injectable()
 export class AuditService {
+  /** Hard cap on the number of audit rows a single request may return. */
+  private static readonly MAX_PAGE_SIZE = 100;
+  private static readonly DEFAULT_PAGE_SIZE = 50;
+
   constructor(
     @InjectRepository(AuditLog)
     private auditLogRepository: Repository<AuditLog>,
@@ -194,7 +198,17 @@ export class AuditService {
     query.orderBy('audit.timestamp', 'DESC');
 
     const skip = searchDto.skip || 0;
-    const take = Math.min(searchDto.take || 50, 500); // Max 500 records per request
+    const requestedTake = searchDto.take ?? AuditService.DEFAULT_PAGE_SIZE;
+
+    let take = requestedTake;
+    if (take > AuditService.MAX_PAGE_SIZE || take <= 0) {
+      if (take > AuditService.MAX_PAGE_SIZE) {
+        this.logger.warn(
+          `Audit search requested page size ${take}, clamping to ${AuditService.MAX_PAGE_SIZE}`,
+        );
+      }
+      take = AuditService.MAX_PAGE_SIZE;
+    }
 
     query.skip(skip).take(take);
 

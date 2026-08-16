@@ -49,6 +49,14 @@ export class UserAdminService {
     return user;
   }
 
+  /**
+   * @deprecated Use the single-responsibility methods instead:
+   * - `updateUserRole()` for role changes
+   * - `updateUserStatus()` / `deactivateUser()` / `reactivateUser()` for status changes
+   * - `updateIssuerProfile()` for profile updates
+   *
+   * Kept for backward compatibility with existing callers.
+   */
   async adminUpdateUser(
     adminId: string,
     userId: string,
@@ -99,6 +107,11 @@ export class UserAdminService {
     return updatedUser!;
   }
 
+  /**
+   * @deprecated Prefer `deactivateUser()` / `reactivateUser()` for explicit
+   * status transitions, which also record audit metadata. Kept for callers
+   * that need a generic status setter.
+   */
   async updateUserStatus(
     adminId: string,
     userId: string,
