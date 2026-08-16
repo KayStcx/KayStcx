@@ -54,9 +54,13 @@ pub struct CRLContract;
 
 #[contractimpl]
 impl CRLContract {
-    pub fn initialize(env: Env, issuer: Address, certificate_contract: Address) {
+    pub fn initialize(
+        env: Env,
+        issuer: Address,
+        certificate_contract: Address,
+    ) -> Result<(), ContractError> {
         if env.storage().persistent().has(&DataKey::Issuer) {
-            panic!("CRL already initialized");
+            return Err(ContractError::AlreadyExists);
         }
 
         issuer.require_auth();
@@ -80,6 +84,8 @@ impl CRLContract {
             .persistent()
             .set(&DataKey::RevokedCertificates, &Vec::<String>::new(&env));
         env.storage().persistent().set(&DataKey::Info, &crl_info);
+
+        Ok(())
     }
 
     pub fn revoke_certificate(
@@ -101,7 +107,7 @@ impl CRLContract {
         }
 
         if !authorized {
-            panic!("Only issuer or admin can revoke");
+            return Err(ContractError::Unauthorized);
         }
 
         caller.require_auth();
@@ -118,12 +124,12 @@ impl CRLContract {
             soroban_sdk::vec![&env, certificate_id.clone().into_val(&env)],
         );
         if !cert_exists {
-            panic!("Certificate does not exist");
+            return Err(ContractError::NotFound);
         }
 
         let revocation_key = DataKey::Revocation(certificate_id.clone());
         if env.storage().persistent().has(&revocation_key) {
-            panic!("Certificate already revoked");
+            return Err(ContractError::AlreadyExists);
         }
 
         let mut crl_info = Self::get_crl_info_internal(&env)?;
@@ -282,6 +288,12 @@ impl CRLContract {
         crl_info.merkle_root = Self::build_merkle_root(env, revoked_ids);
     }
 
+    /// Build the Merkle root for the current set of revoked certificate IDs.
+    ///
+    /// NOTE: this recomputes the entire tree on-chain (one `sha256` per leaf plus
+    /// one per internal node), which is O(n log n) in crypto operations. For large
+    /// CRLs the root should be computed off-chain and supplied via
+    /// `update_crl_metadata`, with the contract only verifying inclusion proofs.
     fn build_merkle_root(env: &Env, revoked_ids: &Vec<String>) -> String {
         fn sha256_bytes(env: &Env, data: &Bytes) -> BytesN<32> {
             env.crypto().sha256(data).into()

@@ -41,6 +41,7 @@ export interface LogAuditParams {
 
 @Injectable()
 export class AuditService {
+
   constructor(
     @InjectRepository(AuditLog)
     private auditLogRepository: Repository<AuditLog>,

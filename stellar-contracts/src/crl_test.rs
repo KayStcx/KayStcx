@@ -61,12 +61,11 @@ fn test_crl_initialization() {
 }
 
 #[test]
-#[should_panic(expected = "CRL already initialized")]
-fn test_double_initialize_panics() {
+fn test_double_initialize_fails() {
     let (env, cert_contract, issuer) = setup_env();
     let (_, client) = make_client(&env);
     client.initialize(&issuer, &cert_contract);
-    client.initialize(&issuer, &cert_contract);
+    assert!(client.try_initialize(&issuer, &cert_contract).is_err());
 }
 
 // ─── Revocation ───────────────────────────────────────────────────────────────
@@ -107,8 +106,7 @@ fn test_non_revoked_certificate_returns_false() {
 }
 
 #[test]
-#[should_panic(expected = "Certificate already revoked")]
-fn test_duplicate_revocation_panics() {
+fn test_duplicate_revocation_fails() {
     let (env, cert_contract, issuer) = setup_env_and_cert();
     let cert_client = CertificateContractClient::new(&env, &cert_contract);
     let (_, client) = make_client(&env);
@@ -118,7 +116,9 @@ fn test_duplicate_revocation_panics() {
 
     let cert_id = String::from_str(&env, "CERT-001");
     client.revoke_certificate(&issuer, &cert_id, &RevocationReason::KeyCompromise, &None);
-    client.revoke_certificate(&issuer, &cert_id, &RevocationReason::KeyCompromise, &None);
+    assert!(client
+        .try_revoke_certificate(&issuer, &cert_id, &RevocationReason::KeyCompromise, &None)
+        .is_err());
 }
 
 #[test]
