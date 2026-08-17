@@ -16,8 +16,8 @@ import { LoggingService } from '../logging/logging.service';
 @Catch(HttpException)
 export class HttpExceptionFilter implements ExceptionFilter {
   constructor(
-    @Optional() private sentryService?: SentryService,
-    @Optional() private loggingService?: LoggingService,
+    private readonly loggingService: LoggingService,
+    @Optional() private readonly sentryService?: SentryService,
   ) {}
 
   catch(exception: HttpException, host: ArgumentsHost) {
@@ -41,19 +41,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
     };
 
     // Log error
-    if (this.loggingService) {
-      this.loggingService.error(
-        `${request.method} ${request.url}`,
-        new Error(exception.message),
-        context,
-      );
-    } else {
-      console.error(
-        `${request.method} ${request.url}`,
-        JSON.stringify(errorResponse),
-        'HttpExceptionFilter',
-      );
-    }
+    this.loggingService.error(
+      `${request.method} ${request.url}`,
+      new Error(exception.message),
+      context,
+    );
 
     // Capture in Sentry if status code is 5xx
     if (this.sentryService && status >= 500) {

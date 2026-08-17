@@ -49,6 +49,14 @@ export class UserAdminService {
     return user;
   }
 
+  /**
+   * Update any mutable field on a user.
+   *
+   * @deprecated Prefer the single-responsibility methods instead:
+   * `updateUserRole()` for role changes and `updateUserStatus()` for status
+   * changes. This method is kept for backward compatibility and should only be
+   * used for generic profile fields that do not have a dedicated method.
+   */
   async adminUpdateUser(
     adminId: string,
     userId: string,
@@ -72,6 +80,9 @@ export class UserAdminService {
     return updatedUser!;
   }
 
+  /**
+   * Change a user's role. This is the canonical method for role changes.
+   */
   async updateUserRole(
     adminId: string,
     userId: string,
@@ -99,6 +110,9 @@ export class UserAdminService {
     return updatedUser!;
   }
 
+  /**
+   * Change a user's status. This is the canonical method for status changes.
+   */
   async updateUserStatus(
     adminId: string,
     userId: string,
@@ -122,6 +136,13 @@ export class UserAdminService {
     return updatedUser!;
   }
 
+  /**
+   * Deactivate a user by setting their status to INACTIVE.
+   *
+   * @deprecated Prefer `updateUserStatus()` with `UserStatus.INACTIVE` for
+   * status changes. This method is kept for backward compatibility and
+   * additionally records the deactivation reason/actor in user metadata.
+   */
   async deactivateUser(
     adminId: string,
     userId: string,

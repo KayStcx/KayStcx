@@ -140,6 +140,10 @@ async function bootstrap() {
   loggingService.log(`Application started on port ${port}`);
 }
 bootstrap().catch((error) => {
-  console.error('Failed to start application:', error);
+  // The Nest container (and its injected LoggingService) may not be available
+  // if bootstrap failed during module initialization, so construct
+  // LoggingService directly to keep startup failures in structured logs.
+  const loggingService = new LoggingService(new ConfigService(process.env));
+  loggingService.error('Failed to start application', error);
   process.exit(1);
 });
