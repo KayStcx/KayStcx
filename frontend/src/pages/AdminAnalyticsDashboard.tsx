@@ -1,12 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Download, ShieldCheck, Users, FileText, Activity } from 'lucide-react';
-import { adminAnalyticsApi, auditApi, tokenStorage } from '../api';
-import type { AdminAnalytics, AuditLogItem, AuditStatistics } from '../api';
-
-type DateRange = {
-  startDate: string;
-  endDate: string;
-};
+import { auditApi, tokenStorage } from '../api';
+import { useAdminAnalytics } from '../hooks/useAdminAnalytics';
+import type { DateRange } from '../hooks/useDashboardData';
 
 const createInitialDateRange = (): DateRange => {
   const end = new Date();
@@ -64,46 +60,18 @@ async function downloadAuditCsv(params?: Record<string, string | number | boolea
 export default function AdminAnalyticsDashboard() {
   const [dateRange, setDateRange] = useState<DateRange>(createInitialDateRange);
   const [filterDirty, setFilterDirty] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
-  const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null);
-  const [auditStats, setAuditStats] = useState<AuditStatistics | null>(null);
-  const [recentAudit, setRecentAudit] = useState<AuditLogItem[]>([]);
+  const { data, loading, error, refetch } = useAdminAnalytics(dateRange);
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const analytics = data?.analytics ?? null;
+  const auditStats = data?.auditStats ?? null;
+  const recentAudit = data?.recentAudit ?? [];
 
   const handleDateChange = (field: keyof DateRange, value: string) => {
     setDateRange((prev) => ({ ...prev, [field]: value }));
     setFilterDirty(true);
   };
-
-  const load = async (range: DateRange) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [analyticsData, auditStatistics, auditLogs] = await Promise.all([
-        adminAnalyticsApi.getAnalytics(range),
-        auditApi.getStatistics(range),
-        auditApi.searchLogs({ ...range, limit: 20 }),
-      ]);
-      setAnalytics(analyticsData);
-      setAuditStats(auditStatistics);
-      setRecentAudit(auditLogs.data ?? []);
-    } catch (err) {
-      const message =
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message?: string }).message)
-          : 'Failed to load admin analytics';
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void load(dateRange);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const topIssuers = useMemo(() => analytics?.topIssuers ?? [], [analytics]);
 
@@ -125,7 +93,7 @@ export default function AdminAnalyticsDashboard() {
               try {
                 await downloadAuditCsv(dateRange);
               } catch (e) {
-                setError(e instanceof Error ? e.message : 'Failed to export audit logs');
+                setExportError(e instanceof Error ? e.message : 'Failed to export audit logs');
               }
             }}
             className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium text-gray-700 dark:text-slate-300 shadow-sm hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors duration-250"
@@ -176,7 +144,7 @@ export default function AdminAnalyticsDashboard() {
               <button
                 type="button"
                 onClick={() => {
-                  void load(dateRange).then(() => setFilterDirty(false));
+                  void refetch(dateRange).then(() => setFilterDirty(false));
                 }}
                 disabled={loading || !filterDirty || !dateRange.startDate || !dateRange.endDate}
                 className="rounded-md bg-blue-600 dark:bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 dark:hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-60 transition-colors duration-250"
@@ -189,7 +157,7 @@ export default function AdminAnalyticsDashboard() {
                   const initial = createInitialDateRange();
                   setDateRange(initial);
                   setFilterDirty(false);
-                  void load(initial);
+                  void refetch(initial);
                 }}
                 disabled={loading}
                 className="rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 transition-colors duration-250"
@@ -201,9 +169,9 @@ export default function AdminAnalyticsDashboard() {
         </div>
         <div className="flex items-center justify-end gap-4 text-xs text-gray-500 dark:text-slate-400 transition-colors duration-250">
           {loading && <span>Loading admin analytics…</span>}
-          {error && !loading && (
+          {(error ?? exportError) && !loading && (
             <span className="text-red-500 dark:text-red-400 transition-colors duration-250">
-              {error}
+              {error ?? exportError}
             </span>
           )}
         </div>

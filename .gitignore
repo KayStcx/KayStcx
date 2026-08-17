@@ -11,6 +11,10 @@ target/
 coverage/
 stellar-contracts/test_snapshots/
 
+# Local Rust toolchain (project-scoped verification)
+.rustup/
+.cargo/
+
 # IDE
 .vscode/
 .idea/

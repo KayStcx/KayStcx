@@ -1,8 +1,8 @@
 use soroban_sdk::{contract, contractimpl, Address, Env, IntoVal, String, Symbol, Vec};
 
 use crate::{
-    DataKey, MultisigConfig, OptionalRequestStatus, PaginatedResult, Pagination, PendingRequest,
-    RequestStatus, SignatureResult,
+    ContractError, DataKey, MultisigConfig, OptionalRequestStatus, PaginatedResult, Pagination,
+    PendingRequest, RequestStatus, SignatureResult,
 };
 
 #[contract]
@@ -63,19 +63,19 @@ impl MultisigCertificateContract {
         new_threshold: Option<u32>,
         new_signers: Option<Vec<Address>>,
         new_max_signers: Option<u32>,
-    ) {
+    ) -> Result<(), ContractError> {
         let admin: Address = env
             .storage()
             .instance()
             .get(&DataKey::IssuerAdmin(issuer.clone()))
-            .expect("Issuer admin not found");
+            .ok_or(ContractError::NotFound)?;
         admin.require_auth();
 
         let mut config: MultisigConfig = env
             .storage()
             .instance()
             .get(&DataKey::MultisigConfig(issuer.clone()))
-            .expect("Multisig config not found");
+            .ok_or(ContractError::NotFound)?;
 
         // Update configuration
         if let Some(signers) = new_signers {
@@ -101,14 +101,16 @@ impl MultisigCertificateContract {
         env.storage()
             .instance()
             .set(&DataKey::MultisigConfig(issuer), &config);
+
+        Ok(())
     }
 
     /// Get multisig configuration for an issuer
-    pub fn get_multisig_config(env: Env, issuer: Address) -> MultisigConfig {
+    pub fn get_multisig_config(env: Env, issuer: Address) -> Result<MultisigConfig, ContractError> {
         env.storage()
             .instance()
             .get(&DataKey::MultisigConfig(issuer))
-            .expect("Multisig config not found")
+            .ok_or(ContractError::NotFound)
     }
 
     /// Propose a certificate for multisig approval
@@ -119,12 +121,12 @@ impl MultisigCertificateContract {
         recipient: Address,
         metadata: String,
         expiration_days: u32,
-    ) -> PendingRequest {
+    ) -> Result<PendingRequest, ContractError> {
         let config: MultisigConfig = env
             .storage()
             .instance()
             .get(&DataKey::MultisigConfig(issuer.clone()))
-            .expect("Issuer does not have multisig configuration");
+            .ok_or(ContractError::NotFound)?;
 
         // Check if request already exists
         if env
@@ -159,18 +161,22 @@ impl MultisigCertificateContract {
             Self::append_request_id(&env, DataKey::SignerRequestIds(signer), request_id.clone());
         }
 
-        request
+        Ok(request)
     }
 
     /// Approve a pending certificate request
-    pub fn approve_request(env: Env, request_id: String, approver: Address) -> SignatureResult {
+    pub fn approve_request(
+        env: Env,
+        request_id: String,
+        approver: Address,
+    ) -> Result<SignatureResult, ContractError> {
         approver.require_auth();
 
         let mut request: PendingRequest = env
             .storage()
             .instance()
             .get(&DataKey::PendingRequest(request_id.clone()))
-            .expect("Request not found");
+            .ok_or(ContractError::NotFound)?;
 
         // Check if request has expired
         if env.ledger().timestamp() > request.expires_at {
@@ -178,20 +184,20 @@ impl MultisigCertificateContract {
             env.storage()
                 .instance()
                 .set(&DataKey::PendingRequest(request_id), &request);
-            return SignatureResult {
+            return Ok(SignatureResult {
                 success: false,
                 message: String::from_str(&env, "Request has expired"),
                 final_status: OptionalRequestStatus::Some(RequestStatus::Expired),
-            };
+            });
         }
 
         // Check if request is still pending
         if request.status != RequestStatus::Pending {
-            return SignatureResult {
+            return Ok(SignatureResult {
                 success: false,
                 message: String::from_str(&env, "Request is not pending"),
                 final_status: OptionalRequestStatus::Some(request.status),
-            };
+            });
         }
 
         // Get multisig configuration
@@ -199,24 +205,24 @@ impl MultisigCertificateContract {
             .storage()
             .instance()
             .get(&DataKey::MultisigConfig(request.issuer.clone()))
-            .expect("Multisig config not found");
+            .ok_or(ContractError::NotFound)?;
 
         // Check if approver is an authorized signer
         if !config.signers.contains(&approver) {
-            return SignatureResult {
+            return Ok(SignatureResult {
                 success: false,
                 message: String::from_str(&env, "Approver is not an authorized signer"),
                 final_status: OptionalRequestStatus::Some(request.status),
-            };
+            });
         }
 
         // Check if already approved
         if request.approvals.contains(&approver) {
-            return SignatureResult {
+            return Ok(SignatureResult {
                 success: false,
                 message: String::from_str(&env, "Request already approved by this signer"),
                 final_status: OptionalRequestStatus::Some(request.status),
-            };
+            });
         }
 
         // Add approval
@@ -231,11 +237,11 @@ impl MultisigCertificateContract {
             .instance()
             .set(&DataKey::PendingRequest(request_id), &request);
 
-        SignatureResult {
+        Ok(SignatureResult {
             success: true,
             message: String::from_str(&env, "Approval recorded"),
             final_status: OptionalRequestStatus::Some(request.status),
-        }
+        })
     }
 
     /// Reject a pending certificate request
@@ -244,22 +250,22 @@ impl MultisigCertificateContract {
         request_id: String,
         rejector: Address,
         reason: Option<String>,
-    ) -> SignatureResult {
+    ) -> Result<SignatureResult, ContractError> {
         rejector.require_auth();
 
         let mut request: PendingRequest = env
             .storage()
             .instance()
             .get(&DataKey::PendingRequest(request_id.clone()))
-            .expect("Request not found");
+            .ok_or(ContractError::NotFound)?;
 
         // Check if request is still pending
         if request.status != RequestStatus::Pending {
-            return SignatureResult {
+            return Ok(SignatureResult {
                 success: false,
                 message: String::from_str(&env, "Request is not pending"),
                 final_status: OptionalRequestStatus::Some(request.status),
-            };
+            });
         }
 
         // Get multisig configuration
@@ -267,24 +273,24 @@ impl MultisigCertificateContract {
             .storage()
             .instance()
             .get(&DataKey::MultisigConfig(request.issuer.clone()))
-            .expect("Multisig config not found");
+            .ok_or(ContractError::NotFound)?;
 
         // Check if rejector is an authorized signer
         if !config.signers.contains(&rejector) {
-            return SignatureResult {
+            return Ok(SignatureResult {
                 success: false,
                 message: String::from_str(&env, "Rejector is not an authorized signer"),
                 final_status: OptionalRequestStatus::Some(request.status),
-            };
+            });
         }
 
         // Check if already rejected
         if request.rejections.contains(&rejector) {
-            return SignatureResult {
+            return Ok(SignatureResult {
                 success: false,
                 message: String::from_str(&env, "Request already rejected by this signer"),
                 final_status: OptionalRequestStatus::Some(request.status),
-            };
+            });
         }
 
         // Add rejection
@@ -305,23 +311,23 @@ impl MultisigCertificateContract {
             .instance()
             .set(&DataKey::PendingRequest(request_id), &request);
 
-        SignatureResult {
+        Ok(SignatureResult {
             success: true,
             message: String::from_str(&env, "Rejection recorded"),
             final_status: OptionalRequestStatus::Some(request.status),
-        }
+        })
     }
 
     /// Issue an approved certificate
-    pub fn issue_approved_certificate(env: Env, request_id: String) -> bool {
+    pub fn issue_approved_certificate(env: Env, request_id: String) -> Result<bool, ContractError> {
         let mut request: PendingRequest = env
             .storage()
             .instance()
             .get(&DataKey::PendingRequest(request_id.clone()))
-            .expect("Request not found");
+            .ok_or(ContractError::NotFound)?;
 
         if request.status != RequestStatus::Approved {
-            return false;
+            return Ok(false);
         }
 
         request.issuer.require_auth();
@@ -330,7 +336,7 @@ impl MultisigCertificateContract {
             .storage()
             .instance()
             .get(&DataKey::CertificateContract)
-            .expect("Certificate contract not configured");
+            .ok_or(ContractError::NotConfigured)?;
 
         // Issue the actual certificate through the external CertificateContract
         let _: () = env.invoke_contract(
@@ -350,7 +356,7 @@ impl MultisigCertificateContract {
         env.storage()
             .instance()
             .set(&DataKey::PendingRequest(request_id), &request);
-        true
+        Ok(true)
     }
 
     pub fn set_certificate_contract(env: Env, admin: Address, certificate_contract: Address) {
@@ -360,54 +366,58 @@ impl MultisigCertificateContract {
             .set(&DataKey::CertificateContract, &certificate_contract);
     }
 
-    pub fn get_certificate_contract(env: Env) -> Address {
+    pub fn get_certificate_contract(env: Env) -> Result<Address, ContractError> {
         env.storage()
             .instance()
             .get(&DataKey::CertificateContract)
-            .expect("Certificate contract not configured")
+            .ok_or(ContractError::NotConfigured)
     }
 
     /// Get a pending request by ID
-    pub fn get_pending_request(env: Env, request_id: String) -> PendingRequest {
+    pub fn get_pending_request(env: Env, request_id: String) -> Result<PendingRequest, ContractError> {
         env.storage()
             .instance()
             .get(&DataKey::PendingRequest(request_id))
-            .expect("Request not found")
+            .ok_or(ContractError::NotFound)
     }
 
     /// Check if a request has expired
-    pub fn is_expired(env: Env, request_id: String) -> bool {
+    pub fn is_expired(env: Env, request_id: String) -> Result<bool, ContractError> {
         let request: PendingRequest = env
             .storage()
             .instance()
             .get(&DataKey::PendingRequest(request_id))
-            .expect("Request not found");
-        env.ledger().timestamp() > request.expires_at
+            .ok_or(ContractError::NotFound)?;
+        Ok(env.ledger().timestamp() > request.expires_at)
     }
 
     /// Cancel a pending request (only proposer can cancel)
-    pub fn cancel_request(env: Env, request_id: String, requester: Address) -> bool {
+    pub fn cancel_request(
+        env: Env,
+        request_id: String,
+        requester: Address,
+    ) -> Result<bool, ContractError> {
         requester.require_auth();
 
         let mut request: PendingRequest = env
             .storage()
             .instance()
             .get(&DataKey::PendingRequest(request_id.clone()))
-            .expect("Request not found");
+            .ok_or(ContractError::NotFound)?;
 
         if request.proposer != requester {
             panic!("Only proposer can cancel the request");
         }
 
         if request.status != RequestStatus::Pending {
-            return false;
+            return Ok(false);
         }
 
         request.status = RequestStatus::Cancelled;
         env.storage()
             .instance()
             .set(&DataKey::PendingRequest(request_id), &request);
-        true
+        Ok(true)
     }
 
     /// Get pending requests for an issuer (simplified pagination)

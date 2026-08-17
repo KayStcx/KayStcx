@@ -139,3 +139,34 @@ fn test_cancel_proposal() {
     let canceled_proposal = client.get_proposal(&proposal_id);
     assert_eq!(canceled_proposal.status, AdminProposalStatus::Rejected);
 }
+
+#[test]
+fn test_get_config_returns_not_initialized_error() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, AdminMultisigContract);
+    let client = AdminMultisigContractClient::new(&env, &contract_id);
+
+    assert_eq!(
+        client.try_get_config(),
+        Err(Ok(ContractError::NotInitialized))
+    );
+}
+
+#[test]
+fn test_get_proposal_returns_not_found_error() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, AdminMultisigContract);
+    let client = AdminMultisigContractClient::new(&env, &contract_id);
+
+    let admin1 = Address::generate(&env);
+    let signers = Vec::from_array(&env, [admin1.clone()]);
+
+    env.mock_all_auths();
+    client.init_admin_multisig(&1, &signers, &10);
+
+    let proposal_id = String::from_str(&env, "missing-proposal");
+    assert_eq!(
+        client.try_get_proposal(&proposal_id),
+        Err(Ok(ContractError::NotFound))
+    );
+}

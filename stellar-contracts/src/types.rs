@@ -1,4 +1,18 @@
-use soroban_sdk::{contracttype, Address, BytesN, String, Vec};
+use soroban_sdk::{contracterror, contracttype, Address, BytesN, String, Vec};
+
+/// Typed errors returned by contract functions instead of panicking on missing
+/// or invalid state. Contract errors roll back the transaction and surface a
+/// meaningful error code to the caller.
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum ContractError {
+    NotFound = 1,
+    Unauthorized = 2,
+    AlreadyExists = 3,
+    NotInitialized = 4,
+    NotConfigured = 5,
+}
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
