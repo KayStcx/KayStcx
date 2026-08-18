@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, MoreThanOrEqual } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -7,9 +7,25 @@ import { Certificate } from '../entities/certificate.entity';
 import { StatsQueryDto, CertificateStatsDto } from '../dto/stats.dto';
 import { Verification } from '../entities/verification.entity';
 
+const EMPTY_TOTAL_STATS = {
+  totalCertificates: 0,
+  activeCertificates: 0,
+  revokedCertificates: 0,
+  expiredCertificates: 0,
+};
+
+const EMPTY_VERIFICATION_STATS = {
+  totalVerifications: 0,
+  successfulVerifications: 0,
+  failedVerifications: 0,
+  dailyVerifications: 0,
+  weeklyVerifications: 0,
+};
+
 @Injectable()
 export class CertificateStatsService {
   private readonly CACHE_TTL = 300; // 5 minutes in seconds
+  private readonly logger = new Logger(CertificateStatsService.name);
 
   constructor(
     @InjectRepository(Certificate)
@@ -33,14 +49,31 @@ export class CertificateStatsService {
     const dateFilter = this.buildDateFilter(query);
     const issuerFilter = query.issuerId ? { issuerId: query.issuerId } : {};
 
-    // Fetch all statistics in parallel
-    const [totalStats, issuanceTrend, topIssuers, verificationStats] =
-      await Promise.all([
-        this.getTotalStats(dateFilter, issuerFilter),
-        this.getIssuanceTrend(dateFilter, issuerFilter),
-        this.getTopIssuers(dateFilter),
-        this.getVerificationStats(dateFilter, issuerFilter),
-      ]);
+    // Fetch all statistics in parallel, isolating each query so a single
+    // failure cannot break the entire response.
+    const settled = await Promise.allSettled([
+      this.getTotalStats(dateFilter, issuerFilter),
+      this.getIssuanceTrend(dateFilter, issuerFilter),
+      this.getTopIssuers(dateFilter),
+      this.getVerificationStats(dateFilter, issuerFilter),
+    ]);
+
+    const totalStats = this.settleResult(
+      settled[0],
+      EMPTY_TOTAL_STATS,
+      'getTotalStats',
+    );
+    const issuanceTrend = this.settleResult(
+      settled[1],
+      [],
+      'getIssuanceTrend',
+    );
+    const topIssuers = this.settleResult(settled[2], [], 'getTopIssuers');
+    const verificationStats = this.settleResult(
+      settled[3],
+      EMPTY_VERIFICATION_STATS,
+      'getVerificationStats',
+    );
 
     const result: CertificateStatsDto = {
       ...totalStats,
@@ -72,7 +105,7 @@ export class CertificateStatsService {
   private async getTotalStats(dateFilter: any, issuerFilter: any) {
     const where = { ...dateFilter, ...issuerFilter };
 
-    const [total, active, revoked, expired] = await Promise.all([
+    const settled = await Promise.allSettled([
       this.certificateRepo.count({ where }),
       this.certificateRepo.count({
         where: { ...where, status: 'active' },
@@ -85,11 +118,32 @@ export class CertificateStatsService {
       }),
     ]);
 
+    const totalCertificates = this.settleResult(
+      settled[0],
+      0,
+      'getTotalStats:total',
+    );
+    const activeCertificates = this.settleResult(
+      settled[1],
+      0,
+      'getTotalStats:active',
+    );
+    const revokedCertificates = this.settleResult(
+      settled[2],
+      0,
+      'getTotalStats:revoked',
+    );
+    const expiredCertificates = this.settleResult(
+      settled[3],
+      0,
+      'getTotalStats:expired',
+    );
+
     return {
-      totalCertificates: total,
-      activeCertificates: active,
-      revokedCertificates: revoked,
-      expiredCertificates: expired,
+      totalCertificates,
+      activeCertificates,
+      revokedCertificates,
+      expiredCertificates,
     };
   }
 
@@ -159,7 +213,7 @@ export class CertificateStatsService {
       baseWhere.verifiedAt = Between(dateFilter.startDate, dateFilter.endDate);
     }
 
-    const [total, successful, failed, daily, weekly] = await Promise.all([
+    const settled = await Promise.allSettled([
       this.verificationRepo.count({ where: baseWhere }),
       this.verificationRepo.count({
         where: { ...baseWhere, success: true },
@@ -181,12 +235,38 @@ export class CertificateStatsService {
       }),
     ]);
 
+    const totalVerifications = this.settleResult(
+      settled[0],
+      0,
+      'getVerificationStats:total',
+    );
+    const successfulVerifications = this.settleResult(
+      settled[1],
+      0,
+      'getVerificationStats:successful',
+    );
+    const failedVerifications = this.settleResult(
+      settled[2],
+      0,
+      'getVerificationStats:failed',
+    );
+    const dailyVerifications = this.settleResult(
+      settled[3],
+      0,
+      'getVerificationStats:daily',
+    );
+    const weeklyVerifications = this.settleResult(
+      settled[4],
+      0,
+      'getVerificationStats:weekly',
+    );
+
     return {
-      totalVerifications: total,
-      successfulVerifications: successful,
-      failedVerifications: failed,
-      dailyVerifications: daily,
-      weeklyVerifications: weekly,
+      totalVerifications,
+      successfulVerifications,
+      failedVerifications,
+      dailyVerifications,
+      weeklyVerifications,
     };
   }
 
@@ -221,5 +301,25 @@ export class CertificateStatsService {
         statsKeys.map((key: string) => this.cacheManager.del(key)),
       );
     }
+  }
+
+  /**
+   * Unwrap a settled promise, logging rejections and returning a fallback so a
+   * single failing query never breaks the aggregate statistics response.
+   */
+  private settleResult<T>(
+    result: PromiseSettledResult<T>,
+    fallback: T,
+    label: string,
+  ): T {
+    if (result.status === 'fulfilled') {
+      return result.value;
+    }
+    const reason = result.reason;
+    const message = reason instanceof Error ? reason.message : String(reason);
+    this.logger.error(
+      `Certificate stats "${label}" failed, using fallback: ${message}`,
+    );
+    return fallback;
   }
 }

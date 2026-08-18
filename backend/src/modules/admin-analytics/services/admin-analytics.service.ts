@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThanOrEqual, Between } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -19,9 +19,41 @@ import {
   CertificateIssuanceTrendDto,
 } from '../dto/admin-analytics.dto';
 
+const EMPTY_USERS_BY_ROLE: UsersByRoleDto = {
+  users: 0,
+  issuers: 0,
+  admins: 0,
+  total: 0,
+};
+
+const EMPTY_USERS_BY_STATUS: UsersByStatusDto = {
+  active: 0,
+  inactive: 0,
+  suspended: 0,
+  pendingVerification: 0,
+};
+
+const EMPTY_CERTIFICATES_BY_STATUS: CertificatesByStatusDto = {
+  active: 0,
+  revoked: 0,
+  expired: 0,
+  total: 0,
+};
+
+const EMPTY_VERIFICATION_TRENDS: VerificationTrendsDto = {
+  total: 0,
+  successful: 0,
+  failed: 0,
+  successRate: 0,
+  last24Hours: 0,
+  last7Days: 0,
+  last30Days: 0,
+};
+
 @Injectable()
 export class AdminAnalyticsService {
   private readonly CACHE_TTL = 120; // 2 minutes in seconds
+  private readonly logger = new Logger(AdminAnalyticsService.name);
 
   constructor(
     @InjectRepository(User)
@@ -53,17 +85,9 @@ export class AdminAnalyticsService {
     // Build date filters
     const dateFilter = this.buildDateFilter(query);
 
-    // Fetch all analytics data in parallel
-    const [
-      usersByRole,
-      usersByStatus,
-      certificatesByStatus,
-      topIssuers,
-      verificationTrends,
-      userRegistrationTrend,
-      certificateIssuanceTrend,
-      totalIssuers,
-    ] = await Promise.all([
+    // Fetch all analytics data in parallel, isolating each query so a single
+    // failure cannot break the entire dashboard render.
+    const settled = await Promise.allSettled([
       this.getUsersByRole(),
       this.getUsersByStatus(),
       this.getCertificatesByStatus(dateFilter),
@@ -73,6 +97,43 @@ export class AdminAnalyticsService {
       this.getCertificateIssuanceTrend(dateFilter),
       this.issuerRepo.count({ where: { isActive: true } }),
     ]);
+
+    const usersByRole = this.settleResult(
+      settled[0],
+      EMPTY_USERS_BY_ROLE,
+      'getUsersByRole',
+    );
+    const usersByStatus = this.settleResult(
+      settled[1],
+      EMPTY_USERS_BY_STATUS,
+      'getUsersByStatus',
+    );
+    const certificatesByStatus = this.settleResult(
+      settled[2],
+      EMPTY_CERTIFICATES_BY_STATUS,
+      'getCertificatesByStatus',
+    );
+    const topIssuers = this.settleResult(
+      settled[3],
+      [] as TopIssuerAnalyticsDto[],
+      'getTopIssuers',
+    );
+    const verificationTrends = this.settleResult(
+      settled[4],
+      EMPTY_VERIFICATION_TRENDS,
+      'getVerificationTrends',
+    );
+    const userRegistrationTrend = this.settleResult(
+      settled[5],
+      [] as UserRegistrationTrendDto[],
+      'getUserRegistrationTrend',
+    );
+    const certificateIssuanceTrend = this.settleResult(
+      settled[6],
+      [] as CertificateIssuanceTrendDto[],
+      'getCertificateIssuanceTrend',
+    );
+    const totalIssuers = this.settleResult(settled[7], 0, 'totalIssuers');
 
     const result: AdminAnalyticsDto = {
       usersByRole,
@@ -95,11 +156,19 @@ export class AdminAnalyticsService {
    * Get user count breakdown by role
    */
   private async getUsersByRole(): Promise<UsersByRoleDto> {
-    const [users, issuers, admins] = await Promise.all([
+    const settled = await Promise.allSettled([
       this.userRepo.count({ where: { role: UserRole.USER } }),
       this.userRepo.count({ where: { role: UserRole.ISSUER } }),
       this.userRepo.count({ where: { role: UserRole.ADMIN } }),
     ]);
+
+    const users = this.settleResult(settled[0], 0, 'getUsersByRole:users');
+    const issuers = this.settleResult(
+      settled[1],
+      0,
+      'getUsersByRole:issuers',
+    );
+    const admins = this.settleResult(settled[2], 0, 'getUsersByRole:admins');
 
     return {
       users,
@@ -113,15 +182,35 @@ export class AdminAnalyticsService {
    * Get user count breakdown by status
    */
   private async getUsersByStatus(): Promise<UsersByStatusDto> {
-    const [active, inactive, suspended, pendingVerification] =
-      await Promise.all([
-        this.userRepo.count({ where: { status: UserStatus.ACTIVE } }),
-        this.userRepo.count({ where: { status: UserStatus.INACTIVE } }),
-        this.userRepo.count({ where: { status: UserStatus.SUSPENDED } }),
-        this.userRepo.count({
-          where: { status: UserStatus.PENDING_VERIFICATION },
-        }),
-      ]);
+    const settled = await Promise.allSettled([
+      this.userRepo.count({ where: { status: UserStatus.ACTIVE } }),
+      this.userRepo.count({ where: { status: UserStatus.INACTIVE } }),
+      this.userRepo.count({ where: { status: UserStatus.SUSPENDED } }),
+      this.userRepo.count({
+        where: { status: UserStatus.PENDING_VERIFICATION },
+      }),
+    ]);
+
+    const active = this.settleResult(
+      settled[0],
+      0,
+      'getUsersByStatus:active',
+    );
+    const inactive = this.settleResult(
+      settled[1],
+      0,
+      'getUsersByStatus:inactive',
+    );
+    const suspended = this.settleResult(
+      settled[2],
+      0,
+      'getUsersByStatus:suspended',
+    );
+    const pendingVerification = this.settleResult(
+      settled[3],
+      0,
+      'getUsersByStatus:pendingVerification',
+    );
 
     return {
       active,
@@ -139,7 +228,7 @@ export class AdminAnalyticsService {
   ): Promise<CertificatesByStatusDto> {
     const where = dateFilter.where || {};
 
-    const [total, active, revoked, expired] = await Promise.all([
+    const settled = await Promise.allSettled([
       this.certificateRepo.count({ where }),
       this.certificateRepo.count({
         where: { ...where, status: 'active' },
@@ -151,6 +240,27 @@ export class AdminAnalyticsService {
         where: { ...where, status: 'expired' },
       }),
     ]);
+
+    const active = this.settleResult(
+      settled[0],
+      0,
+      'getCertificatesByStatus:active',
+    );
+    const revoked = this.settleResult(
+      settled[1],
+      0,
+      'getCertificatesByStatus:revoked',
+    );
+    const expired = this.settleResult(
+      settled[2],
+      0,
+      'getCertificatesByStatus:expired',
+    );
+    const total = this.settleResult(
+      settled[3],
+      0,
+      'getCertificatesByStatus:total',
+    );
 
     return {
       active,
@@ -220,34 +330,64 @@ export class AdminAnalyticsService {
       baseWhere.verifiedAt = Between(dateFilter.startDate, dateFilter.endDate);
     }
 
-    const [total, successful, failed, last24h, last7d, last30d] =
-      await Promise.all([
-        this.verificationRepo.count({ where: baseWhere }),
-        this.verificationRepo.count({
-          where: { ...baseWhere, success: true },
-        }),
-        this.verificationRepo.count({
-          where: { ...baseWhere, success: false },
-        }),
-        this.verificationRepo.count({
-          where: {
-            ...baseWhere,
-            verifiedAt: MoreThanOrEqual(oneDayAgo),
-          },
-        }),
-        this.verificationRepo.count({
-          where: {
-            ...baseWhere,
-            verifiedAt: MoreThanOrEqual(sevenDaysAgo),
-          },
-        }),
-        this.verificationRepo.count({
-          where: {
-            ...baseWhere,
-            verifiedAt: MoreThanOrEqual(thirtyDaysAgo),
-          },
-        }),
-      ]);
+    const settled = await Promise.allSettled([
+      this.verificationRepo.count({ where: baseWhere }),
+      this.verificationRepo.count({
+        where: { ...baseWhere, success: true },
+      }),
+      this.verificationRepo.count({
+        where: { ...baseWhere, success: false },
+      }),
+      this.verificationRepo.count({
+        where: {
+          ...baseWhere,
+          verifiedAt: MoreThanOrEqual(oneDayAgo),
+        },
+      }),
+      this.verificationRepo.count({
+        where: {
+          ...baseWhere,
+          verifiedAt: MoreThanOrEqual(sevenDaysAgo),
+        },
+      }),
+      this.verificationRepo.count({
+        where: {
+          ...baseWhere,
+          verifiedAt: MoreThanOrEqual(thirtyDaysAgo),
+        },
+      }),
+    ]);
+
+    const total = this.settleResult(
+      settled[0],
+      0,
+      'getVerificationTrends:total',
+    );
+    const successful = this.settleResult(
+      settled[1],
+      0,
+      'getVerificationTrends:successful',
+    );
+    const failed = this.settleResult(
+      settled[2],
+      0,
+      'getVerificationTrends:failed',
+    );
+    const last24h = this.settleResult(
+      settled[3],
+      0,
+      'getVerificationTrends:last24h',
+    );
+    const last7d = this.settleResult(
+      settled[4],
+      0,
+      'getVerificationTrends:last7d',
+    );
+    const last30d = this.settleResult(
+      settled[5],
+      0,
+      'getVerificationTrends:last30d',
+    );
 
     return {
       total,
@@ -355,5 +495,25 @@ export class AdminAnalyticsService {
         adminKeys.map((key: string) => this.cacheManager.del(key)),
       );
     }
+  }
+
+  /**
+   * Unwrap a settled promise, logging rejections and returning a fallback so a
+   * single failing query never breaks the aggregate analytics response.
+   */
+  private settleResult<T>(
+    result: PromiseSettledResult<T>,
+    fallback: T,
+    label: string,
+  ): T {
+    if (result.status === 'fulfilled') {
+      return result.value;
+    }
+    const reason = result.reason;
+    const message = reason instanceof Error ? reason.message : String(reason);
+    this.logger.error(
+      `Admin analytics "${label}" failed, using fallback: ${message}`,
+    );
+    return fallback;
   }
 }

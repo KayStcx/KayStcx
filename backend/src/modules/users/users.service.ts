@@ -314,16 +314,10 @@ export class UsersService {
     byStatus: Record<UserStatus, number>;
     certificateIssuanceCounts: Record<string, number>;
   }> {
-    // This method is kept in UsersService as it aggregates data from multiple services
-    const [
-      total,
-      active,
-      userCount,
-      issuerCount,
-      adminCount,
-      recipientCount,
-      verifierCount,
-    ] = await Promise.all([
+    // This method is kept in UsersService as it aggregates data from multiple services.
+    // Each query is fetched independently via allSettled so a single transient
+    // failure cannot break the entire statistics aggregation.
+    const settledCounts = await Promise.allSettled([
       this.userRepository.countTotal(),
       this.userRepository.countActive(),
       this.userRepository.countByRole(UserRole.USER),
@@ -333,16 +327,68 @@ export class UsersService {
       this.userRepository.countByRole(UserRole.VERIFIER),
     ]);
 
-    const [activeStatus, inactiveStatus, suspendedStatus, pendingStatus] =
-      await Promise.all([
-        this.userRepository.countByStatus(UserStatus.ACTIVE),
-        this.userRepository.countByStatus(UserStatus.INACTIVE),
-        this.userRepository.countByStatus(UserStatus.SUSPENDED),
-        this.userRepository.countByStatus(UserStatus.PENDING_VERIFICATION),
-      ]);
+    const total = this.settleResult(settledCounts[0], 0, 'getUserStats:total');
+    const active = this.settleResult(
+      settledCounts[1],
+      0,
+      'getUserStats:active',
+    );
+    const userCount = this.settleResult(
+      settledCounts[2],
+      0,
+      'getUserStats:userCount',
+    );
+    const issuerCount = this.settleResult(
+      settledCounts[3],
+      0,
+      'getUserStats:issuerCount',
+    );
+    const adminCount = this.settleResult(
+      settledCounts[4],
+      0,
+      'getUserStats:adminCount',
+    );
+    const recipientCount = this.settleResult(
+      settledCounts[5],
+      0,
+      'getUserStats:recipientCount',
+    );
+    const verifierCount = this.settleResult(
+      settledCounts[6],
+      0,
+      'getUserStats:verifierCount',
+    );
+
+    const settledStatuses = await Promise.allSettled([
+      this.userRepository.countByStatus(UserStatus.ACTIVE),
+      this.userRepository.countByStatus(UserStatus.INACTIVE),
+      this.userRepository.countByStatus(UserStatus.SUSPENDED),
+      this.userRepository.countByStatus(UserStatus.PENDING_VERIFICATION),
+    ]);
+
+    const activeStatus = this.settleResult(
+      settledStatuses[0],
+      0,
+      'getUserStats:activeStatus',
+    );
+    const inactiveStatus = this.settleResult(
+      settledStatuses[1],
+      0,
+      'getUserStats:inactiveStatus',
+    );
+    const suspendedStatus = this.settleResult(
+      settledStatuses[2],
+      0,
+      'getUserStats:suspendedStatus',
+    );
+    const pendingStatus = this.settleResult(
+      settledStatuses[3],
+      0,
+      'getUserStats:pendingStatus',
+    );
 
     const certificateIssuanceCounts =
-      await this.userRepository.getPerUserCertificateCounts();
+      await this.getCertificateIssuanceCounts();
 
     return {
       total,
@@ -390,6 +436,44 @@ export class UsersService {
   }
 
   // ==================== Private Methods (kept as they're used by delegated services) ====================
+
+  /**
+   * Load per-user certificate counts, returning an empty record on failure so a
+   * single failing query cannot break the aggregated user statistics.
+   */
+  private async getCertificateIssuanceCounts(): Promise<
+    Record<string, number>
+  > {
+    try {
+      return await this.userRepository.getPerUserCertificateCounts();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to load per-user certificate counts: ${message}`,
+      );
+      return {};
+    }
+  }
+
+  /**
+   * Unwrap a settled promise, logging rejections and returning a fallback so a
+   * single failing query never breaks the aggregate statistics response.
+   */
+  private settleResult<T>(
+    result: PromiseSettledResult<T>,
+    fallback: T,
+    label: string,
+  ): T {
+    if (result.status === 'fulfilled') {
+      return result.value;
+    }
+    const reason = result.reason;
+    const message = reason instanceof Error ? reason.message : String(reason);
+    this.logger.error(
+      `User stats "${label}" failed, using fallback: ${message}`,
+    );
+    return fallback;
+  }
 
   private async generateTokens(user: User): Promise<IAuthTokens> {
     const payload = {
