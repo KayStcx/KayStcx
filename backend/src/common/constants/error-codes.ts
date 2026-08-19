@@ -21,6 +21,15 @@ export enum ErrorCode {
   INVALID_TRANSACTION = 'INVALID_TRANSACTION',
   TRANSACTION_FAILED = 'TRANSACTION_FAILED',
 
+  // Soroban smart-contract errors (#8 / backend "B10"). These mirror the
+  // `SorobanErrorCode` enum in
+  // `src/modules/stellar/exceptions/soroban.exception.ts` so the global
+  // exception filter can surface them with the right HTTP status.
+  SOROBAN_CONFIGURATION_ERROR = 'SOROBAN_CONFIGURATION_ERROR',
+  SOROBAN_NETWORK_ERROR = 'SOROBAN_NETWORK_ERROR',
+  SOROBAN_TRANSACTION_ERROR = 'SOROBAN_TRANSACTION_ERROR',
+  SOROBAN_NOT_FOUND = 'SOROBAN_NOT_FOUND',
+
   // Certificate errors
   CERTIFICATE_NOT_FOUND = 'CERTIFICATE_NOT_FOUND',
   CERTIFICATE_INVALID = 'CERTIFICATE_INVALID',
@@ -63,6 +72,13 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ErrorCode.BLOCKCHAIN_CONNECTION_ERROR]: 'Failed to connect to blockchain',
   [ErrorCode.INVALID_TRANSACTION]: 'Invalid transaction',
   [ErrorCode.TRANSACTION_FAILED]: 'Transaction failed',
+
+  [ErrorCode.SOROBAN_CONFIGURATION_ERROR]:
+    'Soroban service is not properly configured',
+  [ErrorCode.SOROBAN_NETWORK_ERROR]: 'Failed to reach the Soroban RPC network',
+  [ErrorCode.SOROBAN_TRANSACTION_ERROR]:
+    'Soroban transaction was rejected or failed',
+  [ErrorCode.SOROBAN_NOT_FOUND]: 'Requested Soroban record was not found',
 
   [ErrorCode.CERTIFICATE_NOT_FOUND]: 'Certificate not found',
   [ErrorCode.CERTIFICATE_INVALID]: 'Certificate is invalid',

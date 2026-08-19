@@ -46,8 +46,10 @@ const Login = () => {
       setLoadingPhase("logging-in");
       const res = await authApi.login({ email: formData.email, password: formData.password });
       if (res.accessToken) {
-        // Use AuthContext.login() to keep token storage and isAuthenticated in sync
-        login(res.accessToken, res.refreshToken, res.user);
+        // Refresh tokens now live in an HttpOnly cookie issued by the
+        // backend — drop the localStorage copy so XSS cannot escalate to
+        // session hijacking (issue #11 / frontend "F1").
+        login(res.accessToken, res.user);
         navigate("/");
       }
     } catch (err: unknown) {

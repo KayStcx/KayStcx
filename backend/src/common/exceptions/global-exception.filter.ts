@@ -4,6 +4,7 @@ import {
   ArgumentsHost,
   HttpException,
   BadRequestException,
+  HttpStatus,
   Injectable,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
@@ -11,6 +12,31 @@ import { ConfigService } from '@nestjs/config';
 import { SentryService } from '../monitoring/sentry.service';
 import { LoggingService } from '../logging/logging.service';
 import { AppException } from './exceptions';
+import {
+  SorobanException,
+  SorobanConfigurationException,
+  SorobanNetworkException,
+  SorobanNotFoundException,
+  SorobanTransactionException,
+  SorobanErrorCode,
+} from '../../modules/stellar/exceptions/soroban.exception';
+
+/**
+ * HTTP status mapping for each `SorobanErrorCode`. Kept in this file so the
+ * HTTP layer is the only place that decides what a Soroban failure looks
+ * like to clients (issue #8 / backend "B10").
+ *
+ * - Configuration issues are server-side misconfigurations → 500.
+ * - Network / transaction failures are upstream RPC failures → 502
+ *   ("Bad Gateway") so the caller can retry without rebuilding the request.
+ * - Not-found is a regular 404.
+ */
+const SOROBAN_HTTP_STATUS: Record<SorobanErrorCode, number> = {
+  [SorobanErrorCode.CONFIGURATION_ERROR]: HttpStatus.INTERNAL_SERVER_ERROR,
+  [SorobanErrorCode.NETWORK_ERROR]: HttpStatus.BAD_GATEWAY,
+  [SorobanErrorCode.TRANSACTION_ERROR]: HttpStatus.BAD_GATEWAY,
+  [SorobanErrorCode.NOT_FOUND]: HttpStatus.NOT_FOUND,
+};
 
 interface ErrorResponse {
   errorCode: string;
@@ -62,8 +88,28 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       errorResponse.correlationId = context.correlationId;
     }
 
+    // Handle typed Soroban exceptions (#8 / backend "B10") before the
+    // generic AppException / HttpException branches so the response uses
+    // their stable `errorCode` field and the right HTTP status.
+    if (exception instanceof SorobanException) {
+      const sorobanException = exception;
+      statusCode = SOROBAN_HTTP_STATUS[sorobanException.code] ?? 500;
+      errorResponse = {
+        errorCode: sorobanException.code,
+        message: sorobanException.message,
+        timestamp: new Date().toISOString(),
+        path: request.url,
+        method: request.method,
+      };
+      if (context?.correlationId) {
+        errorResponse.correlationId = context.correlationId;
+      }
+      // Original-error `details` are intentionally not echoed to clients:
+      // the upstream SDK / network message is unlikely to be useful and may
+      // leak internal state. Tests assert the stable B10 codes instead.
+    }
     // Handle custom AppException
-    if (exception instanceof AppException) {
+    else if (exception instanceof AppException) {
       const appException = exception.getResponse() as Record<string, unknown>;
       statusCode = exception.getStatus();
 
