@@ -10,12 +10,21 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../../context/AuthContext', () => ({
   useAuth: () => ({
-    user: {
+    user: { id: 'issuer-1', email: 'amina@example.com', role: 'issuer' },
+    profile: {
       id: 'issuer-1',
+      email: 'amina@example.com',
       firstName: 'Amina',
       lastName: 'Stone',
       role: 'issuer',
     },
+    loadProfile: vi.fn().mockResolvedValue({
+      id: 'issuer-1',
+      email: 'amina@example.com',
+      firstName: 'Amina',
+      lastName: 'Stone',
+      role: 'issuer',
+    }),
   }),
 }));
 
