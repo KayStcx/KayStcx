@@ -3,7 +3,6 @@ import {
   ConflictException,
   Logger,
   NotFoundException,
-  InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -165,33 +164,32 @@ export class CertificateService {
               expiresAtUnix,
             );
 
-            if (!txHash) {
-              throw new InternalServerErrorException(
-                `On-chain issuance failed for certificate ${savedCertificate.id}`,
-              );
-            }
-
             // Persist the Stellar transaction hash so callers can verify on-chain
             await this.certificateRepository.update(savedCertificate.id, {
-              stellarTransactionHash:
-                typeof txHash === 'string' ? txHash : undefined,
+              stellarTransactionHash: txHash,
             });
 
-            if (typeof txHash === 'string') {
-              savedCertificate.stellarTransactionHash = txHash;
-            }
+            savedCertificate.stellarTransactionHash = txHash;
 
             this.logger.log(
               `Certificate ${savedCertificate.id} issued on-chain`,
             );
           }
-        } catch (blockchainError: any) {
+        } catch (blockchainError: unknown) {
           // Log the failure but do NOT silently swallow it — the certificate
           // exists in the DB without a corresponding on-chain record, which is
           // the bug described in issue #523.  Re-throw so the caller knows.
+          const message =
+            blockchainError instanceof Error
+              ? blockchainError.message
+              : String(blockchainError);
+          const stack =
+            blockchainError instanceof Error
+              ? blockchainError.stack
+              : undefined;
           this.logger.error(
-            `On-chain issuance failed for certificate ${savedCertificate.id}: ${blockchainError.message}`,
-            blockchainError.stack,
+            `On-chain issuance failed for certificate ${savedCertificate.id}: ${message}`,
+            stack,
           );
           throw blockchainError;
         }
