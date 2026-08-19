@@ -1,8 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AuditService } from './audit.service';
+import {
+  AuditService,
+  MAX_PAGE_SIZE,
+  DEFAULT_PAGE_SIZE,
+} from './audit.service';
 import { RequestContextService } from './request-context.service';
+import { LoggingService } from '../../../common/logging/logging.service';
 import { AuditLog } from '../entities';
 import { AuditAction, AuditResourceType } from '../constants';
 
@@ -10,6 +15,7 @@ describe('AuditService', () => {
   let service: AuditService;
   let repository: Repository<AuditLog>;
   let requestContextService: RequestContextService;
+  let loggingService: LoggingService;
 
   const mockAuditLog = {
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -49,6 +55,15 @@ describe('AuditService', () => {
             createQueryBuilder: jest.fn(),
           },
         },
+        {
+          provide: LoggingService,
+          useValue: {
+            log: jest.fn(),
+            error: jest.fn(),
+            warn: jest.fn(),
+            debug: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -57,6 +72,7 @@ describe('AuditService', () => {
     requestContextService = module.get<RequestContextService>(
       RequestContextService,
     );
+    loggingService = module.get<LoggingService>(LoggingService);
   });
 
   describe('log', () => {
@@ -266,14 +282,16 @@ describe('AuditService', () => {
   });
 
   describe('search', () => {
+    const buildQueryBuilderMock = () => ({
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[mockAuditLog], 1]),
+    });
+
     it('should build query builder correctly', async () => {
-      const mockQueryBuilder = {
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[mockAuditLog], 1]),
-      };
+      const mockQueryBuilder = buildQueryBuilderMock();
 
       jest
         .spyOn(repository, 'createQueryBuilder')
@@ -285,7 +303,65 @@ describe('AuditService', () => {
         'audit.timestamp',
         'DESC',
       );
+      expect(mockQueryBuilder.skip).toHaveBeenCalledWith(0);
+      expect(mockQueryBuilder.take).toHaveBeenCalledWith(50);
       expect(result).toEqual({ data: [mockAuditLog], total: 1 });
+    });
+
+    it('should apply default page size when take is undefined', async () => {
+      const mockQueryBuilder = buildQueryBuilderMock();
+
+      jest
+        .spyOn(repository, 'createQueryBuilder')
+        .mockReturnValue(mockQueryBuilder as any);
+
+      await service.search({});
+
+      expect(mockQueryBuilder.take).toHaveBeenCalledWith(DEFAULT_PAGE_SIZE);
+    });
+
+    it('should clamp take to MAX_PAGE_SIZE and log a warning', async () => {
+      const mockQueryBuilder = buildQueryBuilderMock();
+
+      jest
+        .spyOn(repository, 'createQueryBuilder')
+        .mockReturnValue(mockQueryBuilder as any);
+
+      await service.search({ skip: 0, take: 500 });
+
+      expect(mockQueryBuilder.take).toHaveBeenCalledWith(MAX_PAGE_SIZE);
+      expect(loggingService.warn).toHaveBeenCalledWith(
+        expect.stringContaining(`exceeds MAX_PAGE_SIZE ${MAX_PAGE_SIZE}`),
+      );
+    });
+
+    it('should not warn when take is within MAX_PAGE_SIZE', async () => {
+      const mockQueryBuilder = buildQueryBuilderMock();
+
+      jest
+        .spyOn(repository, 'createQueryBuilder')
+        .mockReturnValue(mockQueryBuilder as any);
+
+      await service.search({ skip: 0, take: 100 });
+
+      expect(mockQueryBuilder.take).toHaveBeenCalledWith(100);
+      expect(loggingService.warn).not.toHaveBeenCalled();
+    });
+
+    it('should bypass the page size limit for internal export', async () => {
+      const mockQueryBuilder = buildQueryBuilderMock();
+
+      jest
+        .spyOn(repository, 'createQueryBuilder')
+        .mockReturnValue(mockQueryBuilder as any);
+
+      await service.search(
+        { skip: 0, take: 50000 },
+        { bypassPageSizeLimit: true },
+      );
+
+      expect(mockQueryBuilder.take).toHaveBeenCalledWith(50000);
+      expect(loggingService.warn).not.toHaveBeenCalled();
     });
   });
 

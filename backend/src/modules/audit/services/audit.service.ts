@@ -14,6 +14,9 @@ import { AuditSearchDto, AuditStatisticsDto } from '../dto';
 import { RequestContextService } from './request-context.service';
 import { LoggingService } from '../../../common/logging/logging.service';
 
+export const MAX_PAGE_SIZE = 100;
+export const DEFAULT_PAGE_SIZE = 50;
+
 export interface LogAuditParams {
   action: AuditAction;
   resourceType: AuditResourceType;
@@ -132,6 +135,7 @@ export class AuditService {
 
   async search(
     searchDto: AuditSearchDto,
+    options: { bypassPageSizeLimit?: boolean } = {},
   ): Promise<{ data: AuditLog[]; total: number }> {
     const query = this.auditLogRepository.createQueryBuilder('audit');
 
@@ -194,7 +198,10 @@ export class AuditService {
     query.orderBy('audit.timestamp', 'DESC');
 
     const skip = searchDto.skip || 0;
-    const take = Math.min(searchDto.take || 50, 500); // Max 500 records per request
+    const take = this.resolvePageSize(
+      searchDto.take,
+      !!options.bypassPageSizeLimit,
+    );
 
     query.skip(skip).take(take);
 
@@ -346,7 +353,10 @@ export class AuditService {
   }
 
   async exportToCsv(searchDto: AuditSearchDto): Promise<string> {
-    const { data } = await this.search({ ...searchDto, skip: 0, take: 50000 });
+    const { data } = await this.search(
+      { ...searchDto, skip: 0, take: 50000 },
+      { bypassPageSizeLimit: true },
+    );
 
     if (data.length === 0) {
       return 'No audit logs found';
@@ -388,6 +398,35 @@ export class AuditService {
     ].join('\n');
 
     return csvContent;
+  }
+
+  /**
+   * Resolves the page size for a search query, enforcing MAX_PAGE_SIZE so a
+   * single request can never return an unbounded number of rows.
+   *
+   * @param take Requested page size; non-positive or undefined falls back to
+   * DEFAULT_PAGE_SIZE.
+   * @param bypassPageSizeLimit When true (internal export path), the clamp is
+   * skipped so CSV exports can page through the full result set.
+   */
+  private resolvePageSize(
+    take: number | undefined,
+    bypassPageSizeLimit: boolean,
+  ): number {
+    const requested = take && take > 0 ? take : DEFAULT_PAGE_SIZE;
+
+    if (bypassPageSizeLimit) {
+      return requested;
+    }
+
+    if (requested > MAX_PAGE_SIZE) {
+      this.logger.warn(
+        `Audit search requested page size ${requested} exceeds MAX_PAGE_SIZE ${MAX_PAGE_SIZE}; clamping to ${MAX_PAGE_SIZE}`,
+      );
+      return MAX_PAGE_SIZE;
+    }
+
+    return requested;
   }
 
   async cleanupOldLogs(retentionDays: number): Promise<number> {
