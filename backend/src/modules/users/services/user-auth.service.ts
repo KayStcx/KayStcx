@@ -14,11 +14,13 @@ import { User, UserRole, UserStatus } from '../entities/user.entity';
 import { UserRepository } from '../repositories/user.repository';
 import { LoginUserDto, RefreshTokenDto } from '../dto/login-user.dto';
 import { CreateUserDto } from '../dto/create-user.dto';
-import {
-  VerifyEmailDto,
-  ResendVerificationDto,
-} from '../dto/email-verification.dto';
+import { VerifyEmailDto } from '../dto/verify-email.dto';
+import { ResendVerificationDto } from '../dto/resend-verification.dto';
 import { IAuthTokens, IUserPublic } from '../interfaces/user.interface';
+import {
+  isAccountLocked,
+  isEmailVerificationTokenValid,
+} from '../utils/user-account-state';
 import { EmailQueueService } from '../../email/email-queue.service';
 import { LoggingService } from '../../../common/logging/logging.service';
 import { AuditService } from '../../audit/services/audit.service';
@@ -113,7 +115,7 @@ export class UserAuthService {
     }
 
     // Check if account is locked
-    if (user.isLocked()) {
+    if (isAccountLocked(user)) {
       const remainingTime = Math.ceil(
         (user.lockedUntil.getTime() - Date.now()) / 60000,
       );
@@ -227,7 +229,7 @@ export class UserAuthService {
       throw new BadRequestException('Invalid verification token');
     }
 
-    if (!user.isEmailVerificationTokenValid()) {
+    if (!isEmailVerificationTokenValid(user)) {
       throw new BadRequestException('Verification token has expired');
     }
 

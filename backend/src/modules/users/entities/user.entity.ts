@@ -121,31 +121,4 @@ export class User {
 
   @UpdateDateColumn()
   updatedAt: Date;
-
-  // Virtual property for full name
-  get fullName(): string {
-    return `${this.firstName} ${this.lastName}`;
-  }
-
-  // Check if account is locked
-  isLocked(): boolean {
-    if (!this.lockedUntil) return false;
-    return new Date() < this.lockedUntil;
-  }
-
-  // Check if email verification token is valid
-  isEmailVerificationTokenValid(): boolean {
-    if (!this.emailVerificationToken || !this.emailVerificationExpires) {
-      return false;
-    }
-    return new Date() < this.emailVerificationExpires;
-  }
-
-  // Check if password reset token is valid
-  isPasswordResetTokenValid(): boolean {
-    if (!this.passwordResetToken || !this.passwordResetExpires) {
-      return false;
-    }
-    return new Date() < this.passwordResetExpires;
-  }
 }

@@ -74,12 +74,6 @@ describe('UsersService', () => {
     refreshTokenExpires: null,
     createdAt: new Date(),
     updatedAt: new Date(),
-    get fullName() {
-      return `${this.firstName} ${this.lastName}`;
-    },
-    isLocked: jest.fn().mockReturnValue(false),
-    isEmailVerificationTokenValid: jest.fn().mockReturnValue(true),
-    isPasswordResetTokenValid: jest.fn().mockReturnValue(true),
   } as unknown as User;
 
   const mockPublicUser = {
@@ -586,9 +580,11 @@ describe('UsersService', () => {
 
   describe('resetPassword', () => {
     it('should successfully reset password', async () => {
-      mockUserRepository.findByPasswordResetTokenHash.mockResolvedValue(
-        mockUser,
-      );
+      mockUserRepository.findByPasswordResetTokenHash.mockResolvedValue({
+        ...mockUser,
+        passwordResetToken: 'valid-token',
+        passwordResetExpires: new Date(Date.now() + 3600000),
+      });
 
       const result = await service.resetPassword({
         token: 'valid-token',
@@ -620,7 +616,8 @@ describe('UsersService', () => {
     it('should throw BadRequestException for expired matching token', async () => {
       const expiredUser = {
         ...mockUser,
-        isPasswordResetTokenValid: jest.fn().mockReturnValue(false),
+        passwordResetToken: 'expired-token',
+        passwordResetExpires: new Date(Date.now() - 3600000),
       };
       mockUserRepository.findByPasswordResetTokenHash.mockResolvedValue(
         expiredUser,

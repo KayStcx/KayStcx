@@ -47,10 +47,8 @@ import {
   UpdateUserStatusDto,
   DeactivateUserDto,
 } from './dto/admin-user.dto';
-import {
-  VerifyEmailDto,
-  ResendVerificationDto,
-} from './dto/email-verification.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
 import {
   UserResponseDto,
   AuthResponseDto,

@@ -160,36 +160,4 @@ export class Certificate {
 
   @ManyToOne(() => Issuer)
   issuer: Issuer;
-
-  // ─── Business logic helpers ──────────────────────────────────────────────────
-
-  isActive(): boolean {
-    return this.status === CertificateStatus.ACTIVE;
-  }
-
-  isExpired(): boolean {
-    if (!this.expiresAt) return false;
-    return new Date() > this.expiresAt;
-  }
-
-  canBeRevoked(): boolean {
-    return this.status === CertificateStatus.ACTIVE;
-  }
-
-  addVerificationRecord(
-    verifiedBy: string,
-    ipAddress: string,
-    userAgent: string,
-  ): void {
-    if (!this.verificationHistory) {
-      this.verificationHistory = [];
-    }
-    this.verificationHistory.push({
-      verifiedAt: new Date(),
-      verifiedBy,
-      ipAddress,
-      userAgent,
-    });
-    this.verificationCount = (this.verificationCount ?? 0) + 1;
-  }
 }

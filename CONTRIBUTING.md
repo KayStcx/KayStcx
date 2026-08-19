@@ -59,6 +59,22 @@ Testing and CI
 - The repository contains backend e2e tests (`backend/test`) and a CI workflow `.github/workflows/ci.yml`.
 - Consider adding frontend tests for `IssuerProfile` to cover API integration and rendering.
 
+Backend code conventions — DTOs and entities
+
+To keep the backend consistent and easy to navigate, follow these conventions when adding or refactoring modules:
+
+**DTOs** (`backend/src/modules/*/dto/`)
+
+- Request DTOs are named `{action}-{entity}.dto.ts` — e.g. `create-user.dto.ts`, `search-certificates.dto.ts`, `verify-email.dto.ts`.
+- Response DTOs are named `{entity}-response.dto.ts` — e.g. `user-response.dto.ts`, `audit-statistics-response.dto.ts`.
+- Keep one DTO class per file, and export it through the module's `dto/index.ts` barrel.
+- DTOs are for data transfer only (request validation / response serialization). Do not mix unrelated request and response shapes in the same file.
+
+**Entities** (`backend/src/modules/*/entities/`)
+
+- Entities are pure data models. Keep `@Column`/`@Entity` metadata and relationships, but do not add business-logic methods (e.g. `isLocked()`, `isPasswordResetTokenValid()`, `addVerificationRecord()`).
+- Business rules that operate on an entity belong in a service (or a small pure helper module under `utils/`), where they can be unit-tested independently.
+
 Branch and PR
 
 - I created branch `feat/issuerprofile-real-stats` which includes the change to respect `VITE_USE_DUMMY_DATA`.

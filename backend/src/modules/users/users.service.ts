@@ -27,12 +27,11 @@ import {
   UpdateUserStatusDto,
   DeactivateUserDto,
 } from './dto/admin-user.dto';
-import {
-  VerifyEmailDto,
-  ResendVerificationDto,
-} from './dto/email-verification.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { IPaginatedResult } from './interfaces';
 import { IAuthTokens, IUserPublic } from './interfaces/user.interface';
+import { isPasswordResetTokenValid } from './utils/user-account-state';
 import { CertificateStatsService } from '../certificate/services/stats.service';
 import { AuditService } from '../audit/services/audit.service';
 import { EmailQueueService } from '../email/email-queue.service';
@@ -177,7 +176,7 @@ export class UsersService {
       throw new BadRequestException('Invalid reset token');
     }
 
-    if (!user.isPasswordResetTokenValid()) {
+    if (!isPasswordResetTokenValid(user)) {
       throw new BadRequestException('Reset token has expired');
     }
 
