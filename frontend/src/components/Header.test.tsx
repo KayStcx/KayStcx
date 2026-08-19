@@ -22,9 +22,12 @@ describe('Header mobile navigation', () => {
   beforeEach(() => {
     vi.mocked(useAuth).mockReturnValue({
       user: null,
+      profile: null,
       setUser: vi.fn(),
+      setProfile: vi.fn(),
       isAuthenticated: false,
       isLoading: false,
+      loadProfile: vi.fn(),
       clearAuth: vi.fn(),
       login: vi.fn(),
     } as never);
@@ -55,9 +58,12 @@ describe('Header role-based navigation', () => {
   const renderHeaderWithUser = (user: { id: string; role: UserRole } | null) => {
     vi.mocked(useAuth).mockReturnValue({
       user: user as never,
+      profile: null,
       setUser: vi.fn(),
+      setProfile: vi.fn(),
       isAuthenticated: !!user,
       isLoading: false,
+      loadProfile: vi.fn(),
       clearAuth: vi.fn(),
       login: vi.fn(),
     } as never);

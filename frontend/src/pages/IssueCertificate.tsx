@@ -25,7 +25,7 @@ const formatPreviewDate = (value: string) => {
 };
 
 const IssueCertificate = () => {
-  const { user } = useAuth();
+  const { user, loadProfile } = useAuth();
   const initialFormData: IssueCertificateFormData = {
     recipientName: '', recipientEmail: '', courseName: '',
     issuerName: '', grade: '', issueDate: '', expiryDate: '', templateId: '',
@@ -40,12 +40,20 @@ const IssueCertificate = () => {
 
   useEffect(() => {
     if (user) {
-      const fullName = ('firstName' in user && 'lastName' in user)
-        ? `${(user as { firstName: string }).firstName} ${(user as { lastName: string }).lastName}`.trim()
-        : ('name' in user ? (user as { name: string }).name : '');
-      setFormData(prev => ({ ...prev, issuerName: fullName }));
+      // First/last name are not stored in the localStorage session — fetch
+      // the full profile when we need them. The profile is cached after the
+      // first request so subsequent renders are cheap.
+      loadProfile().then((data) => {
+        if (!data) return;
+        const fullName = `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim();
+        setFormData((prev) =>
+          prev.issuerName === fullName
+            ? prev
+            : { ...prev, issuerName: fullName },
+        );
+      });
     }
-  }, [user]);
+  }, [user, loadProfile]);
 
   useEffect(() => {
     const loadTemplates = async () => {

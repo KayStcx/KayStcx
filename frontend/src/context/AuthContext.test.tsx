@@ -1,0 +1,226 @@
+import { act, render, waitFor } from "@testing-library/react";
+import React from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { AuthProvider, useAuth } from "./AuthContext";
+import { SESSION_STORAGE_KEY } from "./authStorage";
+import { tokenStorage } from "../api/tokens";
+import { userApi } from "../api";
+import { UserRole } from "../api/types";
+
+vi.mock("../api", () => ({
+  userApi: {
+    getProfile: vi.fn(),
+  },
+}));
+
+const mockedGetProfile = vi.mocked(userApi.getProfile);
+
+interface ConsumerHandle {
+  context: ReturnType<typeof useAuth> | null;
+  rerender: () => void;
+}
+
+const AuthConsumer = ({ handle }: { handle: ConsumerHandle }) => {
+  handle.context = useAuth();
+  handle.rerender = () => {
+    /* placeholder – testing-library will re-render on state changes */
+  };
+  return null;
+};
+
+const renderWithConsumer = (): ConsumerHandle => {
+  const handle: ConsumerHandle = { context: null, rerender: () => {} };
+  render(
+    <AuthProvider>
+      <AuthConsumer handle={handle} />
+    </AuthProvider>,
+  );
+  return handle;
+};
+
+const validToken = (): string => {
+  const exp = Math.floor(Date.now() / 1000) + 60 * 60;
+  return `a.${btoa(JSON.stringify({ exp }))}.c`;
+};
+
+const expiredToken = (): string => {
+  const exp = Math.floor(Date.now() / 1000) - 60;
+  return `a.${btoa(JSON.stringify({ exp }))}.c`;
+};
+
+describe("AuthProvider", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    tokenStorage.clearTokens();
+    mockedGetProfile.mockReset();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+    tokenStorage.clearTokens();
+  });
+
+  it("logs in with a valid access token and persists only id, email and role", () => {
+    const handle = renderWithConsumer();
+    act(() => {
+      handle.context!.login(
+        validToken(),
+        "refresh",
+        {
+          id: "u1",
+          email: "issuer@example.com",
+          role: UserRole.ISSUER,
+          firstName: "Alice",
+          lastName: "Doe",
+          organization: "Acme",
+          stellarPublicKey: "GA…",
+          profilePicture: "data:image/png;base64,xxx",
+          metadata: { sensitive: true },
+          createdAt: "2026-01-01",
+          updatedAt: "2026-01-02",
+        },
+      );
+    });
+
+    expect(handle.context!.user).toEqual({
+      id: "u1",
+      email: "issuer@example.com",
+      role: UserRole.ISSUER,
+    });
+    expect(handle.context!.isAuthenticated).toBe(true);
+
+    const persisted = JSON.parse(
+      localStorage.getItem(SESSION_STORAGE_KEY) ?? "null",
+    );
+    expect(persisted).toEqual({
+      id: "u1",
+      email: "issuer@example.com",
+      role: UserRole.ISSUER,
+    });
+    // Sensitive fields must never be written to localStorage.
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY) ?? "";
+    expect(raw).not.toContain("stellarPublicKey");
+    expect(raw).not.toContain("firstName");
+    expect(raw).not.toContain("profilePicture");
+    expect(raw).not.toContain("organization");
+  });
+
+  it("rejects login with an expired token", () => {
+    const handle = renderWithConsumer();
+    act(() => {
+      handle.context!.login(expiredToken(), "refresh", {
+        id: "u1",
+        email: "issuer@example.com",
+        role: UserRole.ISSUER,
+      });
+    });
+
+    expect(handle.context!.user).toBeNull();
+    expect(handle.context!.isAuthenticated).toBe(false);
+  });
+
+  it("clearAuth wipes tokens and stored session", () => {
+    const handle = renderWithConsumer();
+    act(() => {
+      handle.context!.login(validToken(), "refresh", {
+        id: "u1",
+        email: "issuer@example.com",
+        role: UserRole.ISSUER,
+      });
+    });
+    expect(handle.context!.user).not.toBeNull();
+
+    act(() => {
+      handle.context!.clearAuth();
+    });
+    expect(handle.context!.user).toBeNull();
+    expect(handle.context!.isAuthenticated).toBe(false);
+    expect(localStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
+    expect(tokenStorage.getAccessToken()).toBeNull();
+  });
+
+  it("loadProfile fetches and caches the full profile on demand", async () => {
+    mockedGetProfile.mockResolvedValue({
+      id: "u1",
+      email: "issuer@example.com",
+      role: UserRole.ISSUER,
+      firstName: "Alice",
+      lastName: "Doe",
+      createdAt: "2026-01-01",
+      updatedAt: "2026-01-02",
+    });
+
+    const handle = renderWithConsumer();
+    act(() => {
+      handle.context!.login(validToken(), "refresh", {
+        id: "u1",
+        email: "issuer@example.com",
+        role: UserRole.ISSUER,
+      });
+    });
+
+    let fetched: ReturnType<typeof handle.context.loadProfile> extends Promise<infer R>
+      ? R
+      : never = null;
+    await act(async () => {
+      fetched = await handle.context!.loadProfile();
+    });
+
+    expect(fetched).not.toBeNull();
+    expect(fetched?.firstName).toBe("Alice");
+    expect(handle.context!.profile?.firstName).toBe("Alice");
+
+    // The profile response must never end up in localStorage.
+    const persisted = localStorage.getItem(SESSION_STORAGE_KEY) ?? "";
+    expect(persisted).not.toContain("Alice");
+    expect(persisted).not.toContain("firstName");
+
+    // Subsequent calls hit the API only once.
+    await act(async () => {
+      await handle.context!.loadProfile();
+    });
+    expect(mockedGetProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it("purges the legacy `user` localStorage key on mount", async () => {
+    localStorage.setItem(
+      "user",
+      JSON.stringify({
+        id: "old",
+        email: "old@example.com",
+        role: UserRole.ISSUER,
+        stellarPublicKey: "GA…",
+      }),
+    );
+    render(
+      <AuthProvider>
+        <AuthConsumer handle={{ context: null, rerender: () => {} }} />
+      </AuthProvider>,
+    );
+    await waitFor(() => expect(localStorage.getItem("user")).toBeNull());
+  });
+
+  it("isAuthenticated flips to false once the access token expires", () => {
+    const handle = renderWithConsumer();
+    act(() => {
+      handle.context!.login(validToken(), "refresh", {
+        id: "u1",
+        email: "issuer@example.com",
+        role: UserRole.ISSUER,
+      });
+    });
+    expect(handle.context!.isAuthenticated).toBe(true);
+
+    act(() => {
+      tokenStorage.setAccessToken(expiredToken());
+    });
+    // Force a re-render so the derived value recomputes.
+    render(
+      <AuthProvider>
+        <AuthConsumer handle={handle} />
+      </AuthProvider>,
+    );
+    expect(handle.context!.isAuthenticated).toBe(false);
+  });
+});
