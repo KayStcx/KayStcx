@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  HttpException,
-  HttpStatus,
-} from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { GlobalExceptionFilter } from './global-exception.filter';
 import {
   ConflictException,
@@ -10,6 +6,13 @@ import {
   ValidationException,
 } from './exceptions';
 import { ErrorCode } from '../constants/error-codes';
+import {
+  SorobanConfigurationException,
+  SorobanErrorCode,
+  SorobanNetworkException,
+  SorobanNotFoundException,
+  SorobanTransactionException,
+} from '../../modules/stellar/exceptions/soroban.exception';
 
 describe('GlobalExceptionFilter', () => {
   let filter: GlobalExceptionFilter;
@@ -145,10 +148,7 @@ describe('GlobalExceptionFilter', () => {
   describe('HttpException handling', () => {
     it('returns an HTTP_ERROR response', () => {
       const { host, response } = createHost();
-      const exception = new HttpException(
-        'Forbidden',
-        HttpStatus.FORBIDDEN,
-      );
+      const exception = new HttpException('Forbidden', HttpStatus.FORBIDDEN);
 
       filter.catch(exception, host);
 
@@ -184,6 +184,73 @@ describe('GlobalExceptionFilter', () => {
 
       const body = response.json.mock.calls[0][0];
       expect(body.message).toBe('debug detail');
+    });
+  });
+
+  // Issue #8 / backend "B10": the global filter must surface the typed
+  // Soroban exceptions with the correct HTTP status instead of falling
+  // through to the generic INTERNAL_SERVER_ERROR branch.
+  describe('SorobanException handling', () => {
+    it('maps SorobanConfigurationException to 500 with the typed code', () => {
+      const { host, response } = createHost();
+      const exception = new SorobanConfigurationException(
+        'Admin keypair not configured.',
+      );
+
+      filter.catch(exception, host);
+
+      expect(response.status).toHaveBeenCalledWith(
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+      const body = response.json.mock.calls[0][0];
+      expect(body.errorCode).toBe(SorobanErrorCode.CONFIGURATION_ERROR);
+      expect(body.errorCode).toBe(ErrorCode.SOROBAN_CONFIGURATION_ERROR);
+      expect(body.message).toBe('Admin keypair not configured.');
+    });
+
+    it('maps SorobanNetworkException to 502', () => {
+      const { host, response } = createHost();
+      filter.catch(
+        new SorobanNetworkException('RPC unreachable', new Error('ETIMEDOUT')),
+        host,
+      );
+
+      expect(response.status).toHaveBeenCalledWith(HttpStatus.BAD_GATEWAY);
+      const body = response.json.mock.calls[0][0];
+      expect(body.errorCode).toBe(SorobanErrorCode.NETWORK_ERROR);
+    });
+
+    it('maps SorobanTransactionException to 502', () => {
+      const { host, response } = createHost();
+      filter.catch(new SorobanTransactionException('Transaction failed'), host);
+
+      expect(response.status).toHaveBeenCalledWith(HttpStatus.BAD_GATEWAY);
+      const body = response.json.mock.calls[0][0];
+      expect(body.errorCode).toBe(SorobanErrorCode.TRANSACTION_ERROR);
+    });
+
+    it('maps SorobanNotFoundException to 404', () => {
+      const { host, response } = createHost();
+      filter.catch(new SorobanNotFoundException('Certificate not found'), host);
+
+      expect(response.status).toHaveBeenCalledWith(HttpStatus.NOT_FOUND);
+      const body = response.json.mock.calls[0][0];
+      expect(body.errorCode).toBe(SorobanErrorCode.NOT_FOUND);
+    });
+
+    it('does not leak the originalError attached to a Soroban exception', () => {
+      const { host, response } = createHost();
+      const upstream = new Error('top-secret internal stack');
+      filter.catch(
+        new SorobanNetworkException('RPC unreachable', upstream),
+        host,
+      );
+
+      const body = response.json.mock.calls[0][0];
+      expect(body).not.toHaveProperty('details');
+      expect(body).not.toHaveProperty('originalError');
+      // Make sure the upstream SDK message never reaches the response body.
+      expect(JSON.stringify(body)).not.toContain('top-secret internal stack');
     });
   });
 });

@@ -28,12 +28,27 @@ export interface User {
 }
 
 /**
- * Authentication Response from login/register
+ * Authentication Response from login/register.
+ *
+ * Refresh tokens are issued by the backend as `HttpOnly`, `SameSite=Lax`
+ * cookies on the login/register response and rotated on every call to
+ * `/auth/refresh`. They are intentionally **not** part of this object —
+ * keeping them out of JavaScript's reach removes the XSS attack surface
+ * described in issue #11 (frontend "F1").
+ *
+ * `refreshToken` is left in the type as an optional, deprecated field so
+ * older backend deployments that still return it in JSON keep type-checking,
+ * but callers should ignore it.
  */
 export interface AuthResponse {
   user: User;
   accessToken: string;
-  refreshToken: string;
+  /**
+   * @deprecated Refresh tokens are now delivered as HttpOnly cookies. This
+   * field is kept temporarily for backward compatibility with backend
+   * deployments that have not yet moved to cookie-based issuance.
+   */
+  refreshToken?: string;
 }
 
 /**
@@ -68,7 +83,7 @@ export interface CertificateTransfer {
   fromUserId: string;
   toEmail: string;
   toUserId?: string;
-  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  status: "pending" | "approved" | "rejected" | "cancelled";
   initiationReason?: string;
   rejectionReason?: string;
   confirmationCode?: string;

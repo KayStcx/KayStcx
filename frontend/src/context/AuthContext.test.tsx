@@ -64,23 +64,19 @@ describe("AuthProvider", () => {
   it("logs in with a valid access token and persists only id, email and role", () => {
     const handle = renderWithConsumer();
     act(() => {
-      handle.context!.login(
-        validToken(),
-        "refresh",
-        {
-          id: "u1",
-          email: "issuer@example.com",
-          role: UserRole.ISSUER,
-          firstName: "Alice",
-          lastName: "Doe",
-          organization: "Acme",
-          stellarPublicKey: "GA…",
-          profilePicture: "data:image/png;base64,xxx",
-          metadata: { sensitive: true },
-          createdAt: "2026-01-01",
-          updatedAt: "2026-01-02",
-        },
-      );
+      handle.context!.login(validToken(), {
+        id: "u1",
+        email: "issuer@example.com",
+        role: UserRole.ISSUER,
+        firstName: "Alice",
+        lastName: "Doe",
+        organization: "Acme",
+        stellarPublicKey: "GA…",
+        profilePicture: "data:image/png;base64,xxx",
+        metadata: { sensitive: true },
+        createdAt: "2026-01-01",
+        updatedAt: "2026-01-02",
+      });
     });
 
     expect(handle.context!.user).toEqual({
@@ -109,7 +105,7 @@ describe("AuthProvider", () => {
   it("rejects login with an expired token", () => {
     const handle = renderWithConsumer();
     act(() => {
-      handle.context!.login(expiredToken(), "refresh", {
+      handle.context!.login(expiredToken(), {
         id: "u1",
         email: "issuer@example.com",
         role: UserRole.ISSUER,
@@ -123,7 +119,7 @@ describe("AuthProvider", () => {
   it("clearAuth wipes tokens and stored session", () => {
     const handle = renderWithConsumer();
     act(() => {
-      handle.context!.login(validToken(), "refresh", {
+      handle.context!.login(validToken(), {
         id: "u1",
         email: "issuer@example.com",
         role: UserRole.ISSUER,
@@ -140,6 +136,19 @@ describe("AuthProvider", () => {
     expect(tokenStorage.getAccessToken()).toBeNull();
   });
 
+  it("ignores any pre-existing refreshToken localStorage entry on boot", () => {
+    // Simulate an older bundle that wrote `refreshToken` to localStorage.
+    // The `tokens.ts` module-level cleanup is what makes this safe; if the
+    // cleanup is removed this assertion will fail.
+    localStorage.setItem("refreshToken", "legacy-leak");
+    render(
+      <AuthProvider>
+        <AuthConsumer handle={{ context: null, rerender: () => {} }} />
+      </AuthProvider>,
+    );
+    expect(localStorage.getItem("refreshToken")).toBeNull();
+  });
+
   it("loadProfile fetches and caches the full profile on demand", async () => {
     mockedGetProfile.mockResolvedValue({
       id: "u1",
@@ -153,14 +162,16 @@ describe("AuthProvider", () => {
 
     const handle = renderWithConsumer();
     act(() => {
-      handle.context!.login(validToken(), "refresh", {
+      handle.context!.login(validToken(), {
         id: "u1",
         email: "issuer@example.com",
         role: UserRole.ISSUER,
       });
     });
 
-    let fetched: ReturnType<typeof handle.context.loadProfile> extends Promise<infer R>
+    let fetched: ReturnType<typeof handle.context.loadProfile> extends Promise<
+      infer R
+    >
       ? R
       : never = null;
     await act(async () => {
@@ -204,7 +215,7 @@ describe("AuthProvider", () => {
   it("isAuthenticated flips to false once the access token expires", () => {
     const handle = renderWithConsumer();
     act(() => {
-      handle.context!.login(validToken(), "refresh", {
+      handle.context!.login(validToken(), {
         id: "u1",
         email: "issuer@example.com",
         role: UserRole.ISSUER,

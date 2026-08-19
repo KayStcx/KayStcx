@@ -45,7 +45,8 @@ const viteEnv = import.meta as unknown as { env: Record<string, string> };
 const USE_DUMMY_DATA =
   viteEnv.env?.VITE_USE_DUMMY_DATA === "true" &&
   viteEnv.env?.MODE !== "production";
-const API_URL_BASE = viteEnv.env?.VITE_API_URL || "http://localhost:3000/api/v1";
+const API_URL_BASE =
+  viteEnv.env?.VITE_API_URL || "http://localhost:3000/api/v1";
 export const API_URL = API_URL_BASE;
 
 // Common error handler
@@ -103,19 +104,23 @@ async function apiEndpoint<T>(
 /**
  * Sleep utility for retry delays
  */
-const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Refresh tokens using the stored refresh token
+ * Refresh the access token using the HttpOnly refresh cookie issued by the
+ * backend.
+ *
+ * The refresh token is no longer stored on the client (see
+ * `frontend/src/api/tokens.ts`). The browser sends the cookie automatically
+ * when the request is made with `credentials: "include"`, so the body is
+ * empty and we explicitly mark the request as authenticated so the API
+ * client does not attach a stale `Authorization` header.
  */
 const refreshTokens = async (): Promise<AuthResponse> => {
-  const refreshToken = tokenStorage.getRefreshToken();
-  if (!refreshToken) {
-    throw new Error('No refresh token available');
-  }
-  return apiClient<AuthResponse>('/auth/refresh', {
-    method: 'POST',
-    body: JSON.stringify({ refreshToken }),
+  return apiClient<AuthResponse>("/auth/refresh", {
+    method: "POST",
+    credentials: "include",
     skipAuth: true,
   });
 };
@@ -140,7 +145,7 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
     // Retry on network errors and 5xx server errors
     const err = error as { statusCode?: number };
     return !err.statusCode || (err.statusCode >= 500 && err.statusCode < 600);
-  }
+  },
 };
 
 /**
@@ -153,7 +158,8 @@ export async function apiClient<T>(
 ): Promise<T> {
   const config = { ...DEFAULT_RETRY_CONFIG, ...retryConfig };
   const url = `${API_URL}${endpoint}`;
-  const isGetRequest = !options.method || options.method.toUpperCase() === 'GET';
+  const isGetRequest =
+    !options.method || options.method.toUpperCase() === "GET";
 
   const headers = new Headers(options.headers);
   headers.set("Content-Type", "application/json");
@@ -165,7 +171,10 @@ export async function apiClient<T>(
     }
   }
 
-  const attemptRequest = async (attempt: number, hasTriedRefresh: boolean = false): Promise<T> => {
+  const attemptRequest = async (
+    attempt: number,
+    hasTriedRefresh: boolean = false,
+  ): Promise<T> => {
     try {
       const response = await fetch(url, {
         ...options,
@@ -181,8 +190,11 @@ export async function apiClient<T>(
         if (response.status === 401 && !hasTriedRefresh) {
           try {
             const refreshResponse = await refreshTokens();
+            // The backend rotates both the access token and the refresh
+            // cookie on a successful refresh. Clients only have to track the
+            // access token; the new refresh cookie is now sitting in the
+            // browser's cookie jar and will be sent on the next request.
             tokenStorage.setAccessToken(refreshResponse.accessToken);
-            tokenStorage.setRefreshToken(refreshResponse.refreshToken);
             // Retry the original request with hasTriedRefresh = true
             return attemptRequest(attempt, true);
           } catch (refreshError) {
@@ -211,7 +223,9 @@ export async function apiClient<T>(
 
         const apiError: ApiError = {
           message:
-            error instanceof Error ? error.message : "An unexpected error occurred",
+            error instanceof Error
+              ? error.message
+              : "An unexpected error occurred",
           statusCode: 0,
           error: "Network Error",
         };
@@ -221,10 +235,13 @@ export async function apiClient<T>(
       // Calculate delay with exponential backoff
       const delay = Math.min(
         config.baseDelay * Math.pow(config.backoffFactor, attempt - 1),
-        config.maxDelay
+        config.maxDelay,
       );
 
-      console.warn(`API request failed (attempt ${attempt}/${config.maxRetries + 1}), retrying in ${delay}ms:`, error);
+      console.warn(
+        `API request failed (attempt ${attempt}/${config.maxRetries + 1}), retrying in ${delay}ms:`,
+        error,
+      );
 
       await sleep(delay);
       return attemptRequest(attempt + 1, hasTriedRefresh);
@@ -346,7 +363,9 @@ export const userApi = {
         searchParams.set(key, String(value));
       });
     }
-    return apiClient<PaginatedResponse<User>>(`/users?${searchParams.toString()}`);
+    return apiClient<PaginatedResponse<User>>(
+      `/users?${searchParams.toString()}`,
+    );
   },
   getById: async (id: string) => apiClient<User>(`/users/${id}`),
   updateRole: async (id: string, role: string) =>
@@ -359,7 +378,8 @@ export const userApi = {
       method: "PATCH",
       body: JSON.stringify({ isActive }),
     }),
-  delete: async (id: string) => apiClient<void>(`/users/${id}`, { method: "DELETE" }),
+  delete: async (id: string) =>
+    apiClient<void>(`/users/${id}`, { method: "DELETE" }),
 };
 
 // ==================== TEMPLATE MANAGEMENT ====================
@@ -392,10 +412,7 @@ export const verifyCertificate = (
 ): Promise<VerificationResult> =>
   apiEndpoint(
     "verifyCertificate",
-    () =>
-      apiClient<VerificationResult>(
-        `/certificates/${serialNumber}/verify`,
-      ),
+    () => apiClient<VerificationResult>(`/certificates/${serialNumber}/verify`),
     () => {
       const certificate = dummyData.certificates.find(
         (cert) => cert.serialNumber === serialNumber,
@@ -485,10 +502,7 @@ export const findCertBySerialNumber = (
 ): Promise<Certificate | null> =>
   apiEndpoint(
     "findCertBySerialNumber",
-    () =>
-      apiClient<Certificate | null>(
-        `/certificates/serial/${serialNumber}`,
-      ),
+    () => apiClient<Certificate | null>(`/certificates/serial/${serialNumber}`),
     () => {
       const certificate = dummyData.certificates.find(
         (cert) => cert.serialNumber === serialNumber,
@@ -626,7 +640,9 @@ export const certificateApi = {
           "Issue Date",
         ];
         const normalizedSearch = filters?.search?.trim().toLowerCase();
-        const startDate = filters?.startDate ? new Date(filters.startDate) : null;
+        const startDate = filters?.startDate
+          ? new Date(filters.startDate)
+          : null;
         const endDate = filters?.endDate ? new Date(filters.endDate) : null;
         const certs = dummyData.certificates.filter((certificate) => {
           const matchesIds =
@@ -695,7 +711,9 @@ export const certificateApi = {
           "Issue Date",
         ];
         const normalizedSearch = filters?.search?.trim().toLowerCase();
-        const startDate = filters?.startDate ? new Date(filters.startDate) : null;
+        const startDate = filters?.startDate
+          ? new Date(filters.startDate)
+          : null;
         const endDate = filters?.endDate ? new Date(filters.endDate) : null;
         const certs = dummyData.certificates.filter((certificate) => {
           const matchesSearch =
@@ -744,7 +762,9 @@ export const certificateApi = {
       () => {
         const updatedCerts: Certificate[] = [];
         for (const id of certificateIds) {
-          const cert = dummyData.certificates.find((certificate) => certificate.id === id);
+          const cert = dummyData.certificates.find(
+            (certificate) => certificate.id === id,
+          );
           if (cert) {
             cert.status = "revoked";
             updatedCerts.push(cert);
@@ -766,7 +786,9 @@ export const certificateApi = {
           body: JSON.stringify({ reason, durationDays }),
         }),
       () => {
-        const cert = dummyData.certificates.find((certificate) => certificate.id === certificateId);
+        const cert = dummyData.certificates.find(
+          (certificate) => certificate.id === certificateId,
+        );
         if (!cert) {
           throw new Error("Certificate not found");
         }
@@ -788,7 +810,9 @@ export const certificateApi = {
           method: "POST",
         }),
       () => {
-        const cert = dummyData.certificates.find((certificate) => certificate.id === certificateId);
+        const cert = dummyData.certificates.find(
+          (certificate) => certificate.id === certificateId,
+        );
         if (!cert) {
           throw new Error("Certificate not found");
         }
@@ -801,10 +825,12 @@ export const certificateApi = {
       },
     ),
   getQR: getCertificateQR,
-  
+
   // Certificate Transfer API (#286)
   transfer: {
-    initiate: async (data: InitiateTransferDto): Promise<CertificateTransfer> => {
+    initiate: async (
+      data: InitiateTransferDto,
+    ): Promise<CertificateTransfer> => {
       return apiClient("/certificates/transfers/initiate", {
         method: "POST",
         body: JSON.stringify(data),
@@ -825,21 +851,25 @@ export const certificateApi = {
     getPending: async (): Promise<CertificateTransfer[]> => {
       return apiClient("/certificates/transfers/pending");
     },
-  }
+  },
 };
 
 // ==================== AUTHENTICATION ====================
 
-export const loginApi = (credentials: LoginCredentials): Promise<AuthResponse> =>
+export const loginApi = (
+  credentials: LoginCredentials,
+): Promise<AuthResponse> =>
   apiEndpoint(
     "loginApi",
     async () => {
+      // Login sets the HttpOnly refresh cookie via `Set-Cookie`. The browser
+      // stores it for us — we only keep the access token in memory/storage.
       const response = await apiClient<AuthResponse>("/auth/login", {
         method: "POST",
+        credentials: "include",
         body: JSON.stringify(credentials),
       });
       tokenStorage.setAccessToken(response.accessToken);
-      // Note: refreshToken is handled server-side via httpOnly cookies
       return response;
     },
     () => {
@@ -848,10 +878,11 @@ export const loginApi = (credentials: LoginCredentials): Promise<AuthResponse> =
         const response: AuthResponse = {
           user,
           accessToken: "dummy-access-token",
-          refreshToken: "dummy-refresh-token",
+          // Refresh tokens are no longer part of the client response — the
+          // server sets the HttpOnly cookie. The dummy-mode branch mirrors
+          // the real one and leaves `refreshToken` undefined on purpose.
         };
         tokenStorage.setAccessToken(response.accessToken);
-        // Note: refreshToken is handled server-side via httpOnly cookies
         return response;
       }
       throw new Error("Invalid credentials");
@@ -864,10 +895,10 @@ export const registerApi = (data: RegisterData): Promise<AuthResponse> =>
     async () => {
       const response = await apiClient<AuthResponse>("/auth/register", {
         method: "POST",
+        credentials: "include",
         body: JSON.stringify(data),
       });
       tokenStorage.setAccessToken(response.accessToken);
-      // Note: refreshToken is handled server-side via httpOnly cookies
       return response;
     },
     () => {
@@ -881,10 +912,9 @@ export const registerApi = (data: RegisterData): Promise<AuthResponse> =>
       const response: AuthResponse = {
         user: newUser,
         accessToken: "dummy-access-token",
-        refreshToken: "dummy-refresh-token",
+        // No `refreshToken` here — cookies carry that responsibility server-side.
       };
       tokenStorage.setAccessToken(response.accessToken);
-      // Note: refreshToken is handled server-side via httpOnly cookies
       return response;
     },
   );
@@ -893,13 +923,11 @@ export const authApi = {
   login: loginApi,
   register: registerApi,
   refresh: async (): Promise<AuthResponse> => {
-    const refreshToken = tokenStorage.getRefreshToken();
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
-    }
-    return apiClient<AuthResponse>('/auth/refresh', {
-      method: 'POST',
-      body: JSON.stringify({ refreshToken }),
+    // Browser-attached refresh cookie carries the credential; the client
+    // intentionally has nothing to send in the body.
+    return apiClient<AuthResponse>("/auth/refresh", {
+      method: "POST",
+      credentials: "include",
       skipAuth: true,
     });
   },
@@ -912,13 +940,17 @@ export const authApi = {
       tokenStorage.clearTokens();
     }
   },
-  forgotPassword: async (data: ForgotPasswordRequest): Promise<{ message: string }> => {
+  forgotPassword: async (
+    data: ForgotPasswordRequest,
+  ): Promise<{ message: string }> => {
     return apiClient("/users/forgot-password", {
       method: "POST",
       body: JSON.stringify(data),
     });
   },
-  resetPassword: async (data: ResetPasswordRequest): Promise<{ message: string }> => {
+  resetPassword: async (
+    data: ResetPasswordRequest,
+  ): Promise<{ message: string }> => {
     return apiClient("/users/reset-password", {
       method: "POST",
       body: JSON.stringify(data),
@@ -992,7 +1024,9 @@ const buildRecentActivityFromCertificates = (
 ): ActivityItem[] =>
   certificates
     .map((cert) => ({
-      type: (cert.status === "revoked" ? "revoke" : "issue") as ActivityItem["type"],
+      type: (cert.status === "revoked"
+        ? "revoke"
+        : "issue") as ActivityItem["type"],
       date: cert.issueDate,
       description:
         cert.status === "revoked"
@@ -1119,9 +1153,15 @@ export const adminAnalyticsApi = {
           pendingVerification: 0,
         },
         certificatesByStatus: {
-          active: dummyData.certificates.filter((cert) => cert.status === "active").length,
-          revoked: dummyData.certificates.filter((cert) => cert.status === "revoked").length,
-          expired: dummyData.certificates.filter((cert) => cert.status === "expired").length,
+          active: dummyData.certificates.filter(
+            (cert) => cert.status === "active",
+          ).length,
+          revoked: dummyData.certificates.filter(
+            (cert) => cert.status === "revoked",
+          ).length,
+          expired: dummyData.certificates.filter(
+            (cert) => cert.status === "expired",
+          ).length,
           total: dummyData.certificates.length,
         },
         topIssuers: [
@@ -1142,7 +1182,10 @@ export const adminAnalyticsApi = {
           last30Days: 830,
         },
         userRegistrationTrend: [
-          { date: params?.startDate ?? new Date().toISOString().slice(0, 10), count: 2 },
+          {
+            date: params?.startDate ?? new Date().toISOString().slice(0, 10),
+            count: 2,
+          },
         ],
         certificateIssuanceTrend: buildIssuanceTrendFromCertificates(
           dummyData.certificates,
@@ -1181,7 +1224,8 @@ export const issuerProfileApi = {
           {
             id: "1",
             action: "ISSUE_CERTIFICATE",
-            description: 'Issued "Blockchain Fundamentals" certificate to Alice Johnson',
+            description:
+              'Issued "Blockchain Fundamentals" certificate to Alice Johnson',
             ipAddress: "192.168.1.100",
             userAgent: "Mozilla/5.0",
             timestamp: new Date().toISOString(),
@@ -1265,7 +1309,7 @@ export const dashboardApi = {
         statusDistribution: {
           active: 1200,
           revoked: 30,
-          expired: 20
+          expired: 20,
         },
         recentActivity: [
           {
@@ -1295,7 +1339,9 @@ export const dashboardApi = {
 // ==================== AUDIT LOGS (#283) ====================
 
 export const auditApi = {
-  getLogs: async (params?: AuditLogQueryParams): Promise<PaginatedActivityLog> => {
+  getLogs: async (
+    params?: AuditLogQueryParams,
+  ): Promise<PaginatedActivityLog> => {
     const searchParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -1308,19 +1354,30 @@ export const auditApi = {
     apiEndpoint(
       "auditApi.getCertificateHistory",
       async () => {
-        const response = await apiClient<Record<string, unknown>[]>(`/audit/certificates/${certificateId}/history`);
+        const response = await apiClient<Record<string, unknown>[]>(
+          `/audit/certificates/${certificateId}/history`,
+        );
         return response.map((log) => {
           let type: "issue" | "verify" | "revoke" = "issue";
           const actionLower = String(log.action || "").toLowerCase();
           if (actionLower.includes("revoke")) {
             type = "revoke";
-          } else if (actionLower.includes("verify") || actionLower.includes("check")) {
+          } else if (
+            actionLower.includes("verify") ||
+            actionLower.includes("check")
+          ) {
             type = "verify";
           }
           return {
             type,
-            date: new Date(Number(log.timestamp) || Number(log.createdAt)).toISOString(),
-            description: String(log.description || log.errorMessage || `${String(log.action).replace(/_/g, " ")} by ${log.userEmail || "unknown"}`),
+            date: new Date(
+              Number(log.timestamp) || Number(log.createdAt),
+            ).toISOString(),
+            description: String(
+              log.description ||
+                log.errorMessage ||
+                `${String(log.action).replace(/_/g, " ")} by ${log.userEmail || "unknown"}`,
+            ),
           };
         });
       },

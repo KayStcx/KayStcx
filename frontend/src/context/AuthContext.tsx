@@ -45,7 +45,15 @@ interface AuthContextValue {
    */
   loadProfile: () => Promise<User | null>;
   clearAuth: () => void;
-  login: (accessToken: string, refreshToken: string, user: User) => void;
+  /**
+   * Persist the access token returned by the login endpoint and bootstrap
+   * the in-memory profile cache.
+   *
+   * The refresh token is set by the backend as an `HttpOnly` cookie and is
+   * never exposed to JavaScript, so there is no `refreshToken` parameter
+   * here. See `frontend/src/api/tokens.ts` for the full threat model.
+   */
+  login: (accessToken: string, user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -123,21 +131,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     clearAuthStorage();
   }, []);
 
-  const login = useCallback(
-    (accessToken: string, refreshToken: string, nextUser: User) => {
-      if (isTokenExpired(accessToken)) {
-        console.error("Attempted to login with expired token");
-        return;
-      }
-      tokenStorage.setAccessToken(accessToken);
-      tokenStorage.setRefreshToken(refreshToken);
-      setUserState(toSessionUser(nextUser));
-      // Reset the cached profile so a subsequent loadProfile fetches the
-      // freshly authenticated user.
-      setProfile(null);
-    },
-    [],
-  );
+  const login = useCallback((accessToken: string, nextUser: User) => {
+    if (isTokenExpired(accessToken)) {
+      console.error("Attempted to login with expired token");
+      return;
+    }
+    tokenStorage.setAccessToken(accessToken);
+    setUserState(toSessionUser(nextUser));
+    // Reset the cached profile so a subsequent loadProfile fetches the
+    // freshly authenticated user.
+    setProfile(null);
+  }, []);
 
   const accessToken = tokenStorage.getAccessToken();
   const isAuthenticated =
@@ -155,7 +159,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       clearAuth,
       login,
     }),
-    [user, profile, isAuthenticated, isLoading, loadProfile, clearAuth, login, setUser],
+    [
+      user,
+      profile,
+      isAuthenticated,
+      isLoading,
+      loadProfile,
+      clearAuth,
+      login,
+      setUser,
+    ],
   );
 
   if (isLoading) {
