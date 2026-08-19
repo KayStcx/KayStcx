@@ -66,19 +66,33 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     if (exception instanceof AppException) {
       const appException = exception.getResponse() as Record<string, unknown>;
       statusCode = exception.getStatus();
+
+      // Explicitly map only the known fields from the exception response and
+      // drop any unknown properties so internal state is never leaked.
       errorResponse = {
-        ...errorResponse,
-        ...(appException as unknown as Partial<ErrorResponse>),
+        errorCode:
+          typeof appException.errorCode === 'string'
+            ? appException.errorCode
+            : 'APP_ERROR',
+        message:
+          typeof appException.message === 'string'
+            ? appException.message
+            : 'Application error',
+        timestamp:
+          typeof appException.timestamp === 'string'
+            ? appException.timestamp
+            : new Date().toISOString(),
         path: request.url,
         method: request.method,
       };
+
+      // Only include details in non-production environments
+      if (!this.isProduction && appException.details !== undefined) {
+        errorResponse.details = appException.details;
+      }
+
       if (context?.correlationId) {
         errorResponse.correlationId = context.correlationId;
-      }
-      // Remove sensitive information in production
-      if (this.isProduction) {
-        delete errorResponse.details;
-        delete errorResponse.stack;
       }
     }
     // Handle BadRequestException with validation errors
