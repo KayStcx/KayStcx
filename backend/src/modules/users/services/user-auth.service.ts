@@ -288,17 +288,27 @@ export class UserAuthService {
       role: user.role,
     };
 
+    const accessTokenExpiresIn = this.configService.get<string>(
+      'JWT_ACCESS_EXPIRES_IN',
+      '15m',
+    );
+    const refreshTokenExpiresIn = this.configService.get<string>(
+      'JWT_REFRESH_EXPIRES_IN',
+      '7d',
+    );
+
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: this.configService.get('JWT_EXPIRES_IN', '1h'),
+      expiresIn: accessTokenExpiresIn as any,
     });
 
     const refreshToken = this.jwtService.sign(payload, {
-      expiresIn: '7d',
+      expiresIn: refreshTokenExpiresIn as any,
     });
 
     // Store refresh token
-    const refreshTokenExpires = new Date();
-    refreshTokenExpires.setDate(refreshTokenExpires.getDate() + 7);
+    const refreshTokenExpires = new Date(
+      Date.now() + this.parseExpiryToSeconds(refreshTokenExpiresIn) * 1000,
+    );
 
     const hashedRefreshToken = await bcrypt.hash(
       refreshToken,
@@ -313,8 +323,35 @@ export class UserAuthService {
     return {
       accessToken,
       refreshToken,
-      expiresIn: 3600, // 1 hour in seconds
+      expiresIn: this.parseExpiryToSeconds(accessTokenExpiresIn),
     };
+  }
+
+  /**
+   * Parse a JWT `expiresIn` value into seconds.
+   * Supports duration strings such as `'7d'`, `'15m'`, `'1h'`, `'30s'` as
+   * well as plain numeric strings (already in seconds).
+   */
+  private parseExpiryToSeconds(expiry: string): number {
+    const trimmed = expiry.trim();
+    const match = trimmed.match(/^(\d+)\s*([smhd])$/i);
+
+    if (match) {
+      const value = Number(match[1]);
+      switch (match[2].toLowerCase()) {
+        case 's':
+          return value;
+        case 'm':
+          return value * 60;
+        case 'h':
+          return value * 3600;
+        case 'd':
+          return value * 86400;
+      }
+    }
+
+    const numeric = Number(trimmed);
+    return Number.isFinite(numeric) ? numeric : 3600;
   }
 
   private generateToken(): string {
