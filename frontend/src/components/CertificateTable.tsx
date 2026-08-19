@@ -76,6 +76,8 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
     const [freezeReason, setFreezeReason] = useState('');
     const [freezeDuration, setFreezeDuration] = useState(7);
     const [freezingCertId, setFreezingCertId] = useState<string | null>(null);
+    const [isFreezing, setIsFreezing] = useState(false);
+    const [freezeError, setFreezeError] = useState<string | null>(null);
 
     // Revoke modal state
     const [showRevokeModal, setShowRevokeModal] = useState(false);
@@ -241,11 +243,14 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
     // Handle freeze
     const handleFreeze = (certId: string) => {
         setFreezingCertId(certId);
+        setFreezeError(null);
         setShowFreezeModal(true);
     };
 
     const confirmFreeze = async () => {
         if (!freezingCertId) return;
+        setIsFreezing(true);
+        setFreezeError(null);
         try {
             const durationDays = Math.max(1, Number.isFinite(freezeDuration) ? Math.trunc(freezeDuration) : 1);
             await certificateApi.freeze(freezingCertId, freezeReason, durationDays);
@@ -257,7 +262,13 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
             fetchCertificates();
         } catch (err) {
             console.error('Freeze failed:', err);
-            onError?.('Failed to freeze certificate');
+            const message =
+                (err as { message?: string } | null)?.message ||
+                'Failed to freeze certificate';
+            setFreezeError(message);
+            onError?.(message);
+        } finally {
+            setIsFreezing(false);
         }
     };
 
@@ -672,6 +683,11 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                             This will temporarily freeze the certificate during a dispute. You can unfreeze it at any time.
                         </p>
+                        {freezeError && (
+                            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300">
+                                {freezeError}
+                            </div>
+                        )}
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -697,22 +713,26 @@ const CertificateTable = ({ onError, onSuccess }: CertificateTableProps) => {
                                     onChange={(e) => setFreezeDuration(Number(e.target.value))}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600 dark:text-white"
                                 />
-                                <p className="text-xs text-gray-500 mt-1">Maximum 90 days. Leave empty for indefinite.</p>
+                                <p className="text-xs text-gray-500 mt-1">Between 1 and 90 days.</p>
                             </div>
                         </div>
                         <div className="flex gap-3 mt-6">
                             <button
-                                onClick={() => { setShowFreezeModal(false); setFreezeReason(''); setFreezingCertId(null); }}
-                                className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 dark:border-slate-600 dark:text-gray-300 dark:hover:bg-slate-700"
+                                onClick={() => { setShowFreezeModal(false); setFreezeReason(''); setFreezeError(null); setFreezingCertId(null); }}
+                                disabled={isFreezing}
+                                className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-slate-600 dark:text-gray-300 dark:hover:bg-slate-700"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={confirmFreeze}
-                                disabled={!freezeReason}
-                                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                                disabled={!freezeReason || isFreezing}
+                                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 inline-flex items-center justify-center gap-2"
                             >
-                                Freeze
+                                {isFreezing && (
+                                    <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                                )}
+                                {isFreezing ? 'Freezing...' : 'Freeze'}
                             </button>
                         </div>
                     </div>
