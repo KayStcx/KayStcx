@@ -485,10 +485,14 @@ export default function VerifyCertificate(): JSX.Element {
                   <button
                     onClick={() => {
                       const url = `${window.location.origin}/verify?serial=${encodeURIComponent(serial)}`;
-                      navigator.clipboard.writeText(url);
-                      window.alert('Link copied to clipboard!');
-                      window.alert('Link copied to clipboard!');
-
+                      navigator.clipboard
+                        .writeText(url)
+                        .then(() => {
+                          setToast({ message: 'Link copied to clipboard!' });
+                        })
+                        .catch(() => {
+                          setToast({ message: 'Could not copy link to clipboard.' });
+                        });
                     }}
                     className="flex items-center gap-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-slate-800/50 px-3 py-2 text-sm text-gray-900 dark:text-white hover:bg-slate-700/50 transition"
                   >
@@ -502,13 +506,32 @@ export default function VerifyCertificate(): JSX.Element {
                       const text = `Certificate Verified: ${state.result?.certificate?.recipientName || 'N/A'} - ${state.result?.certificate?.courseName || 'N/A'}`;
                       const url = `${window.location.origin}/verify?serial=${encodeURIComponent(serial)}`;
                       if (navigator.share) {
-                        navigator.share({
-                          title: 'Certificate Verification',
-                          text: text,
-                          url: url,
-                        });
+                        navigator
+                          .share({
+                            title: 'Certificate Verification',
+                            text: text,
+                            url: url,
+                          })
+                          .catch(() => {
+                            // Sharing was dismissed or failed; fall back to clipboard.
+                            navigator.clipboard
+                              .writeText(`${text}\n${url}`)
+                              .then(() => {
+                                setToast({ message: 'Details copied to clipboard!' });
+                              })
+                              .catch(() => {
+                                setToast({ message: 'Could not share or copy details.' });
+                              });
+                          });
                       } else {
-                        navigator.clipboard.writeText(`${text}\n${url}`);
+                        navigator.clipboard
+                          .writeText(`${text}\n${url}`)
+                          .then(() => {
+                            setToast({ message: 'Details copied to clipboard!' });
+                          })
+                          .catch(() => {
+                            setToast({ message: 'Could not copy details to clipboard.' });
+                          });
                       }
                     }}
                     className="flex items-center gap-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-slate-800/50 px-3 py-2 text-sm text-gray-900 dark:text-white hover:bg-slate-700/50 transition"
