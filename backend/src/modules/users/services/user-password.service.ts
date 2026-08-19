@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { User } from '../entities/user.entity';
 import { UserRepository } from '../repositories/user.repository';
+import { isPasswordResetTokenValid } from '../utils/user-account-state';
 import * as bcrypt from 'bcryptjs';
 import {
   ChangePasswordDto,
@@ -120,7 +121,7 @@ export class UserPasswordService {
       throw new BadRequestException('Invalid reset token');
     }
 
-    if (!user.isPasswordResetTokenValid()) {
+    if (!isPasswordResetTokenValid(user)) {
       throw new BadRequestException('Reset token has expired');
     }
 
