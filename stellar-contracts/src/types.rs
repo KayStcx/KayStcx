@@ -11,17 +11,17 @@ use soroban_sdk::{contracterror, contracttype, Address, BytesN, String, Vec};
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ContractError {
     /// Contract state has not been initialized yet.
-    NotInitialized,
+    NotInitialized = 1,
     /// A requested entity (certificate, proposal, config, …) does not exist.
-    NotFound,
+    NotFound = 2,
     /// The caller is not authorized to perform this action.
-    Unauthorized,
+    Unauthorized = 3,
     /// The entity being created already exists.
-    AlreadyExists,
+    AlreadyExists = 4,
     /// The entity is in a state that disallows the requested transition.
-    InvalidState,
+    InvalidState = 5,
     /// A configuration value failed validation.
-    InvalidConfig,
+    InvalidConfig = 6,
 }
 
 #[contracttype]

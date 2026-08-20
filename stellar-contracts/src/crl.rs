@@ -290,51 +290,23 @@ impl CRLContract {
 
     /// Build the Merkle root for the current set of revoked certificate IDs.
     ///
-    /// NOTE: this recomputes the entire tree on-chain (one `sha256` per leaf plus
-    /// one per internal node), which is O(n log n) in crypto operations. For large
-    /// CRLs the root should be computed off-chain and supplied via
-    /// `update_crl_metadata`, with the contract only verifying inclusion proofs.
+    /// NOTE: this recomputes the entire tree on-chain, at O(n) crypto operations
+    /// (one `sha256` per leaf plus one per internal node). For large CRLs prefer
+    /// computing the root off-chain and publishing it via
+    /// [`Self::publish_merkle_root`], then verifying membership on-chain with
+    /// [`Self::verify_merkle_proof`] (O(log n) crypto operations).
     fn build_merkle_root(env: &Env, revoked_ids: &Vec<String>) -> String {
-        fn sha256_bytes(env: &Env, data: &Bytes) -> BytesN<32> {
-            env.crypto().sha256(data).into()
-        }
-
-        fn pair_hash(env: &Env, left: &BytesN<32>, right: &BytesN<32>) -> BytesN<32> {
-            let mut combined = [0u8; 64];
-            combined[..32].copy_from_slice(&left.to_array());
-            combined[32..].copy_from_slice(&right.to_array());
-            sha256_bytes(env, &Bytes::from_slice(env, &combined))
-        }
-
-        fn hash_to_hex(env: &Env, hash: &BytesN<32>) -> String {
-            const HEX: &[u8; 16] = b"0123456789abcdef";
-            let arr = hash.to_array();
-            let mut out = [0u8; 64];
-            let mut i = 0usize;
-            while i < 32 {
-                out[i * 2] = HEX[(arr[i] >> 4) as usize];
-                out[i * 2 + 1] = HEX[(arr[i] & 0xf) as usize];
-                i += 1;
-            }
-            // SAFETY: out contains only ASCII hex chars (0-9, a-f)
-            String::from_str(env, unsafe { core::str::from_utf8_unchecked(&out) })
-        }
-
         if revoked_ids.is_empty() {
-            return hash_to_hex(env, &sha256_bytes(env, &Bytes::new(env)));
+            return hash_to_hex(env, &sha256_digest(env, &Bytes::new(env)));
         }
 
-        // Build leaf hashes from certificate IDs
+        // Build leaf hashes from certificate IDs.
         let mut layer: Vec<BytesN<32>> = Vec::new(env);
         for id in revoked_ids.iter() {
-            let len = id.len() as usize;
-            let mut buf = [0u8; 256];
-            id.copy_into_slice(&mut buf[..len]);
-            let id_bytes = Bytes::from_slice(env, &buf[..len]);
-            layer.push_back(sha256_bytes(env, &id_bytes));
+            layer.push_back(leaf_hash(env, &id));
         }
 
-        // Combine pairs up the tree until one root remains
+        // Combine pairs up the tree until one root remains.
         while layer.len() > 1 {
             let mut next: Vec<BytesN<32>> = Vec::new(env);
             let mut i = 0u32;
@@ -353,4 +325,86 @@ impl CRLContract {
 
         hash_to_hex(env, &layer.get_unchecked(0))
     }
+
+    /// Publish a Merkle root computed off-chain.
+    ///
+    /// Issuers with large CRLs should compute the root from the revoked-ID set
+    /// off-chain (avoiding O(n) on-chain hashing) and publish it here. Once
+    /// published, [`Self::verify_merkle_proof`] proves membership against it.
+    pub fn publish_merkle_root(env: Env, merkle_root: String) -> Result<(), ContractError> {
+        let issuer = Self::get_issuer(&env)?;
+        issuer.require_auth();
+
+        let mut crl_info = Self::get_crl_info_internal(&env)?;
+        crl_info.merkle_root = merkle_root;
+        crl_info.this_update = env.ledger().timestamp();
+        env.storage().persistent().set(&DataKey::Info, &crl_info);
+
+        Ok(())
+    }
+
+    /// Verify that `leaf` (a certificate ID) is included in the published Merkle
+    /// root, given its inclusion `proof` (sibling digests, leaf-to-root) and
+    /// `leaf_index` (the leaf's position in the original leaf set).
+    ///
+    /// This performs O(log n) hashes, so verifiers do not need to rebuild the
+    /// whole tree on-chain.
+    pub fn verify_merkle_proof(
+        env: Env,
+        leaf: String,
+        proof: Vec<BytesN<32>>,
+        leaf_index: u32,
+    ) -> Result<bool, ContractError> {
+        let crl_info = Self::get_crl_info_internal(&env)?;
+
+        let mut current = leaf_hash(&env, &leaf);
+        let mut index = leaf_index;
+        for sibling in proof.iter() {
+            let (left, right) = if index % 2 == 0 {
+                (&current, &sibling)
+            } else {
+                (&sibling, &current)
+            };
+            current = pair_hash(&env, left, right);
+            index /= 2;
+        }
+
+        Ok(hash_to_hex(&env, &current) == crl_info.merkle_root)
+    }
+}
+
+/// Single SHA-256 over `data`, returning the 32-byte digest.
+fn sha256_digest(env: &Env, data: &Bytes) -> BytesN<32> {
+    env.crypto().sha256(data).into()
+}
+
+/// Hash a certificate ID into a Merkle leaf digest.
+fn leaf_hash(env: &Env, id: &String) -> BytesN<32> {
+    let len = id.len() as usize;
+    let mut buf = [0u8; 256];
+    id.copy_into_slice(&mut buf[..len]);
+    sha256_digest(env, &Bytes::from_slice(env, &buf[..len]))
+}
+
+/// Hash two sibling digests into their parent digest.
+fn pair_hash(env: &Env, left: &BytesN<32>, right: &BytesN<32>) -> BytesN<32> {
+    let mut combined = [0u8; 64];
+    combined[..32].copy_from_slice(&left.to_array());
+    combined[32..].copy_from_slice(&right.to_array());
+    sha256_digest(env, &Bytes::from_slice(env, &combined))
+}
+
+/// Lowercase hex-encode a 32-byte digest.
+fn hash_to_hex(env: &Env, hash: &BytesN<32>) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let arr = hash.to_array();
+    let mut out = [0u8; 64];
+    let mut i = 0usize;
+    while i < 32 {
+        out[i * 2] = HEX[(arr[i] >> 4) as usize];
+        out[i * 2 + 1] = HEX[(arr[i] & 0xf) as usize];
+        i += 1;
+    }
+    // SAFETY: out contains only ASCII hex chars (0-9, a-f)
+    String::from_str(env, unsafe { core::str::from_utf8_unchecked(&out) })
 }

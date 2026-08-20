@@ -51,6 +51,9 @@ One `*_test.rs` file per module, declared behind `#[cfg(test)]` in `lib.rs`:
 - `issuer_test.rs`
 - `status_test.rs`
 
+Shared setup code (e.g. registering + initializing the `CertificateContract`) lives
+in `test_helpers.rs`, also declared behind `#[cfg(test)]`.
+
 Tests use the Soroban test framework (`Env::default()`, `env.mock_all_auths()`,
 generated `*ContractClient`).
 
@@ -84,13 +87,16 @@ assert!(client.try_revoke_certificate(&issuer, &id, &reason, &None).is_err());
 
 ## CRL Merkle root
 
-`crl.rs::build_merkle_root` recomputes the whole tree on-chain (one `sha256` per leaf
-plus one per internal node, i.e. O(n log n) crypto ops). For large CRLs this can
-approach the metering budget. The recommended scaling path is:
+`crl.rs::build_merkle_root` recomputes the whole tree on-chain (one `sha256` per
+leaf plus one per internal node, i.e. O(n) crypto ops). For large CRLs this can
+approach the metering budget, so the contract also supports an off-chain scaling
+path:
 
 1. Compute the Merkle root **off-chain** from the revoked-ID set.
-2. Have the issuer publish the pre-computed root (e.g. via `update_crl_metadata`).
-3. Verify **individual inclusion proofs** on-chain instead of rebuilding the tree.
+2. Have the issuer publish the pre-computed root via `publish_merkle_root`.
+3. Verify **individual inclusion proofs** on-chain with `verify_merkle_proof`
+   (O(log n) crypto ops) instead of rebuilding the tree.
 
-Until that lands, `build_merkle_root` is correct and deterministic for small/medium
-CRLs; keep the on-chain set small or migrate to off-chain roots before CRLs grow.
+`build_merkle_root` remains correct and deterministic for small/medium CRLs and is
+still used to keep the published root fresh on revocations; large CRLs should
+migrate to off-chain roots.
