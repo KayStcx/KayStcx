@@ -15,6 +15,18 @@ Only these modules are compiled (declared in `src/lib.rs`):
 | `crl.rs` | `CRLContract` — certificate revocation list + Merkle root |
 | `admin_multisig.rs` | `AdminMultisigContract` — admin-governed actions (upgrade, remove issuer) |
 
+All four contracts compile into a **single WASM** (`certificate_revocation.wasm`).
+Because `#[contractimpl]` exports every method under its bare name
+(`#[export_name = "<method>"]`), **method names must be unique across the whole
+crate**. Collisions have been removed by:
+
+- keeping multisig flows exclusively on `MultisigCertificateContract` (the legacy
+  duplicates on `CertificateContract` were deleted);
+- naming CRL entry points `init_crl` / `revoke` (instead of `initialize` /
+  `revoke_certificate`, which `CertificateContract` owns);
+- naming the admin-multisig certificate link `set_cert_contract` /
+  `get_cert_contract`.
+
 Anything not declared in `lib.rs` is **not compiled**. The following stale modules
 were removed because they were unreferenced, duplicated active logic, or used the
 deprecated `env.storage().set()` / `extend_ttl` APIs:
