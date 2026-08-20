@@ -16,6 +16,8 @@ mod admin_multisig;
 pub use admin_multisig::*;
 
 #[cfg(test)]
+mod test_helpers;
+#[cfg(test)]
 mod admin_multisig_test;
 #[cfg(test)]
 mod crl_test;
