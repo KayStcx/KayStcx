@@ -281,7 +281,7 @@ impl AdminMultisigContract {
         Self::approve_action(env, proposal_id, approver)
     }
 
-    pub fn set_certificate_contract(
+    pub fn set_cert_contract(
         env: Env,
         signer: Address,
         certificate_contract: Address,
@@ -298,7 +298,7 @@ impl AdminMultisigContract {
         Ok(())
     }
 
-    pub fn get_certificate_contract(env: Env) -> Result<Address, ContractError> {
+    pub fn get_cert_contract(env: Env) -> Result<Address, ContractError> {
         env.storage()
             .instance()
             .get(&AdminMultisigDataKey::CertificateContractId)
