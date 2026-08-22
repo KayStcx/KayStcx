@@ -3,6 +3,7 @@ import { AuditController } from './audit.controller';
 import { AuditService } from '../services';
 import { AuditAction, AuditResourceType } from '../constants';
 import { Response } from 'express';
+import { LoggingService } from '../../../common/logging/logging.service';
 
 describe('AuditController', () => {
   let controller: AuditController;
@@ -41,6 +42,15 @@ describe('AuditController', () => {
             exportToCsv: jest.fn(),
             getUserActions: jest.fn(),
             getResourceAudits: jest.fn(),
+          },
+        },
+        {
+          provide: LoggingService,
+          useValue: {
+            log: jest.fn(),
+            error: jest.fn(),
+            warn: jest.fn(),
+            debug: jest.fn(),
           },
         },
       ],

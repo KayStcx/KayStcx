@@ -1,26 +1,29 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { CertificateService } from './certificate.service';
-import { ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
+import { CertificateService } from './certificate.service';
 import { Certificate } from './entities/certificate.entity';
 import { Verification } from './entities/verification.entity';
+import { User } from '../users/entities/user.entity';
 import { DuplicateDetectionService } from './services/duplicate-detection.service';
 import { MetadataSchemaService } from '../metadata-schema/services/metadata-schema.service';
-import { FilesService } from '../files/services/files.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
+import { SorobanService } from '../stellar/services/soroban.service';
 
 describe('CertificateService', () => {
   let service: CertificateService;
   const certificateRepository = {};
   const verificationRepository = {};
+  const userRepository = {};
   const duplicateDetectionService = {};
   const webhooksService = {};
   const metadataSchemaService = {};
-  const filesService = {
-    generateAndUploadQrCode: jest.fn(),
+  const dataSource = {
+    createQueryRunner: jest.fn(),
   };
-  const configService = {
-    get: jest.fn(),
+  const sorobanService = {
+    isConfigured: jest.fn().mockReturnValue(false),
+    issueCertificate: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -36,6 +39,10 @@ describe('CertificateService', () => {
           useValue: verificationRepository,
         },
         {
+          provide: getRepositoryToken(User),
+          useValue: userRepository,
+        },
+        {
           provide: DuplicateDetectionService,
           useValue: duplicateDetectionService,
         },
@@ -48,12 +55,12 @@ describe('CertificateService', () => {
           useValue: metadataSchemaService,
         },
         {
-          provide: FilesService,
-          useValue: filesService,
+          provide: DataSource,
+          useValue: dataSource,
         },
         {
-          provide: ConfigService,
-          useValue: configService,
+          provide: SorobanService,
+          useValue: sorobanService,
         },
       ],
     }).compile();
@@ -65,30 +72,24 @@ describe('CertificateService', () => {
     expect(service).toBeDefined();
   });
 
-  it('should generate a QR code URL for a certificate', async () => {
+  it('should generate a QR code data URL for a certificate', async () => {
     const certificate = {
       id: 'cert-123',
       verificationCode: 'AB12CD34',
     } as Certificate;
 
     jest.spyOn(service, 'findOne').mockResolvedValue(certificate);
-    configService.get.mockReturnValue('https://kaystcx.app');
-    filesService.generateAndUploadQrCode.mockResolvedValue({
-      qrUrl: 'https://storage.example.com/qr.png',
-      qrKey: 'qr-key',
-      qrBuffer: Buffer.from('qr'),
-    });
 
-    await expect(service.getCertificateQrCode('cert-123')).resolves.toEqual({
-      certificateId: 'cert-123',
+    const result = await service.getCertificateQrCode('cert-123');
+
+    expect(result).toMatchObject({
+      id: 'cert-123',
       verificationCode: 'AB12CD34',
-      verificationUrl: 'https://kaystcx.app/verify?serial=AB12CD34',
-      qrUrl: 'https://storage.example.com/qr.png',
     });
-
-    expect(filesService.generateAndUploadQrCode).toHaveBeenCalledWith(
-      'https://kaystcx.app/verify?serial=AB12CD34',
-      'certificate-cert-123-qr',
+    expect(result.verificationUrl).toBe(
+      'http://localhost:5173/verify/AB12CD34',
     );
+    expect(typeof result.qrCode).toBe('string');
+    expect(result.qrCode).toContain('data:image');
   });
 });

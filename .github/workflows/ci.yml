@@ -52,6 +52,8 @@ jobs:
         run: npm ci
       - name: Build frontend
         run: npm run build
+      - name: Test frontend
+        run: npm test -- --run
 
   backend:
     needs: changes
@@ -60,6 +62,41 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: kaystcx_user
+          POSTGRES_PASSWORD: kaystcx_password
+          POSTGRES_DB: kaystcx_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kaystcx_user"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      NODE_ENV: test
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_USERNAME: kaystcx_user
+      DB_PASSWORD: kaystcx_password
+      DB_NAME: kaystcx_test
+      DATABASE_URL: postgres://kaystcx_user:kaystcx_password@localhost:5432/kaystcx_test
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: test-jwt-secret
+      JWT_ACCESS_SECRET: test-jwt-access-secret
+      JWT_REFRESH_SECRET: test-jwt-refresh-secret
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -75,6 +112,8 @@ jobs:
         run: npm run typecheck
       - name: Build backend
         run: npm run build
+      - name: Test backend
+        run: npm test
 
   contracts:
     needs: changes
