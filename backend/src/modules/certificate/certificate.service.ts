@@ -664,7 +664,7 @@ export class CertificateService {
   }
 
   // Additional methods from main branch
-  async search(dto: SearchCertificatesDto): Promise<any> {
+  async search(dto: SearchCertificatesDto): Promise<Certificate[]> {
     const queryBuilder = this.certificateRepository
       .createQueryBuilder('certificate')
       .leftJoinAndSelect('certificate.issuer', 'issuer');
