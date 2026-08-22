@@ -56,8 +56,46 @@ Notes and verification
 
 Testing and CI
 
-- The repository contains backend e2e tests (`backend/test`) and a CI workflow `.github/workflows/ci.yml`.
-- Consider adding frontend tests for `IssuerProfile` to cover API integration and rendering.
+Run the full test suite locally before opening a PR. CI runs the same commands.
+
+### Backend
+
+```bash
+cd backend
+npm ci
+npm test
+```
+
+Backend unit tests use Jest and live under `backend/src/**/*.spec.ts`. The e2e
+suite (`backend/test`) is run separately with `npm run test:e2e`.
+
+### Frontend
+
+```bash
+cd frontend
+npm ci
+npm test -- --run
+```
+
+The frontend uses Vitest (not Jest). The `--run` flag runs the suite once in
+single-run mode and exits (rather than entering watch mode).
+
+### Contracts
+
+```bash
+cd stellar-contracts
+cargo test
+```
+
+### CI
+
+The CI workflow (`.github/workflows/ci.yml`) runs:
+
+- Frontend: `npm run build` then `npm test -- --run`
+- Backend: typecheck, build, then `npm test` (with PostgreSQL and Redis services)
+- Contracts: `cargo build` then `cargo test`
+
+A failing test in any job fails the job and blocks the merge.
 
 Backend code conventions — DTOs and entities
 
