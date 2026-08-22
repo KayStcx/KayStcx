@@ -1,7 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import { once } from 'events';
+import type { Writable } from 'stream';
 import {
   Repository,
+  SelectQueryBuilder,
   Between,
   In,
   Like,
@@ -16,6 +20,10 @@ import { LoggingService } from '../../../common/logging/logging.service';
 
 export const MAX_PAGE_SIZE = 100;
 export const DEFAULT_PAGE_SIZE = 50;
+export const DEFAULT_EXPORT_MAX_ROWS = 100000;
+
+const CSV_HEADER =
+  'ID,Action,Resource Type,Resource ID,User ID,User Email,IP Address,Status,Timestamp,Error Message,Correlation ID';
 
 export interface LogAuditParams {
   action: AuditAction;
@@ -46,6 +54,7 @@ export class AuditService {
     private auditLogRepository: Repository<AuditLog>,
     private requestContextService: RequestContextService,
     private readonly logger: LoggingService,
+    private readonly configService: ConfigService,
   ) {}
 
   async log(params: LogAuditParams): Promise<AuditLog | null> {
@@ -138,7 +147,30 @@ export class AuditService {
     options: { bypassPageSizeLimit?: boolean } = {},
   ): Promise<{ data: AuditLog[]; total: number }> {
     const query = this.auditLogRepository.createQueryBuilder('audit');
+    this.applySearchFilters(query, searchDto);
 
+    const skip = searchDto.skip || 0;
+    const take = this.resolvePageSize(
+      searchDto.take,
+      !!options.bypassPageSizeLimit,
+    );
+
+    query.skip(skip).take(take);
+
+    const [data, total] = await query.getManyAndCount();
+
+    return { data, total };
+  }
+
+  /**
+   * Applies the shared audit-log filters (and default ordering) to a query
+   * builder. Used by both the paginated `search()` path and the streaming
+   * `exportToCsv()` path so the two never drift apart.
+   */
+  private applySearchFilters(
+    query: SelectQueryBuilder<AuditLog>,
+    searchDto: AuditSearchDto,
+  ): void {
     if (searchDto.action) {
       query.andWhere('audit.action = :action', { action: searchDto.action });
     }
@@ -196,18 +228,6 @@ export class AuditService {
     }
 
     query.orderBy('audit.timestamp', 'DESC');
-
-    const skip = searchDto.skip || 0;
-    const take = this.resolvePageSize(
-      searchDto.take,
-      !!options.bypassPageSizeLimit,
-    );
-
-    query.skip(skip).take(take);
-
-    const [data, total] = await query.getManyAndCount();
-
-    return { data, total };
   }
 
   async getStatistics(
@@ -352,52 +372,124 @@ export class AuditService {
     };
   }
 
-  async exportToCsv(searchDto: AuditSearchDto): Promise<string> {
-    const { data } = await this.search(
-      { ...searchDto, skip: 0, take: 50000 },
-      { bypassPageSizeLimit: true },
-    );
+  /**
+   * Streams matching audit logs to the provided writable response as CSV.
+   *
+   * Instead of materialising the full result set in memory, it first counts the
+   * matching rows (to enforce `AUDIT_EXPORT_MAX_ROWS`), then streams them from
+   * the database cursor in chunks — bounded memory regardless of table size.
+   */
+  async exportToCsv(searchDto: AuditSearchDto, res: Writable): Promise<void> {
+    const maxRows = this.getExportMaxRows();
 
-    if (data.length === 0) {
-      return 'No audit logs found';
+    const countQuery = this.auditLogRepository.createQueryBuilder('audit');
+    this.applySearchFilters(countQuery, searchDto);
+    const total = await countQuery.getCount();
+
+    if (total > maxRows) {
+      throw new BadRequestException(
+        `Export would return ${total.toLocaleString()} audit logs, which exceeds the AUDIT_EXPORT_MAX_ROWS limit of ${maxRows.toLocaleString()}. Narrow your filters (for example, add a date range) and try again.`,
+      );
     }
 
-    const headers = [
-      'ID',
-      'Action',
-      'Resource Type',
-      'Resource ID',
-      'User ID',
-      'User Email',
-      'IP Address',
-      'Status',
-      'Timestamp',
-      'Error Message',
-      'Correlation ID',
-    ];
+    // Write the header up front so callers that set `Content-Disposition` can
+    // start streaming before any row data flows.
+    res.write(`${CSV_HEADER}\n`);
 
-    const rows = data.map((log) => [
-      log.id,
-      log.action,
-      log.resourceType,
-      log.resourceId || '',
-      log.userId || '',
-      log.userEmail || '',
-      log.ipAddress,
-      log.status,
-      new Date(log.timestamp).toISOString(),
-      log.errorMessage || '',
-      log.correlationId || '',
-    ]);
+    if (total === 0) {
+      res.end();
+      return;
+    }
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map((row) =>
-        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','),
-      ),
-    ].join('\n');
+    const streamQuery = this.auditLogRepository.createQueryBuilder('audit');
+    this.applySearchFilters(streamQuery, searchDto);
+    streamQuery
+      .select('audit.id', 'id')
+      .addSelect('audit.action', 'action')
+      .addSelect('audit.resourceType', 'resourceType')
+      .addSelect('audit.resourceId', 'resourceId')
+      .addSelect('audit.userId', 'userId')
+      .addSelect('audit.userEmail', 'userEmail')
+      .addSelect('audit.ipAddress', 'ipAddress')
+      .addSelect('audit.status', 'status')
+      .addSelect('audit.timestamp', 'timestamp')
+      .addSelect('audit.errorMessage', 'errorMessage')
+      .addSelect('audit.correlationId', 'correlationId')
+      .take(maxRows);
 
-    return csvContent;
+    const stream = await streamQuery.stream();
+
+    for await (const row of stream) {
+      const line = this.toCsvLine(row);
+      if (!res.write(`${line}\n`)) {
+        await once(res, 'drain');
+      }
+    }
+
+    res.end();
+  }
+
+  /**
+   * Resolves the export row cap, falling back to `DEFAULT_EXPORT_MAX_ROWS`
+   * when the `AUDIT_EXPORT_MAX_ROWS` env var is absent or invalid.
+   */
+  private getExportMaxRows(): number {
+    const raw = this.configService.get<string | number>(
+      'AUDIT_EXPORT_MAX_ROWS',
+    );
+
+    if (raw === undefined || raw === null || raw === '') {
+      return DEFAULT_EXPORT_MAX_ROWS;
+    }
+
+    const parsed =
+      typeof raw === 'number' ? raw : Number.parseInt(String(raw), 10);
+
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      this.logger.warn(
+        `Invalid AUDIT_EXPORT_MAX_ROWS value "${raw}"; falling back to ${DEFAULT_EXPORT_MAX_ROWS}`,
+      );
+      return DEFAULT_EXPORT_MAX_ROWS;
+    }
+
+    return parsed;
+  }
+
+  private toCsvLine(row: Record<string, unknown>): string {
+    return [
+      row.id,
+      row.action,
+      row.resourceType,
+      row.resourceId,
+      row.userId,
+      row.userEmail,
+      row.ipAddress,
+      row.status,
+      this.formatTimestamp(row.timestamp),
+      row.errorMessage,
+      row.correlationId,
+    ]
+      .map((value) => this.escapeCsvCell(value))
+      .join(',');
+  }
+
+  private escapeCsvCell(value: unknown): string {
+    return `"${String(value ?? '').replace(/"/g, '""')}"`;
+  }
+
+  private formatTimestamp(value: unknown): string {
+    if (value === null || value === undefined) {
+      return '';
+    }
+
+    const millis =
+      typeof value === 'number' ? value : Number.parseInt(String(value), 10);
+
+    if (!Number.isFinite(millis)) {
+      return '';
+    }
+
+    return new Date(millis).toISOString();
   }
 
   /**
