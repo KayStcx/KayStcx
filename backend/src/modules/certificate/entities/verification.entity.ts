@@ -12,11 +12,14 @@ export class Verification {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => Certificate)
-  certificate: Certificate;
+  @ManyToOne(() => Certificate, { nullable: true })
+  certificate: Certificate | null;
 
   @Column()
   success: boolean;
+
+  @Column({ nullable: true })
+  verificationCode?: string;
 
   @CreateDateColumn()
   verifiedAt: Date;

@@ -1,26 +1,41 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CertificateService } from './certificate.service';
 import { ConfigService } from '@nestjs/config';
+import { NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { Certificate } from './entities/certificate.entity';
 import { Verification } from './entities/verification.entity';
+import { User } from '../users/entities/user.entity';
 import { DuplicateDetectionService } from './services/duplicate-detection.service';
 import { MetadataSchemaService } from '../metadata-schema/services/metadata-schema.service';
 import { FilesService } from '../files/services/files.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
+import { SorobanService } from '../stellar/services/soroban.service';
 
 describe('CertificateService', () => {
   let service: CertificateService;
   const certificateRepository = {};
-  const verificationRepository = {};
+  const verificationRepository = {
+    save: jest.fn(),
+  };
   const duplicateDetectionService = {};
-  const webhooksService = {};
+  const webhooksService = {
+    triggerEvent: jest.fn(),
+  };
   const metadataSchemaService = {};
   const filesService = {
     generateAndUploadQrCode: jest.fn(),
   };
   const configService = {
     get: jest.fn(),
+  };
+  const userRepository = {};
+  const dataSource = {
+    createQueryRunner: jest.fn(),
+  };
+  const sorobanService = {
+    isConfigured: jest.fn().mockReturnValue(false),
   };
 
   beforeEach(async () => {
@@ -34,6 +49,10 @@ describe('CertificateService', () => {
         {
           provide: getRepositoryToken(Verification),
           useValue: verificationRepository,
+        },
+        {
+          provide: getRepositoryToken(User),
+          useValue: userRepository,
         },
         {
           provide: DuplicateDetectionService,
@@ -54,6 +73,14 @@ describe('CertificateService', () => {
         {
           provide: ConfigService,
           useValue: configService,
+        },
+        {
+          provide: DataSource,
+          useValue: dataSource,
+        },
+        {
+          provide: SorobanService,
+          useValue: sorobanService,
         },
       ],
     }).compile();
@@ -80,15 +107,79 @@ describe('CertificateService', () => {
     });
 
     await expect(service.getCertificateQrCode('cert-123')).resolves.toEqual({
-      certificateId: 'cert-123',
+      id: 'cert-123',
       verificationCode: 'AB12CD34',
-      verificationUrl: 'https://kaystcx.app/verify?serial=AB12CD34',
-      qrUrl: 'https://storage.example.com/qr.png',
+      verificationUrl: 'http://localhost:5173/verify/AB12CD34',
+      qrCode: expect.any(String),
+    });
+  });
+
+  describe('verifyCertificate', () => {
+    const mockCertificate = {
+      id: 'cert-123',
+      verificationCode: 'AB12CD34',
+      recipientEmail: 'user@example.com',
+      issuerId: 'issuer-1',
+    } as Certificate;
+
+    beforeEach(() => {
+      verificationRepository.save.mockReset();
+      webhooksService.triggerEvent.mockReset();
     });
 
-    expect(filesService.generateAndUploadQrCode).toHaveBeenCalledWith(
-      'https://kaystcx.app/verify?serial=AB12CD34',
-      'certificate-cert-123-qr',
-    );
+    it('records a successful Verification row with success: true', async () => {
+      jest
+        .spyOn(service, 'findByVerificationCode')
+        .mockResolvedValue(mockCertificate);
+      verificationRepository.save.mockResolvedValue({ id: 'v-1' });
+      webhooksService.triggerEvent.mockResolvedValue(undefined);
+
+      const result = await service.verifyCertificate('AB12CD34');
+
+      expect(result).toBe(mockCertificate);
+      expect(verificationRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          certificate: mockCertificate,
+          verificationCode: 'AB12CD34',
+          success: true,
+          verifiedAt: expect.any(Date),
+        }),
+      );
+      expect(webhooksService.triggerEvent).toHaveBeenCalled();
+    });
+
+    it('records a failed Verification row with success: false on NotFoundException', async () => {
+      jest
+        .spyOn(service, 'findByVerificationCode')
+        .mockRejectedValue(new NotFoundException('not found'));
+      verificationRepository.save.mockResolvedValue({ id: 'v-1' });
+
+      await expect(
+        service.verifyCertificate('UNKNOWN'),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(verificationRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          certificate: null,
+          verificationCode: 'UNKNOWN',
+          success: false,
+          verifiedAt: expect.any(Date),
+        }),
+      );
+      // Webhook should NOT fire for failed verification
+      expect(webhooksService.triggerEvent).not.toHaveBeenCalled();
+    });
+
+    it('does not catch non-NotFoundException errors', async () => {
+      jest
+        .spyOn(service, 'findByVerificationCode')
+        .mockRejectedValue(new Error('DB failure'));
+
+      await expect(
+        service.verifyCertificate('ANY'),
+      ).rejects.toThrow('DB failure');
+
+      expect(verificationRepository.save).not.toHaveBeenCalled();
+    });
   });
 });
