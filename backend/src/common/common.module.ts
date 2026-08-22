@@ -29,6 +29,7 @@ import {
   RATE_LIMIT_QUEUE_NAME,
 } from './rate-limiting/rate-limit.service';
 import { Issuer } from '../modules/issuers/entities/issuer.entity';
+import { REDIS_CLIENT, redisClientProvider } from './redis/redis-client';
 
 @Module({
   imports: [
@@ -71,6 +72,7 @@ import { Issuer } from '../modules/issuers/entities/issuer.entity';
     MetricsService,
     SentryService,
     RateLimitService,
+    redisClientProvider,
 
     {
       provide: APP_GUARD,
@@ -127,6 +129,7 @@ import { Issuer } from '../modules/issuers/entities/issuer.entity';
     SentryService,
     JwtModule,
     RateLimitService,
+    REDIS_CLIENT,
   ],
 })
 export class CommonModule implements NestModule {
