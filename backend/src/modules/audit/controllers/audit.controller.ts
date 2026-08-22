@@ -1,4 +1,12 @@
-import { Controller, Get, Param, Query, Res, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Param,
+  Query,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuditService } from '../services';
@@ -53,22 +61,33 @@ export class AuditController {
     @Query() searchDto: AuditSearchDto,
     @Res() res: Response,
   ): Promise<void> {
+    // Set the attachment headers before any data flows so the browser treats
+    // the response as a downloadable file.
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="audit-logs-${Date.now()}.csv"`,
+    );
+
     try {
-      const csv = await this.auditService.exportToCsv(searchDto);
-
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="audit-logs-${Date.now()}.csv"`,
-      );
-
-      res.send(csv);
+      await this.auditService.exportToCsv(searchDto, res);
     } catch (error) {
+      // Let Nest's global exception filter turn the over-limit error into a
+      // clean 400 with the actionable message.
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
       this.logger.error(
         `Failed to export audit logs: ${error.message}`,
         error.stack,
       );
-      res.status(500).json({ error: 'Failed to export audit logs' });
+
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to export audit logs' });
+      } else {
+        res.end();
+      }
     }
   }
 
