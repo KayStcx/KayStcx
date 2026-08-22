@@ -298,6 +298,7 @@ export class CertificateService {
       // Record successful verification
       await this.verificationRepository.save({
         certificate,
+        verificationCode,
         success: true,
         verifiedAt: new Date(),
       });
@@ -317,7 +318,13 @@ export class CertificateService {
       return certificate;
     } catch (error) {
       if (error instanceof NotFoundException) {
-        // Option: Record failed verification in DB too
+        // Record failed verification for audit and abuse detection
+        await this.verificationRepository.save({
+          certificate: null,
+          verificationCode,
+          success: false,
+          verifiedAt: new Date(),
+        });
       }
       throw error;
     }
