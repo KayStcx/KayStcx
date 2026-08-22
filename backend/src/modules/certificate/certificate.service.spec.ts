@@ -1,59 +1,42 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { CertificateService } from './certificate.service';
-import { ConfigService } from '@nestjs/config';
+import { NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
+import { CertificateService } from './certificate.service';
 import { Certificate } from './entities/certificate.entity';
 import { Verification } from './entities/verification.entity';
+import { User } from '../users/entities/user.entity';
 import { DuplicateDetectionService } from './services/duplicate-detection.service';
 import { MetadataSchemaService } from '../metadata-schema/services/metadata-schema.service';
-import { FilesService } from '../files/services/files.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
+import { SorobanService } from '../stellar/services/soroban.service';
+import { WebhookEvent } from '../webhooks/entities/webhook-subscription.entity';
 
 describe('CertificateService', () => {
   let service: CertificateService;
-  const certificateRepository = {};
-  const verificationRepository = {};
-  const duplicateDetectionService = {};
-  const webhooksService = {};
-  const metadataSchemaService = {};
-  const filesService = {
-    generateAndUploadQrCode: jest.fn(),
-  };
-  const configService = {
-    get: jest.fn(),
-  };
+  let verificationRepository: { save: jest.Mock };
+  let webhooksService: { triggerEvent: jest.Mock };
 
   beforeEach(async () => {
+    verificationRepository = { save: jest.fn().mockResolvedValue({}) };
+    webhooksService = { triggerEvent: jest.fn().mockResolvedValue(undefined) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CertificateService,
-        {
-          provide: getRepositoryToken(Certificate),
-          useValue: certificateRepository,
-        },
+        { provide: getRepositoryToken(Certificate), useValue: {} },
         {
           provide: getRepositoryToken(Verification),
           useValue: verificationRepository,
         },
+        { provide: getRepositoryToken(User), useValue: {} },
+        { provide: DuplicateDetectionService, useValue: {} },
+        { provide: WebhooksService, useValue: webhooksService },
+        { provide: MetadataSchemaService, useValue: {} },
+        { provide: DataSource, useValue: { createQueryRunner: jest.fn() } },
         {
-          provide: DuplicateDetectionService,
-          useValue: duplicateDetectionService,
-        },
-        {
-          provide: WebhooksService,
-          useValue: webhooksService,
-        },
-        {
-          provide: MetadataSchemaService,
-          useValue: metadataSchemaService,
-        },
-        {
-          provide: FilesService,
-          useValue: filesService,
-        },
-        {
-          provide: ConfigService,
-          useValue: configService,
+          provide: SorobanService,
+          useValue: { isConfigured: jest.fn(), issueCertificate: jest.fn() },
         },
       ],
     }).compile();
@@ -65,30 +48,105 @@ describe('CertificateService', () => {
     expect(service).toBeDefined();
   });
 
-  it('should generate a QR code URL for a certificate', async () => {
-    const certificate = {
-      id: 'cert-123',
-      verificationCode: 'AB12CD34',
-    } as Certificate;
+  describe('verifyCertificate', () => {
+    const code = 'AB12CD34';
+    const metadata = {
+      verifiedBy: 'public',
+      ipAddress: '127.0.0.1',
+      userAgent: 'test-agent',
+    };
 
-    jest.spyOn(service, 'findOne').mockResolvedValue(certificate);
-    configService.get.mockReturnValue('https://kaystcx.app');
-    filesService.generateAndUploadQrCode.mockResolvedValue({
-      qrUrl: 'https://storage.example.com/qr.png',
-      qrKey: 'qr-key',
-      qrBuffer: Buffer.from('qr'),
+    it('records a successful verification with the code and metadata', async () => {
+      const certificate = {
+        id: 'cert-1',
+        issuerId: 'issuer-1',
+        recipientEmail: 'recipient@example.com',
+      } as Certificate;
+
+      jest
+        .spyOn(service, 'findByVerificationCode')
+        .mockResolvedValue(certificate);
+
+      const result = await service.verifyCertificate(code, metadata);
+
+      expect(result).toBe(certificate);
+      expect(verificationRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          certificate,
+          success: true,
+          verificationCode: code,
+          verifiedBy: 'public',
+          ipAddress: '127.0.0.1',
+          userAgent: 'test-agent',
+        }),
+      );
+      expect(webhooksService.triggerEvent).toHaveBeenCalledWith(
+        WebhookEvent.CERTIFICATE_VERIFIED,
+        'issuer-1',
+        expect.objectContaining({ id: 'cert-1', verificationCode: code }),
+      );
     });
 
-    await expect(service.getCertificateQrCode('cert-123')).resolves.toEqual({
-      certificateId: 'cert-123',
-      verificationCode: 'AB12CD34',
-      verificationUrl: 'https://kaystcx.app/verify?serial=AB12CD34',
-      qrUrl: 'https://storage.example.com/qr.png',
+    it('records a failed verification and re-throws the NotFoundException', async () => {
+      const notFound = new NotFoundException(
+        'Certificate not found or invalid verification code',
+      );
+      jest.spyOn(service, 'findByVerificationCode').mockRejectedValue(notFound);
+
+      await expect(service.verifyCertificate(code, metadata)).rejects.toThrow(
+        NotFoundException,
+      );
+
+      expect(verificationRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          certificate: null,
+          success: false,
+          verificationCode: code,
+          verifiedBy: 'public',
+          ipAddress: '127.0.0.1',
+          userAgent: 'test-agent',
+        }),
+      );
     });
 
-    expect(filesService.generateAndUploadQrCode).toHaveBeenCalledWith(
-      'https://kaystcx.app/verify?serial=AB12CD34',
-      'certificate-cert-123-qr',
-    );
+    it('still re-throws NotFoundException if persisting the failed attempt fails', async () => {
+      const notFound = new NotFoundException(
+        'Certificate not found or invalid verification code',
+      );
+      jest.spyOn(service, 'findByVerificationCode').mockRejectedValue(notFound);
+      verificationRepository.save.mockRejectedValue(new Error('db down'));
+
+      await expect(service.verifyCertificate(code)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('does not record a verification for non-not-found errors', async () => {
+      jest
+        .spyOn(service, 'findByVerificationCode')
+        .mockRejectedValue(new Error('unexpected failure'));
+
+      await expect(service.verifyCertificate(code)).rejects.toThrow(
+        'unexpected failure',
+      );
+      expect(verificationRepository.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('verifyByCode', () => {
+    it('forwards request metadata to verifyCertificate', async () => {
+      const certificate = { id: 'cert-1' } as Certificate;
+      const verifySpy = jest
+        .spyOn(service, 'verifyCertificate')
+        .mockResolvedValue(certificate);
+
+      await service.verifyByCode('CODE', 'someone', '10.0.0.1', 'agent');
+
+      expect(verifySpy).toHaveBeenCalledWith('CODE', {
+        verifiedBy: 'someone',
+        ipAddress: '10.0.0.1',
+        userAgent: 'agent',
+      });
+    });
   });
 });
