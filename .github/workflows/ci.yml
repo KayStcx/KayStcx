@@ -94,3 +94,10 @@ jobs:
         run: cargo build
       - name: Test contracts
         run: cargo test
+      - name: Enforce storage architecture (no top-level storage modules)
+        run: |
+          if [ -n "$(find src -maxdepth 1 \( -name 'storage*.rs' -o -name 'storage' \))" ]; then
+            echo 'Top-level storage modules are forbidden; add keys to the owning'
+            echo "module's DataKey enum instead (see docs/ARCHITECTURE.md)."
+            exit 1
+          fi
