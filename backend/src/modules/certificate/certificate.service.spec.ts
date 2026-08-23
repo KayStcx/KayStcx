@@ -1,26 +1,27 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { CertificateService } from './certificate.service';
-import { ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
+import * as QRCode from 'qrcode';
+import { CertificateService } from './certificate.service';
 import { Certificate } from './entities/certificate.entity';
 import { Verification } from './entities/verification.entity';
+import { User } from '../users/entities/user.entity';
 import { DuplicateDetectionService } from './services/duplicate-detection.service';
 import { MetadataSchemaService } from '../metadata-schema/services/metadata-schema.service';
-import { FilesService } from '../files/services/files.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
+import { SorobanService } from '../stellar/services/soroban.service';
 
 describe('CertificateService', () => {
   let service: CertificateService;
   const certificateRepository = {};
   const verificationRepository = {};
+  const userRepository = {};
   const duplicateDetectionService = {};
   const webhooksService = {};
   const metadataSchemaService = {};
-  const filesService = {
-    generateAndUploadQrCode: jest.fn(),
-  };
-  const configService = {
-    get: jest.fn(),
+  const dataSource = {} as DataSource;
+  const sorobanService = {
+    isConfigured: jest.fn().mockReturnValue(false),
   };
 
   beforeEach(async () => {
@@ -36,6 +37,10 @@ describe('CertificateService', () => {
           useValue: verificationRepository,
         },
         {
+          provide: getRepositoryToken(User),
+          useValue: userRepository,
+        },
+        {
           provide: DuplicateDetectionService,
           useValue: duplicateDetectionService,
         },
@@ -48,12 +53,12 @@ describe('CertificateService', () => {
           useValue: metadataSchemaService,
         },
         {
-          provide: FilesService,
-          useValue: filesService,
+          provide: DataSource,
+          useValue: dataSource,
         },
         {
-          provide: ConfigService,
-          useValue: configService,
+          provide: SorobanService,
+          useValue: sorobanService,
         },
       ],
     }).compile();
@@ -65,30 +70,123 @@ describe('CertificateService', () => {
     expect(service).toBeDefined();
   });
 
-  it('should generate a QR code URL for a certificate', async () => {
+  it('should generate a QR code data URL for a certificate', async () => {
     const certificate = {
       id: 'cert-123',
       verificationCode: 'AB12CD34',
     } as Certificate;
 
     jest.spyOn(service, 'findOne').mockResolvedValue(certificate);
-    configService.get.mockReturnValue('https://kaystcx.app');
-    filesService.generateAndUploadQrCode.mockResolvedValue({
-      qrUrl: 'https://storage.example.com/qr.png',
-      qrKey: 'qr-key',
-      qrBuffer: Buffer.from('qr'),
-    });
+    const toDataURL = jest
+      .spyOn(QRCode, 'toDataURL')
+      .mockResolvedValue('data:image/png;base64,QR');
+    process.env.FRONTEND_URL = 'https://kaystcx.app';
 
     await expect(service.getCertificateQrCode('cert-123')).resolves.toEqual({
-      certificateId: 'cert-123',
+      id: 'cert-123',
       verificationCode: 'AB12CD34',
-      verificationUrl: 'https://kaystcx.app/verify?serial=AB12CD34',
-      qrUrl: 'https://storage.example.com/qr.png',
+      verificationUrl: 'https://kaystcx.app/verify/AB12CD34',
+      qrCode: 'data:image/png;base64,QR',
     });
 
-    expect(filesService.generateAndUploadQrCode).toHaveBeenCalledWith(
-      'https://kaystcx.app/verify?serial=AB12CD34',
-      'certificate-cert-123-qr',
+    expect(toDataURL).toHaveBeenCalledWith(
+      'https://kaystcx.app/verify/AB12CD34',
     );
+
+    delete process.env.FRONTEND_URL;
+  });
+
+  describe('bulkExport / exportAllFiltered shared filter query (issue #6 / B8)', () => {
+    const SEARCH_CLAUSE =
+      '(certificate.serialNumber ILIKE :search OR certificate.recipientName ILIKE :search OR certificate.recipientEmail ILIKE :search OR certificate.title ILIKE :search)';
+
+    const mockQueryBuilder = () => {
+      const spy = {
+        conditions: [] as string[],
+        parameters: {} as Record<string, unknown>,
+      };
+      const qb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        andWhere: jest.fn(
+          (condition: string, params?: Record<string, unknown>) => {
+            spy.conditions.push(condition);
+            Object.assign(spy.parameters, params ?? {});
+            return qb;
+          },
+        ),
+        getMany: jest.fn().mockResolvedValue([]),
+      };
+      (certificateRepository as any).createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(qb);
+      return { qb, ...spy };
+    };
+
+    it('bulkExport applies the shared search/status/date filters plus the certificateIds clause', async () => {
+      const { qb, conditions, parameters } = mockQueryBuilder();
+
+      await service.bulkExport(['id-1', 'id-2'], {
+        search: 'alice',
+        status: 'active',
+        startDate: '2026-01-01',
+        endDate: '2026-12-31',
+      });
+
+      expect(conditions).toContain('certificate.id IN (:...certificateIds)');
+      expect(conditions).toContain(SEARCH_CLAUSE);
+      expect(conditions).toContain('certificate.status = :status');
+      expect(conditions).toContain('certificate.issuedAt >= :startDate');
+      expect(conditions).toContain('certificate.issuedAt <= :endDate');
+      expect(parameters).toMatchObject({
+        certificateIds: ['id-1', 'id-2'],
+        search: '%alice%',
+        status: 'active',
+      });
+      expect(parameters.startDate).toBeInstanceOf(Date);
+      expect(parameters.endDate).toBeInstanceOf(Date);
+      expect(qb.getMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('exportAllFiltered applies the shared filters but never the certificateIds clause', async () => {
+      const { conditions, parameters } = mockQueryBuilder();
+
+      await service.exportAllFiltered({ status: 'active' });
+
+      expect(conditions).toContain('certificate.status = :status');
+      expect(parameters.status).toBe('active');
+      expect(
+        conditions.some((condition) => condition.includes('certificate.id IN')),
+      ).toBe(false);
+    });
+
+    it('bulkExport and exportAllFiltered produce identical filter conditions for identical filters', async () => {
+      const filters = {
+        search: 'alice',
+        status: 'active',
+        startDate: '2026-01-01',
+        endDate: '2026-12-31',
+      };
+
+      const bulk = mockQueryBuilder();
+      await service.bulkExport([], filters);
+
+      const filtered = mockQueryBuilder();
+      await service.exportAllFiltered(filters);
+
+      expect(bulk.conditions).toEqual(filtered.conditions);
+      expect(bulk.parameters).toEqual(filtered.parameters);
+    });
+
+    it('leaves the query untouched when no filters are provided', async () => {
+      const { conditions } = mockQueryBuilder();
+
+      await service.exportAllFiltered();
+
+      expect(conditions).toEqual([]);
+      expect((certificateRepository as any).createQueryBuilder).toHaveBeenCalledWith(
+        'certificate',
+      );
+    });
   });
 });

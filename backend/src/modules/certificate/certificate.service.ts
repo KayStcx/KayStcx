@@ -5,13 +5,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, SelectQueryBuilder } from 'typeorm';
 import * as QRCode from 'qrcode';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { UpdateCertificateDto } from './dto/update-certificate.dto';
 import { IssueCertificateDto } from './dto/issue-certificate.dto';
 import { RevokeCertificateDto } from './dto/revoke-certificate.dto';
 import { SearchCertificatesDto } from './dto/search-certificates.dto';
+import { ExportFiltersDto } from './dto/export-filters.dto';
 import { Certificate } from './entities/certificate.entity';
 import { Verification } from './entities/verification.entity';
 import { CertificateStatus } from './constants/certificate-status.enum';
@@ -501,11 +502,11 @@ export class CertificateService {
     return queryBuilder.getMany();
   }
 
-  async bulkExport(certificateIds: string[], filters?: any): Promise<string> {
-    const queryBuilder = this.certificateRepository
-      .createQueryBuilder('certificate')
-      .leftJoinAndSelect('certificate.issuer', 'issuer')
-      .orderBy('certificate.issuedAt', 'DESC');
+  async bulkExport(
+    certificateIds: string[],
+    filters?: ExportFiltersDto,
+  ): Promise<string> {
+    const queryBuilder = this.buildFilteredQuery(filters);
 
     // Apply certificate ID filter if provided
     if (certificateIds && certificateIds.length > 0) {
@@ -514,74 +515,61 @@ export class CertificateService {
       });
     }
 
-    // Apply additional filters
-    if (filters) {
-      if (filters.search) {
-        queryBuilder.andWhere(
-          '(certificate.serialNumber ILIKE :search OR certificate.recipientName ILIKE :search OR certificate.recipientEmail ILIKE :search OR certificate.title ILIKE :search)',
-          { search: `%${filters.search}%` },
-        );
-      }
-
-      if (filters.status) {
-        queryBuilder.andWhere('certificate.status = :status', {
-          status: filters.status,
-        });
-      }
-
-      if (filters.startDate) {
-        queryBuilder.andWhere('certificate.issuedAt >= :startDate', {
-          startDate: new Date(filters.startDate),
-        });
-      }
-
-      if (filters.endDate) {
-        queryBuilder.andWhere('certificate.issuedAt <= :endDate', {
-          endDate: new Date(filters.endDate),
-        });
-      }
-    }
-
     const certificates = await queryBuilder.getMany();
     return this.convertToCSV(certificates);
   }
 
-  async exportAllFiltered(filters?: any): Promise<string> {
+  async exportAllFiltered(filters?: ExportFiltersDto): Promise<string> {
+    const certificates = await this.buildFilteredQuery(filters).getMany();
+    return this.convertToCSV(certificates);
+  }
+
+  /**
+   * Build a certificate export query with the shared search / status /
+   * date-range filters applied.
+   *
+   * `bulkExport()` and `exportAllFiltered()` both delegate here so the
+   * filter conditions live in exactly one place (issue #6 / B8): a new
+   * filter field now needs to be added once instead of twice.
+   */
+  private buildFilteredQuery(
+    filters?: ExportFiltersDto,
+  ): SelectQueryBuilder<Certificate> {
     const queryBuilder = this.certificateRepository
       .createQueryBuilder('certificate')
       .leftJoinAndSelect('certificate.issuer', 'issuer')
       .orderBy('certificate.issuedAt', 'DESC');
 
-    // Apply filters
-    if (filters) {
-      if (filters.search) {
-        queryBuilder.andWhere(
-          '(certificate.serialNumber ILIKE :search OR certificate.recipientName ILIKE :search OR certificate.recipientEmail ILIKE :search OR certificate.title ILIKE :search)',
-          { search: `%${filters.search}%` },
-        );
-      }
-
-      if (filters.status) {
-        queryBuilder.andWhere('certificate.status = :status', {
-          status: filters.status,
-        });
-      }
-
-      if (filters.startDate) {
-        queryBuilder.andWhere('certificate.issuedAt >= :startDate', {
-          startDate: new Date(filters.startDate),
-        });
-      }
-
-      if (filters.endDate) {
-        queryBuilder.andWhere('certificate.issuedAt <= :endDate', {
-          endDate: new Date(filters.endDate),
-        });
-      }
+    if (!filters) {
+      return queryBuilder;
     }
 
-    const certificates = await queryBuilder.getMany();
-    return this.convertToCSV(certificates);
+    if (filters.search) {
+      queryBuilder.andWhere(
+        '(certificate.serialNumber ILIKE :search OR certificate.recipientName ILIKE :search OR certificate.recipientEmail ILIKE :search OR certificate.title ILIKE :search)',
+        { search: `%${filters.search}%` },
+      );
+    }
+
+    if (filters.status) {
+      queryBuilder.andWhere('certificate.status = :status', {
+        status: filters.status,
+      });
+    }
+
+    if (filters.startDate) {
+      queryBuilder.andWhere('certificate.issuedAt >= :startDate', {
+        startDate: new Date(filters.startDate),
+      });
+    }
+
+    if (filters.endDate) {
+      queryBuilder.andWhere('certificate.issuedAt <= :endDate', {
+        endDate: new Date(filters.endDate),
+      });
+    }
+
+    return queryBuilder;
   }
 
   private convertToCSV(certificates: Certificate[]): string {
