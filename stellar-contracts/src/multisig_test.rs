@@ -507,3 +507,72 @@ fn test_get_multisig_config_returns_not_found_error() {
         Err(Ok(ContractError::NotFound))
     );
 }
+
+#[test]
+fn test_init_multisig_config_invalid_parameters_returns_invalid_config() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, MultisigCertificateContract);
+    let client = MultisigCertificateContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let issuer = Address::generate(&env);
+    let signer1 = Address::generate(&env);
+
+    // Threshold of 0 is invalid
+    let signers = vec![&env, signer1.clone()];
+    env.mock_all_auths();
+    assert_eq!(
+        client.try_init_multisig_config(&issuer, &0, &signers, &5, &admin),
+        Err(Ok(ContractError::InvalidConfig))
+    );
+}
+
+#[test]
+fn test_double_init_multisig_config_returns_already_exists() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, MultisigCertificateContract);
+    let client = MultisigCertificateContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let issuer = Address::generate(&env);
+    let signer1 = Address::generate(&env);
+
+    let signers = vec![&env, signer1.clone()];
+
+    env.mock_all_auths();
+    client.init_multisig_config(&issuer, &1, &signers, &5, &admin);
+
+    assert_eq!(
+        client.try_init_multisig_config(&issuer, &1, &signers, &5, &admin),
+        Err(Ok(ContractError::AlreadyExists))
+    );
+}
+
+#[test]
+fn test_non_proposer_cannot_cancel_request() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, MultisigCertificateContract);
+    let client = MultisigCertificateContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let issuer = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let signer1 = Address::generate(&env);
+    let signer2 = Address::generate(&env);
+
+    let signers = vec![&env, signer1.clone(), signer2.clone()];
+
+    env.mock_all_auths();
+    client.init_multisig_config(&issuer, &2, &signers, &5, &admin);
+
+    let request_id = String::from_str(&env, "req-cancel-denied");
+    let metadata = String::from_str(&env, "certificate metadata");
+
+    // The issuer is the proposer; a signer cannot cancel it.
+    client.propose_certificate(&request_id, &issuer, &recipient, &metadata, &7);
+
+    assert_eq!(
+        client.try_cancel_request(&request_id, &signer1),
+        Err(Ok(ContractError::Unauthorized))
+    );
+}

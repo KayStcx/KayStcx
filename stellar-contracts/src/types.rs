@@ -21,10 +21,8 @@ pub enum ContractError {
     NotInitialized = 4,
     /// The contract has not been configured (e.g. missing admin or contract link).
     NotConfigured = 5,
-    /// The entity is in a state that disallows the requested transition.
-    InvalidState = 6,
-    /// A configuration value failed validation.
-    InvalidConfig = 7,
+    InvalidConfig = 6,
+    InvalidStatus = 7,
 }
 
 #[contracttype]

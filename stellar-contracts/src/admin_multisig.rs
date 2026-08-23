@@ -168,7 +168,7 @@ impl AdminMultisigContract {
             .ok_or(ContractError::NotFound)?;
 
         if proposal.status != AdminProposalStatus::Pending {
-            return Err(ContractError::InvalidState);
+            return Err(ContractError::InvalidStatus);
         }
 
         let current_ledger = env.ledger().sequence();
@@ -233,7 +233,7 @@ impl AdminMultisigContract {
         }
 
         if proposal.status != AdminProposalStatus::Pending {
-            return Err(ContractError::InvalidState);
+            return Err(ContractError::InvalidStatus);
         }
 
         proposal.status = AdminProposalStatus::Rejected;
@@ -314,7 +314,7 @@ impl AdminMultisigContract {
             .ok_or(ContractError::NotFound)?;
 
         if proposal.status != AdminProposalStatus::Approved {
-            return Err(ContractError::InvalidState);
+            return Err(ContractError::InvalidStatus);
         }
 
         match &proposal.action {
