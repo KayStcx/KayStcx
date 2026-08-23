@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
   ForbiddenException,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
@@ -24,6 +24,7 @@ import {
 import { EmailQueueService } from '../../email/email-queue.service';
 import { LoggingService } from '../../../common/logging/logging.service';
 import { AuditService } from '../../audit/services/audit.service';
+import { durationToMs, durationToSeconds } from '../../../common/utils/duration.utils';
 
 @Injectable()
 export class UserAuthService {
@@ -290,27 +291,27 @@ export class UserAuthService {
       role: user.role,
     };
 
-    const accessTokenExpiresIn = this.configService.get<string>(
+    // Token lifetimes are configurable so operators can adjust them without
+    // a code change. Sensible defaults match the previous hardcoded values.
+    const accessExpiry = this.configService.get<string>(
       'JWT_ACCESS_EXPIRES_IN',
       '15m',
     );
-    const refreshTokenExpiresIn = this.configService.get<string>(
+    const refreshExpiry = this.configService.get<string>(
       'JWT_REFRESH_EXPIRES_IN',
       '7d',
     );
 
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: accessTokenExpiresIn as any,
+      expiresIn: accessExpiry as JwtSignOptions['expiresIn'],
     });
 
     const refreshToken = this.jwtService.sign(payload, {
-      expiresIn: refreshTokenExpiresIn as any,
+      expiresIn: refreshExpiry as JwtSignOptions['expiresIn'],
     });
 
     // Store refresh token
-    const refreshTokenExpires = new Date(
-      Date.now() + this.parseExpiryToSeconds(refreshTokenExpiresIn) * 1000,
-    );
+    const refreshTokenExpires = new Date(Date.now() + durationToMs(refreshExpiry));
 
     const hashedRefreshToken = await bcrypt.hash(
       refreshToken,
@@ -325,35 +326,8 @@ export class UserAuthService {
     return {
       accessToken,
       refreshToken,
-      expiresIn: this.parseExpiryToSeconds(accessTokenExpiresIn),
+      expiresIn: durationToSeconds(accessExpiry),
     };
-  }
-
-  /**
-   * Parse a JWT `expiresIn` value into seconds.
-   * Supports duration strings such as `'7d'`, `'15m'`, `'1h'`, `'30s'` as
-   * well as plain numeric strings (already in seconds).
-   */
-  private parseExpiryToSeconds(expiry: string): number {
-    const trimmed = expiry.trim();
-    const match = trimmed.match(/^(\d+)\s*([smhd])$/i);
-
-    if (match) {
-      const value = Number(match[1]);
-      switch (match[2].toLowerCase()) {
-        case 's':
-          return value;
-        case 'm':
-          return value * 60;
-        case 'h':
-          return value * 3600;
-        case 'd':
-          return value * 86400;
-      }
-    }
-
-    const numeric = Number(trimmed);
-    return Number.isFinite(numeric) ? numeric : 3600;
   }
 
   private generateToken(): string {

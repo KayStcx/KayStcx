@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
   ForbiddenException,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
@@ -40,6 +40,8 @@ import { UserAuthService } from './services/user-auth.service';
 import { UserProfileService } from './services/user-profile.service';
 import { UserPasswordService } from './services/user-password.service';
 import { UserAdminService } from './services/user-admin.service';
+import { durationToMs, durationToSeconds } from '../../common/utils/duration.utils';
+import { settlePromise } from '../../common/utils/promise.utils';
 
 @Injectable()
 export class UsersService {
@@ -314,77 +316,37 @@ export class UsersService {
     certificateIssuanceCounts: Record<string, number>;
   }> {
     // This method is kept in UsersService as it aggregates data from multiple services.
-    // Each query is fetched independently via allSettled so a single transient
-    // failure cannot break the entire statistics aggregation.
-    const settledCounts = await Promise.allSettled([
-      this.userRepository.countTotal(),
-      this.userRepository.countActive(),
-      this.userRepository.countByRole(UserRole.USER),
-      this.userRepository.countByRole(UserRole.ISSUER),
-      this.userRepository.countByRole(UserRole.ADMIN),
-      this.userRepository.countByRole(UserRole.RECIPIENT),
-      this.userRepository.countByRole(UserRole.VERIFIER),
+    // Each sub-query is isolated so a single failure returns a safe default.
+    const onError = (label: string) => (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`User stats sub-query failed (${label}): ${message}`);
+    };
+
+    const [
+      total,
+      active,
+      userCount,
+      issuerCount,
+      adminCount,
+      recipientCount,
+      verifierCount,
+    ] = await Promise.all([
+      settlePromise(this.userRepository.countTotal(), 0, onError('total')),
+      settlePromise(this.userRepository.countActive(), 0, onError('active')),
+      settlePromise(this.userRepository.countByRole(UserRole.USER), 0, onError('userCount')),
+      settlePromise(this.userRepository.countByRole(UserRole.ISSUER), 0, onError('issuerCount')),
+      settlePromise(this.userRepository.countByRole(UserRole.ADMIN), 0, onError('adminCount')),
+      settlePromise(this.userRepository.countByRole(UserRole.RECIPIENT), 0, onError('recipientCount')),
+      settlePromise(this.userRepository.countByRole(UserRole.VERIFIER), 0, onError('verifierCount')),
     ]);
 
-    const total = this.settleResult(settledCounts[0], 0, 'getUserStats:total');
-    const active = this.settleResult(
-      settledCounts[1],
-      0,
-      'getUserStats:active',
-    );
-    const userCount = this.settleResult(
-      settledCounts[2],
-      0,
-      'getUserStats:userCount',
-    );
-    const issuerCount = this.settleResult(
-      settledCounts[3],
-      0,
-      'getUserStats:issuerCount',
-    );
-    const adminCount = this.settleResult(
-      settledCounts[4],
-      0,
-      'getUserStats:adminCount',
-    );
-    const recipientCount = this.settleResult(
-      settledCounts[5],
-      0,
-      'getUserStats:recipientCount',
-    );
-    const verifierCount = this.settleResult(
-      settledCounts[6],
-      0,
-      'getUserStats:verifierCount',
-    );
-
-    const settledStatuses = await Promise.allSettled([
-      this.userRepository.countByStatus(UserStatus.ACTIVE),
-      this.userRepository.countByStatus(UserStatus.INACTIVE),
-      this.userRepository.countByStatus(UserStatus.SUSPENDED),
-      this.userRepository.countByStatus(UserStatus.PENDING_VERIFICATION),
-    ]);
-
-    const activeStatus = this.settleResult(
-      settledStatuses[0],
-      0,
-      'getUserStats:activeStatus',
-    );
-    const inactiveStatus = this.settleResult(
-      settledStatuses[1],
-      0,
-      'getUserStats:inactiveStatus',
-    );
-    const suspendedStatus = this.settleResult(
-      settledStatuses[2],
-      0,
-      'getUserStats:suspendedStatus',
-    );
-    const pendingStatus = this.settleResult(
-      settledStatuses[3],
-      0,
-      'getUserStats:pendingStatus',
-    );
+    const [activeStatus, inactiveStatus, suspendedStatus, pendingStatus] =
+      await Promise.all([
+        settlePromise(this.userRepository.countByStatus(UserStatus.ACTIVE), 0, onError('activeStatus')),
+        settlePromise(this.userRepository.countByStatus(UserStatus.INACTIVE), 0, onError('inactiveStatus')),
+        settlePromise(this.userRepository.countByStatus(UserStatus.SUSPENDED), 0, onError('suspendedStatus')),
+        settlePromise(this.userRepository.countByStatus(UserStatus.PENDING_VERIFICATION), 0, onError('pendingStatus')),
+      ]);
 
     const certificateIssuanceCounts =
       await this.getCertificateIssuanceCounts();
@@ -481,17 +443,25 @@ export class UsersService {
       role: user.role,
     };
 
+    const accessExpiry = this.configService.get<string>(
+      'JWT_ACCESS_EXPIRES_IN',
+      this.configService.get<string>('JWT_EXPIRES_IN', '1h'),
+    );
+    const refreshExpiry = this.configService.get<string>(
+      'JWT_REFRESH_EXPIRES_IN',
+      '7d',
+    );
+
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: this.configService.get('JWT_EXPIRES_IN', '1h'),
+      expiresIn: accessExpiry as JwtSignOptions['expiresIn'],
     });
 
     const refreshToken = this.jwtService.sign(payload, {
-      expiresIn: '7d',
+      expiresIn: refreshExpiry as JwtSignOptions['expiresIn'],
     });
 
     // Store refresh token
-    const refreshTokenExpires = new Date();
-    refreshTokenExpires.setDate(refreshTokenExpires.getDate() + 7);
+    const refreshTokenExpires = new Date(Date.now() + durationToMs(refreshExpiry));
 
     const hashedRefreshToken = await bcrypt.hash(
       refreshToken,
@@ -506,7 +476,7 @@ export class UsersService {
     return {
       accessToken,
       refreshToken,
-      expiresIn: 3600, // 1 hour in seconds
+      expiresIn: durationToSeconds(accessExpiry),
     };
   }
 

@@ -101,6 +101,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         path: request.url,
         method: request.method,
       };
+
       if (context?.correlationId) {
         errorResponse.correlationId = context.correlationId;
       }
@@ -110,35 +111,37 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
     // Handle custom AppException
     else if (exception instanceof AppException) {
-      const appException = exception.getResponse() as Record<string, unknown>;
       statusCode = exception.getStatus();
+      const appResponse = exception.getResponse();
+      const appData =
+        typeof appResponse === 'object' && appResponse !== null
+          ? (appResponse as Record<string, unknown>)
+          : { message: String(appResponse) };
 
-      // Explicitly map only the known fields from the exception response and
-      // drop any unknown properties so internal state is never leaked.
+      // Map only the known, validated fields onto the error response instead of
+      // spreading the exception response verbatim (which could leak internal
+      // state or return malformed shapes).
       errorResponse = {
         errorCode:
-          typeof appException.errorCode === 'string'
-            ? appException.errorCode
-            : 'APP_ERROR',
+          typeof appData.errorCode === 'string'
+            ? appData.errorCode
+            : 'INTERNAL_SERVER_ERROR',
         message:
-          typeof appException.message === 'string'
-            ? appException.message
-            : 'Application error',
-        timestamp:
-          typeof appException.timestamp === 'string'
-            ? appException.timestamp
-            : new Date().toISOString(),
+          typeof appData.message === 'string'
+            ? appData.message
+            : 'Internal server error',
+        timestamp: new Date().toISOString(),
         path: request.url,
         method: request.method,
       };
 
-      // Only include details in non-production environments
-      if (!this.isProduction && appException.details !== undefined) {
-        errorResponse.details = appException.details;
-      }
-
       if (context?.correlationId) {
         errorResponse.correlationId = context.correlationId;
+      }
+
+      // Only surface `details` in non-production, and never leak a stack trace.
+      if (!this.isProduction && appData.details !== undefined) {
+        errorResponse.details = appData.details;
       }
     }
     // Handle BadRequestException with validation errors

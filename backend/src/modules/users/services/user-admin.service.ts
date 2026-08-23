@@ -53,8 +53,11 @@ export class UserAdminService {
    * Update any mutable field on a user.
    *
    * @deprecated Prefer the single-responsibility methods instead:
-   * `updateUserRole()` for role changes and `updateUserStatus()` for status
-   * changes. This method is kept for backward compatibility and should only be
+   * - `updateUserRole()` for role changes
+   * - `updateUserStatus()` / `deactivateUser()` / `reactivateUser()` for status changes
+   * - `updateIssuerProfile()` for profile updates
+   *
+   * Kept for backward compatibility with existing callers and should only be
    * used for generic profile fields that do not have a dedicated method.
    */
   async adminUpdateUser(
@@ -111,7 +114,11 @@ export class UserAdminService {
   }
 
   /**
-   * Change a user's status. This is the canonical method for status changes.
+   * Change a user's status.
+   *
+   * @deprecated Prefer `deactivateUser()` / `reactivateUser()` for explicit
+   * status transitions, which also record audit metadata. Kept for callers
+   * that need a generic status setter.
    */
   async updateUserStatus(
     adminId: string,

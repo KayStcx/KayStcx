@@ -13,7 +13,8 @@ import { SorobanService } from '../stellar/services/soroban.service';
 
 describe('CertificateService', () => {
   let service: CertificateService;
-  const certificateRepository = {};
+  let certificateRepository: { createQueryBuilder: jest.Mock };
+
   const verificationRepository = {};
   const userRepository = {};
   const duplicateDetectionService = {};
@@ -25,6 +26,10 @@ describe('CertificateService', () => {
   };
 
   beforeEach(async () => {
+    certificateRepository = {
+      createQueryBuilder: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CertificateService,
