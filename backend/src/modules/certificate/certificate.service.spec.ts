@@ -10,12 +10,10 @@ import { DuplicateDetectionService } from './services/duplicate-detection.servic
 import { MetadataSchemaService } from '../metadata-schema/services/metadata-schema.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { SorobanService } from '../stellar/services/soroban.service';
-import { WebhookEvent } from '../webhooks/entities/webhook-subscription.entity';
 
 describe('CertificateService', () => {
   let service: CertificateService;
-  let certificateRepository: { createQueryBuilder: jest.Mock };
-
+  const certificateRepository = {};
   const verificationRepository = {};
   const userRepository = {};
   const duplicateDetectionService = {};
@@ -44,8 +42,28 @@ describe('CertificateService', () => {
         { provide: MetadataSchemaService, useValue: {} },
         { provide: DataSource, useValue: { createQueryRunner: jest.fn() } },
         {
+          provide: getRepositoryToken(User),
+          useValue: userRepository,
+        },
+        {
+          provide: DuplicateDetectionService,
+          useValue: duplicateDetectionService,
+        },
+        {
+          provide: WebhooksService,
+          useValue: webhooksService,
+        },
+        {
+          provide: MetadataSchemaService,
+          useValue: metadataSchemaService,
+        },
+        {
+          provide: DataSource,
+          useValue: dataSource,
+        },
+        {
           provide: SorobanService,
-          useValue: { isConfigured: jest.fn(), issueCertificate: jest.fn() },
+          useValue: sorobanService,
         },
       ],
     }).compile();
@@ -75,6 +93,7 @@ describe('CertificateService', () => {
       verificationUrl: 'https://kaystcx.app/verify/AB12CD34',
       qrCode: 'data:image/png;base64,QR',
     });
+  });
 
     expect(toDataURL).toHaveBeenCalledWith(
       'https://kaystcx.app/verify/AB12CD34',
@@ -83,9 +102,9 @@ describe('CertificateService', () => {
     delete process.env.FRONTEND_URL;
   });
 
-  describe('bulkExport / exportAllFiltered shared filter query (issue #6 / B8)', () => {
-    const SEARCH_CLAUSE =
-      '(certificate.serialNumber ILIKE :search OR certificate.recipientName ILIKE :search OR certificate.recipientEmail ILIKE :search OR certificate.title ILIKE :search)';
+  describe('export query builder (issue #49)', () => {
+    const ID_CLAUSE = 'certificate.id IN (:...certificateIds)';
+    const STATUS_CLAUSE = 'certificate.status = :status';
 
     const mockQueryBuilder = () => {
       const spy = {
@@ -110,70 +129,53 @@ describe('CertificateService', () => {
       return { qb, ...spy };
     };
 
-    it('bulkExport applies the shared search/status/date filters plus the certificateIds clause', async () => {
+    it('bulkExport(["id1", "id2"], { status: "active" }) applies both the ID filter and the status filter', async () => {
       const { qb, conditions, parameters } = mockQueryBuilder();
 
-      await service.bulkExport(['id-1', 'id-2'], {
-        search: 'alice',
-        status: 'active',
-        startDate: '2026-01-01',
-        endDate: '2026-12-31',
-      });
+      await service.bulkExport(['id1', 'id2'], { status: 'active' });
 
-      expect(conditions).toContain('certificate.id IN (:...certificateIds)');
-      expect(conditions).toContain(SEARCH_CLAUSE);
-      expect(conditions).toContain('certificate.status = :status');
-      expect(conditions).toContain('certificate.issuedAt >= :startDate');
-      expect(conditions).toContain('certificate.issuedAt <= :endDate');
+      expect(conditions).toContain(ID_CLAUSE);
+      expect(conditions).toContain(STATUS_CLAUSE);
       expect(parameters).toMatchObject({
-        certificateIds: ['id-1', 'id-2'],
-        search: '%alice%',
+        certificateIds: ['id1', 'id2'],
         status: 'active',
       });
-      expect(parameters.startDate).toBeInstanceOf(Date);
-      expect(parameters.endDate).toBeInstanceOf(Date);
       expect(qb.getMany).toHaveBeenCalledTimes(1);
     });
 
-    it('exportAllFiltered applies the shared filters but never the certificateIds clause', async () => {
+    it('exportAllFiltered({ status: "active" }) applies the status filter but never an ID filter', async () => {
       const { conditions, parameters } = mockQueryBuilder();
 
       await service.exportAllFiltered({ status: 'active' });
 
-      expect(conditions).toContain('certificate.status = :status');
+      expect(conditions).toContain(STATUS_CLAUSE);
       expect(parameters.status).toBe('active');
       expect(
         conditions.some((condition) => condition.includes('certificate.id IN')),
       ).toBe(false);
     });
 
-    it('bulkExport and exportAllFiltered produce identical filter conditions for identical filters', async () => {
-      const filters = {
-        search: 'alice',
-        status: 'active',
-        startDate: '2026-01-01',
-        endDate: '2026-12-31',
-      };
-
+    it('both methods reuse the same base query (join + ordering) via buildExportQuery', async () => {
       const bulk = mockQueryBuilder();
-      await service.bulkExport([], filters);
+      await service.bulkExport([], {});
 
       const filtered = mockQueryBuilder();
-      await service.exportAllFiltered(filters);
+      await service.exportAllFiltered({});
 
+      expect(
+        (certificateRepository as any).createQueryBuilder,
+      ).toHaveBeenCalledWith('certificate');
+      expect(bulk.qb.leftJoinAndSelect).toHaveBeenCalledWith(
+        'certificate.issuer',
+        'issuer',
+      );
+      expect(bulk.qb.orderBy).toHaveBeenCalledWith(
+        'certificate.issuedAt',
+        'DESC',
+      );
+      // With no filters and no IDs, both methods must build the identical query.
       expect(bulk.conditions).toEqual(filtered.conditions);
       expect(bulk.parameters).toEqual(filtered.parameters);
-    });
-
-    it('leaves the query untouched when no filters are provided', async () => {
-      const { conditions } = mockQueryBuilder();
-
-      await service.exportAllFiltered();
-
-      expect(conditions).toEqual([]);
-      expect((certificateRepository as any).createQueryBuilder).toHaveBeenCalledWith(
-        'certificate',
-      );
     });
   });
 });

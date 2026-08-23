@@ -538,7 +538,7 @@ export class CertificateService {
     certificateIds: string[],
     filters?: ExportFiltersDto,
   ): Promise<string> {
-    const queryBuilder = this.buildFilteredQuery(filters);
+    const queryBuilder = this.buildExportQuery(filters);
 
     // Apply certificate ID filter if provided
     if (certificateIds && certificateIds.length > 0) {
@@ -552,19 +552,20 @@ export class CertificateService {
   }
 
   async exportAllFiltered(filters?: ExportFiltersDto): Promise<string> {
-    const certificates = await this.buildFilteredQuery(filters).getMany();
+    const certificates = await this.buildExportQuery(filters).getMany();
     return this.convertToCSV(certificates);
   }
 
   /**
-   * Build a certificate export query with the shared search / status /
-   * date-range filters applied.
+   * Build a certificate export query configured with the shared search /
+   * status / date-range filters.
    *
-   * `bulkExport()` and `exportAllFiltered()` both delegate here so the
-   * filter conditions live in exactly one place (issue #6 / B8): a new
-   * filter field now needs to be added once instead of twice.
+   * `bulkExport()` and `exportAllFiltered()` both delegate here (issue
+   * #49); `bulkExport()` appends the `certificateIds` clause on top of
+   * whatever this method returns. Keeping the filter logic in one place
+   * means a new filter is added once, not twice.
    */
-  private buildFilteredQuery(
+  private buildExportQuery(
     filters?: ExportFiltersDto,
   ): SelectQueryBuilder<Certificate> {
     const queryBuilder = this.certificateRepository
