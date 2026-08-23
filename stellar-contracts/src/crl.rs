@@ -54,7 +54,7 @@ pub struct CRLContract;
 
 #[contractimpl]
 impl CRLContract {
-    pub fn init_crl(
+    pub fn initialize(
         env: Env,
         issuer: Address,
         certificate_contract: Address,

@@ -878,9 +878,9 @@ export const loginApi = (
         const response: AuthResponse = {
           user,
           accessToken: "dummy-access-token",
-          // Refresh tokens are no longer part of the client response — the
+          // Refresh tokens are never part of the client response — the
           // server sets the HttpOnly cookie. The dummy-mode branch mirrors
-          // the real one and leaves `refreshToken` undefined on purpose.
+          // the real one.
         };
         tokenStorage.setAccessToken(response.accessToken);
         return response;
