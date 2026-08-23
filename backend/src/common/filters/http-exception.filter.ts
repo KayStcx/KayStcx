@@ -3,6 +3,7 @@ import {
   Catch,
   ArgumentsHost,
   HttpException,
+  Logger,
   Optional,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
@@ -15,6 +16,8 @@ import { LoggingService } from '../logging/logging.service';
  */
 @Catch(HttpException)
 export class HttpExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(HttpExceptionFilter.name);
+
   constructor(
     private readonly loggingService: LoggingService,
     @Optional() private readonly sentryService?: SentryService,
@@ -41,11 +44,18 @@ export class HttpExceptionFilter implements ExceptionFilter {
     };
 
     // Log error
-    this.loggingService.error(
-      `${request.method} ${request.url}`,
-      new Error(exception.message),
-      context,
-    );
+    if (this.loggingService) {
+      this.loggingService.error(
+        `${request.method} ${request.url}`,
+        new Error(exception.message),
+        context,
+      );
+    } else {
+      this.logger.error(
+        `${request.method} ${request.url}`,
+        JSON.stringify(errorResponse),
+      );
+    }
 
     // Capture in Sentry if status code is 5xx
     if (this.sentryService && status >= 500) {

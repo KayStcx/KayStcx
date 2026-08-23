@@ -15,6 +15,13 @@ interface ProtectedRouteProps {
   allowedRoles?: UserRole[];
 }
 
+/**
+ * Route guard that derives authorization from the `allowedRoles` prop passed
+ * by each <Route> in App.tsx. Routes without an explicit `allowedRoles` list
+ * default to allowing any authenticated user, which keeps authorization
+ * centralized in the route configuration instead of a duplicated, hardcoded
+ * path-to-role map that can drift out of sync.
+ */
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
   // Use centralized auth context instead of localStorage
   const { user } = useAuth();
