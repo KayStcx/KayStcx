@@ -8,7 +8,7 @@ import { LoggingService } from './common/logging/logging.service';
 import { MonitoringInterceptor } from './common/monitoring/monitoring.interceptor';
 import { MetricsService } from './common/monitoring/metrics.service';
 import { SecurityHeadersInterceptor } from './modules/security/interceptor';
-import { VersioningType } from '@nestjs/common';
+import { Logger, VersioningType } from '@nestjs/common';
 import { RequestValidationPipe } from './modules/security/pipes/request-validation.pipe';
 import express from 'express';
 

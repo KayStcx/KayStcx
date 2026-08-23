@@ -61,7 +61,7 @@ describe("AuthProvider", () => {
     tokenStorage.clearTokens();
   });
 
-  it("logs in with a valid access token and persists only id, email and role", () => {
+  it("logs in with a valid access token and persists only id, firstName, lastName and role", () => {
     const handle = renderWithConsumer();
     act(() => {
       handle.context!.login(validToken(), {
@@ -81,7 +81,8 @@ describe("AuthProvider", () => {
 
     expect(handle.context!.user).toEqual({
       id: "u1",
-      email: "issuer@example.com",
+      firstName: "Alice",
+      lastName: "Doe",
       role: UserRole.ISSUER,
     });
     expect(handle.context!.isAuthenticated).toBe(true);
@@ -91,15 +92,19 @@ describe("AuthProvider", () => {
     );
     expect(persisted).toEqual({
       id: "u1",
-      email: "issuer@example.com",
+      firstName: "Alice",
+      lastName: "Doe",
       role: UserRole.ISSUER,
     });
-    // Sensitive fields must never be written to localStorage.
+    // Sensitive fields must never be written to localStorage. In
+    // particular the email address and stellar public key are absent.
     const raw = localStorage.getItem(SESSION_STORAGE_KEY) ?? "";
     expect(raw).not.toContain("stellarPublicKey");
-    expect(raw).not.toContain("firstName");
+    expect(raw).not.toContain("email");
+    expect(raw).not.toContain("issuer@example.com");
     expect(raw).not.toContain("profilePicture");
     expect(raw).not.toContain("organization");
+    expect(raw).not.toContain("metadata");
   });
 
   it("rejects login with an expired token", () => {
@@ -149,6 +154,24 @@ describe("AuthProvider", () => {
     expect(localStorage.getItem("refreshToken")).toBeNull();
   });
 
+  it("login never writes a refresh token to localStorage", () => {
+    const handle = renderWithConsumer();
+    act(() => {
+      handle.context!.login(validToken(), {
+        id: "u1",
+        email: "issuer@example.com",
+        role: UserRole.ISSUER,
+      });
+    });
+
+    expect(handle.context!.isAuthenticated).toBe(true);
+    const keys = Object.keys(localStorage);
+    expect(keys).not.toContain("refreshToken");
+    expect(
+      keys.some((key) => key.toLowerCase().includes("refresh")),
+    ).toBe(false);
+  });
+
   it("loadProfile fetches and caches the full profile on demand", async () => {
     mockedGetProfile.mockResolvedValue({
       id: "u1",
@@ -166,6 +189,8 @@ describe("AuthProvider", () => {
         id: "u1",
         email: "issuer@example.com",
         role: UserRole.ISSUER,
+        firstName: "Alice",
+        lastName: "Doe",
       });
     });
 
@@ -182,10 +207,14 @@ describe("AuthProvider", () => {
     expect(fetched?.firstName).toBe("Alice");
     expect(handle.context!.profile?.firstName).toBe("Alice");
 
-    // The profile response must never end up in localStorage.
+    // The profile response must never end up in localStorage: fields that
+    // only exist on the full profile (email, picture, …) are absent even
+    // though the display name is part of the persisted session.
     const persisted = localStorage.getItem(SESSION_STORAGE_KEY) ?? "";
-    expect(persisted).not.toContain("Alice");
-    expect(persisted).not.toContain("firstName");
+    expect(persisted).not.toContain("issuer@example.com");
+    expect(persisted).not.toContain("email");
+    expect(persisted).not.toContain("profilePicture");
+    expect(persisted).toContain("Alice");
 
     // Subsequent calls hit the API only once.
     await act(async () => {

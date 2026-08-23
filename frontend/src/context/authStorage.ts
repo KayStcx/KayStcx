@@ -5,16 +5,17 @@ import { UserRole } from "../api/types";
  * Minimal projection of `User` that is safe to persist to localStorage.
  *
  * The backend's full user record contains fields that should never be cached
- * in plain JSON in the browser (stellar public key, phone, organisation,
- * metadata, etc.). The session only needs the fields required for routing,
- * API calls and the role-based UI guards. Anything else (first name,
+ * in plain JSON in the browser (stellar public key, email, phone,
+ * organisation, metadata, etc.). The session only needs the fields required
+ * for routing, API calls and the role-based UI guards. Anything else (email,
  * profile picture, etc.) is fetched on demand via `/users/profile` and
  * lives in memory only.
  */
-export type SessionUser = {
+export type StoredUser = {
   id: string;
+  firstName: string;
+  lastName: string;
   role: UserRole;
-  email: string;
 };
 
 /**
@@ -32,22 +33,25 @@ export const SESSION_STORAGE_KEY = "kaystcx.auth.session";
 export const LEGACY_USER_STORAGE_KEY = "user";
 
 /**
- * Build a {@link SessionUser} from a full User response, dropping every
- * field that we don't actually need at the app shell.
+ * Build a {@link StoredUser} from a full User response, dropping every
+ * field that we don't actually need at the app shell — including the email
+ * address, which must never be cached in localStorage.
  */
-export function toSessionUser(user: User): SessionUser {
+export function toSessionUser(user: User): StoredUser {
   return {
     id: user.id,
+    firstName: user.firstName,
+    lastName: user.lastName,
     role: user.role,
-    email: user.email,
   };
 }
 
 /**
- * Read the persisted {@link SessionUser} from localStorage. Returns `null`
- * when nothing is stored or when the stored payload is malformed.
+ * Read the persisted {@link StoredUser} from localStorage. Returns `null`
+ * when nothing is stored or when the stored payload is malformed (for
+ * example when a tampered value fails the shape guard).
  */
-export function readSessionUser(): SessionUser | null {
+export function readSessionUser(): StoredUser | null {
   try {
     if (typeof localStorage === "undefined") return null;
     const raw = localStorage.getItem(SESSION_STORAGE_KEY);
@@ -64,7 +68,7 @@ export function readSessionUser(): SessionUser | null {
  * Persist the supplied session user to localStorage. Throws are swallowed
  * so a transient storage failure cannot crash the auth flow.
  */
-export function writeSessionUser(user: SessionUser | null): void {
+export function writeSessionUser(user: StoredUser | null): void {
   try {
     if (typeof localStorage === "undefined") return;
     if (!user) {
@@ -114,12 +118,13 @@ const USER_ROLES: ReadonlyArray<string> = [
   UserRole.VERIFIER,
 ];
 
-function isSessionUser(value: unknown): value is SessionUser {
+function isSessionUser(value: unknown): value is StoredUser {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
   return (
     typeof candidate.id === "string" &&
-    typeof candidate.email === "string" &&
+    typeof candidate.firstName === "string" &&
+    typeof candidate.lastName === "string" &&
     typeof candidate.role === "string" &&
     USER_ROLES.includes(candidate.role)
   );

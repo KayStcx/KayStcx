@@ -10,7 +10,7 @@ import React, {
 } from "react";
 import { User, userApi } from "../api";
 import { tokenStorage } from "../api/tokens";
-import type { SessionUser } from "./authStorage";
+import type { StoredUser } from "./authStorage";
 import {
   clearAuthStorage,
   purgeLegacyUserStorage,
@@ -28,14 +28,15 @@ interface AuthContextValue {
    * When you need anything else (first/last name, profile picture, …)
    * reach for {@link profile}.
    */
-  user: SessionUser | null;
+  user: StoredUser | null;
   /**
    * Full user profile loaded on demand from `/users/profile`. Starts at
    * `null` and is populated by {@link loadProfile}. Anything sensitive
-   * stays in memory; nothing here is written to localStorage.
+   * (email, stellar public key, …) stays in memory; nothing here is
+   * written to localStorage.
    */
   profile: User | null;
-  setUser: (user: SessionUser | null) => void;
+  setUser: (user: StoredUser | null) => void;
   setProfile: (user: User | null) => void;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -67,7 +68,7 @@ export const useAuth = (): AuthContextValue => {
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
-  const [user, setUserState] = useState<SessionUser | null>(() => {
+  const [user, setUserState] = useState<StoredUser | null>(() => {
     purgeLegacyUserStorage();
     return readSessionUser();
   });
@@ -107,7 +108,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     }
   }, [user]);
 
-  const setUser = useCallback((nextUser: SessionUser | null) => {
+  const setUser = useCallback((nextUser: StoredUser | null) => {
     setUserState(nextUser);
   }, []);
 
