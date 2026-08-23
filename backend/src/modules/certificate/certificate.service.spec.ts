@@ -10,6 +10,7 @@ import { DuplicateDetectionService } from './services/duplicate-detection.servic
 import { MetadataSchemaService } from '../metadata-schema/services/metadata-schema.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { SorobanService } from '../stellar/services/soroban.service';
+import { WebhookEvent } from '../webhooks/entities/webhook-subscription.entity';
 
 describe('CertificateService', () => {
   let service: CertificateService;
@@ -26,44 +27,25 @@ describe('CertificateService', () => {
   };
 
   beforeEach(async () => {
-    certificateRepository = {
-      createQueryBuilder: jest.fn(),
-    };
+    verificationRepository = { save: jest.fn().mockResolvedValue({}) };
+    webhooksService = { triggerEvent: jest.fn().mockResolvedValue(undefined) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CertificateService,
-        {
-          provide: getRepositoryToken(Certificate),
-          useValue: certificateRepository,
-        },
+        { provide: getRepositoryToken(Certificate), useValue: {} },
         {
           provide: getRepositoryToken(Verification),
           useValue: verificationRepository,
         },
-        {
-          provide: getRepositoryToken(User),
-          useValue: userRepository,
-        },
-        {
-          provide: DuplicateDetectionService,
-          useValue: duplicateDetectionService,
-        },
-        {
-          provide: WebhooksService,
-          useValue: webhooksService,
-        },
-        {
-          provide: MetadataSchemaService,
-          useValue: metadataSchemaService,
-        },
-        {
-          provide: DataSource,
-          useValue: dataSource,
-        },
+        { provide: getRepositoryToken(User), useValue: {} },
+        { provide: DuplicateDetectionService, useValue: {} },
+        { provide: WebhooksService, useValue: webhooksService },
+        { provide: MetadataSchemaService, useValue: {} },
+        { provide: DataSource, useValue: { createQueryRunner: jest.fn() } },
         {
           provide: SorobanService,
-          useValue: sorobanService,
+          useValue: { isConfigured: jest.fn(), issueCertificate: jest.fn() },
         },
       ],
     }).compile();

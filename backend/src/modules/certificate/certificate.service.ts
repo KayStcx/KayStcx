@@ -19,6 +19,7 @@ import { CertificateStatus } from './constants/certificate-status.enum';
 import { User } from '../users/entities/user.entity';
 import { DuplicateDetectionService } from './services/duplicate-detection.service';
 import { DuplicateDetectionConfig } from './interfaces/duplicate-detection.interface';
+import { VerificationMetadata } from './interfaces/verification-metadata.interface';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { WebhookEvent } from '../webhooks/entities/webhook-subscription.entity';
 import { MetadataSchemaService } from '../metadata-schema/services/metadata-schema.service';
@@ -292,7 +293,10 @@ export class CertificateService {
     return certificate;
   }
 
-  async verifyCertificate(verificationCode: string): Promise<Certificate> {
+  async verifyCertificate(
+    verificationCode: string,
+    metadata: VerificationMetadata = {},
+  ): Promise<Certificate> {
     try {
       const certificate = await this.findByVerificationCode(verificationCode);
 
@@ -300,8 +304,11 @@ export class CertificateService {
       await this.verificationRepository.save({
         certificate,
         success: true,
-        verifiedAt: new Date(),
         verificationCode,
+        verifiedAt: new Date(),
+        verifiedBy: metadata.verifiedBy,
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
       });
 
       // Trigger webhook event
@@ -319,24 +326,29 @@ export class CertificateService {
       return certificate;
     } catch (error) {
       if (error instanceof NotFoundException) {
-        // Record failed verification attempts so fraudulent or repeated
-        // failures can be tracked and audited. The record is saved without a
-        // certificate reference (none could be resolved) but keeps the
-        // attempted code for later analysis.
+        // Record the failed attempt so fraudulent or repeated verification
+        // attempts can be audited. Persistence failures must not mask the
+        // original NotFoundException surfaced to the caller.
         try {
           await this.verificationRepository.save({
             certificate: null,
             success: false,
-            verifiedAt: new Date(),
             verificationCode,
-            metadata: JSON.stringify({
-              reason: 'Certificate not found or invalid verification code',
-            }),
+            verifiedAt: new Date(),
+            verifiedBy: metadata.verifiedBy,
+            ipAddress: metadata.ipAddress,
+            userAgent: metadata.userAgent,
           });
-        } catch (recordError) {
-          // Never mask the original verification error with a recording failure.
+          this.logger.warn(
+            `Failed verification attempt recorded for code: ${verificationCode}`,
+          );
+        } catch (persistenceError: unknown) {
+          const message =
+            persistenceError instanceof Error
+              ? persistenceError.message
+              : String(persistenceError);
           this.logger.error(
-            `Failed to record failed verification attempt: ${recordError.message}`,
+            `Failed to persist failed verification attempt for code ${verificationCode}: ${message}`,
           );
         }
       }
@@ -774,7 +786,7 @@ export class CertificateService {
     ipAddress: string,
     userAgent: string,
   ): Promise<any> {
-    return this.verifyCertificate(code);
+    return this.verifyCertificate(code, { verifiedBy, ipAddress, userAgent });
   }
 
   async verifyByStellarHash(
