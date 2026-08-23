@@ -5,6 +5,7 @@ import {
   ManyToOne,
   Column,
   CreateDateColumn,
+  JoinColumn,
 } from 'typeorm';
 
 @Entity('verifications')
@@ -34,4 +35,10 @@ export class Verification {
 
   @CreateDateColumn()
   verifiedAt: Date;
+
+  @Column({ type: 'varchar', nullable: true })
+  verificationCode?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  metadata?: string | null;
 }

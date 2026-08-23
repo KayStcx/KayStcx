@@ -5,6 +5,7 @@ import { SendCertificateIssuedDto } from './dto/send-certificate-issued.dto';
 import { SendVerificationDto } from './dto/send-verification.dto';
 import { SendPasswordResetDto } from './dto/send-password-reset.dto';
 import { SendRevocationNoticeDto } from './dto/send-revocation-notice.dto';
+import { SendCertificateExpiringDto } from './dto/send-certificate-expiring.dto';
 import { EMAIL_QUEUE_NAME, EmailJobType } from './email-queue.processor';
 import { LoggingService } from '../../common/logging/logging.service';
 
@@ -80,6 +81,32 @@ export class EmailQueueService {
     } catch (error) {
       this.logger.error(
         `Failed to queue password reset email: ${error.message}`,
+      );
+      throw error;
+    }
+  }
+
+  async queueCertificateExpiring(
+    dto: SendCertificateExpiringDto,
+  ): Promise<void> {
+    try {
+      const job = await this.emailQueue.add(
+        EmailJobType.SEND_CERTIFICATE_EXPIRING,
+        dto,
+        {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 2000,
+          },
+          removeOnComplete: true,
+          removeOnFail: false,
+        },
+      );
+      this.logger.log(`Queued certificate expiring email job: ${job.id}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to queue certificate expiring email: ${error.message}`,
       );
       throw error;
     }

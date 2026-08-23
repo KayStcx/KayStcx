@@ -78,11 +78,15 @@ describe('Header role-based navigation', () => {
   it('shows only public links when the user is unauthenticated', () => {
     renderHeaderWithUser(null);
 
+    // Public links
     expect(screen.getAllByRole('link', { name: 'Home' }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('link', { name: 'Verify' }).length).toBeGreaterThan(0);
 
+    // Authenticated-only links must be absent
     expect(screen.queryAllByRole('link', { name: 'Dashboard' })).toHaveLength(0);
     expect(screen.queryAllByRole('link', { name: 'Issue' })).toHaveLength(0);
+    expect(screen.queryAllByRole('link', { name: 'Revoke' })).toHaveLength(0);
+    expect(screen.queryAllByRole('link', { name: 'Certificates' })).toHaveLength(0);
     expect(screen.queryAllByRole('link', { name: 'Wallet' })).toHaveLength(0);
     expect(screen.queryAllByRole('link', { name: 'Profile' })).toHaveLength(0);
   });

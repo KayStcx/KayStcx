@@ -2,45 +2,27 @@ import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { UserRole } from "../api/types";
 
-// Define allowed routes based on user roles
-const roleRoutes: Record<UserRole, string[]> = {
-  [UserRole.RECIPIENT]: ["/wallet"],
-  [UserRole.VERIFIER]: ["/wallet", "/verify"],
-  [UserRole.ISSUER]: ["/issue", "/wallet", "/revoke", "/verify"],
-  [UserRole.ADMIN]: ["/issue", "/wallet", "/revoke", "/verify"],
-};
-
 // Define props type for ProtectedRoute
 interface ProtectedRouteProps {
   allowedRoles?: UserRole[];
 }
 
+/**
+ * Route guard that derives authorization from the `allowedRoles` prop passed
+ * by each <Route> in App.tsx. Routes without an explicit `allowedRoles` list
+ * default to allowing any authenticated user, which keeps authorization
+ * centralized in the route configuration instead of a duplicated, hardcoded
+ * path-to-role map that can drift out of sync.
+ */
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
-  const currentPath: string = window.location.pathname;
-
-  // Use centralized auth context instead of localStorage
   const { user } = useAuth();
 
-  // Allow public access to /verify
-  if (currentPath === "/verify") return <Outlet />;
-
-  // If no user is logged in, redirect to login page
+  // If no user is logged in, redirect to the login page.
   if (!user) return <Navigate to="/login" replace />;
 
-  // Get user role
-  const userRole: UserRole = user.role;
-
-  // If a caller provided an explicit list of allowed roles, use that check first
-  if (allowedRoles) {
-    if (!allowedRoles.includes(userRole)) {
-      return <Navigate to="/" replace />;
-    }
-  } else {
-    // Fallback: use hard-coded route map for backwards compatibility
-    const allowedRoutes: string[] = roleRoutes[userRole] || [];
-    if (!allowedRoutes.includes(currentPath)) {
-      return <Navigate to="/" replace />;
-    }
+  // When a caller provides an explicit list of allowed roles, enforce it.
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/" replace />;
   }
 
   return <Outlet />;
