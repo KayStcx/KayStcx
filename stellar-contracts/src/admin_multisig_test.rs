@@ -94,7 +94,6 @@ fn test_remove_issuer_action_executes_after_threshold() {
 }
 
 #[test]
-#[should_panic(expected = "Proposer cannot approve their own action")]
 fn test_proposer_cannot_approve() {
     let env = Env::default();
     let contract_id = env.register_contract(None, AdminMultisigContract);
@@ -113,7 +112,118 @@ fn test_proposer_cannot_approve() {
     let action = AdminAction::Other(String::from_str(&env, "fail_action"));
 
     client.propose_action(&proposal_id, &admin1, &action);
-    client.approve_action(&proposal_id, &admin1);
+    assert_eq!(
+        client.try_approve_action(&proposal_id, &admin1),
+        Err(Ok(ContractError::Unauthorized))
+    );
+}
+
+#[test]
+fn test_approve_non_pending_proposal_returns_invalid_status() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, AdminMultisigContract);
+    let client = AdminMultisigContractClient::new(&env, &contract_id);
+
+    let admin1 = Address::generate(&env);
+    let admin2 = Address::generate(&env);
+    let admin3 = Address::generate(&env);
+    let mut signers = Vec::new(&env);
+    signers.push_back(admin1.clone());
+    signers.push_back(admin2.clone());
+    signers.push_back(admin3.clone());
+
+    env.mock_all_auths();
+    client.init_admin_multisig(&2, &signers, &10);
+
+    let proposal_id = String::from_str(&env, "prop-executed");
+    let action = AdminAction::Other(String::from_str(&env, "execute_action"));
+
+    client.propose_action(&proposal_id, &admin1, &action);
+    // Two approvals from distinct signers reach the threshold and the proposal
+    // executes immediately.
+    let status = client.approve_action(&proposal_id, &admin2);
+    assert_eq!(status, AdminProposalStatus::Pending);
+    let status = client.approve_action(&proposal_id, &admin3);
+    assert_eq!(status, AdminProposalStatus::Executed);
+
+    // Approving an already-executed proposal must return a typed error.
+    assert_eq!(
+        client.try_approve_action(&proposal_id, &admin2),
+        Err(Ok(ContractError::InvalidStatus))
+    );
+}
+
+#[test]
+fn test_double_approval_returns_already_exists() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, AdminMultisigContract);
+    let client = AdminMultisigContractClient::new(&env, &contract_id);
+
+    let admin1 = Address::generate(&env);
+    let admin2 = Address::generate(&env);
+    let admin3 = Address::generate(&env);
+    let mut signers = Vec::new(&env);
+    signers.push_back(admin1.clone());
+    signers.push_back(admin2.clone());
+    signers.push_back(admin3.clone());
+
+    env.mock_all_auths();
+    client.init_admin_multisig(&2, &signers, &10);
+
+    let proposal_id = String::from_str(&env, "prop-double-approve");
+    let action = AdminAction::Other(String::from_str(&env, "double_approve"));
+
+    client.propose_action(&proposal_id, &admin1, &action);
+    client.approve_action(&proposal_id, &admin2);
+
+    assert_eq!(
+        client.try_approve_action(&proposal_id, &admin2),
+        Err(Ok(ContractError::AlreadyExists))
+    );
+}
+
+#[test]
+fn test_non_proposer_cannot_cancel() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, AdminMultisigContract);
+    let client = AdminMultisigContractClient::new(&env, &contract_id);
+
+    let admin1 = Address::generate(&env);
+    let admin2 = Address::generate(&env);
+    let mut signers = Vec::new(&env);
+    signers.push_back(admin1.clone());
+    signers.push_back(admin2.clone());
+
+    env.mock_all_auths();
+    client.init_admin_multisig(&2, &signers, &10);
+
+    let proposal_id = String::from_str(&env, "prop-cancel-denied");
+    let action = AdminAction::Other(String::from_str(&env, "cancel_denied"));
+
+    client.propose_action(&proposal_id, &admin1, &action);
+    assert_eq!(
+        client.try_cancel_proposal(&proposal_id, &admin2),
+        Err(Ok(ContractError::Unauthorized))
+    );
+}
+
+#[test]
+fn test_double_initialize_returns_already_exists() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, AdminMultisigContract);
+    let client = AdminMultisigContractClient::new(&env, &contract_id);
+
+    let admin1 = Address::generate(&env);
+    let mut signers = Vec::new(&env);
+    signers.push_back(admin1.clone());
+
+    env.mock_all_auths();
+    client.init_admin_multisig(&1, &signers, &10);
+
+    assert_eq!(
+        client.try_init_admin_multisig(&1, &signers, &10),
+        Err(Ok(ContractError::AlreadyExists))
+    );
 }
 
 #[test]

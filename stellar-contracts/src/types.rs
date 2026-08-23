@@ -12,6 +12,8 @@ pub enum ContractError {
     AlreadyExists = 3,
     NotInitialized = 4,
     NotConfigured = 5,
+    InvalidConfig = 6,
+    InvalidStatus = 7,
 }
 
 #[contracttype]

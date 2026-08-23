@@ -61,12 +61,14 @@ fn test_crl_initialization() {
 }
 
 #[test]
-#[should_panic(expected = "CRL already initialized")]
-fn test_double_initialize_panics() {
+fn test_double_initialize_returns_already_exists() {
     let (env, cert_contract, issuer) = setup_env();
     let (_, client) = make_client(&env);
     client.initialize(&issuer, &cert_contract);
-    client.initialize(&issuer, &cert_contract);
+    assert_eq!(
+        client.try_initialize(&issuer, &cert_contract),
+        Err(Ok(ContractError::AlreadyExists))
+    );
 }
 
 // ─── Revocation ───────────────────────────────────────────────────────────────
@@ -107,8 +109,7 @@ fn test_non_revoked_certificate_returns_false() {
 }
 
 #[test]
-#[should_panic(expected = "Certificate already revoked")]
-fn test_duplicate_revocation_panics() {
+fn test_duplicate_revocation_returns_already_exists() {
     let (env, cert_contract, issuer) = setup_env_and_cert();
     let cert_client = CertificateContractClient::new(&env, &cert_contract);
     let (_, client) = make_client(&env);
@@ -118,7 +119,53 @@ fn test_duplicate_revocation_panics() {
 
     let cert_id = String::from_str(&env, "CERT-001");
     client.revoke_certificate(&issuer, &cert_id, &RevocationReason::KeyCompromise, &None);
-    client.revoke_certificate(&issuer, &cert_id, &RevocationReason::KeyCompromise, &None);
+    assert_eq!(
+        client.try_revoke_certificate(
+            &issuer,
+            &cert_id,
+            &RevocationReason::KeyCompromise,
+            &None,
+        ),
+        Err(Ok(ContractError::AlreadyExists))
+    );
+}
+
+#[test]
+fn test_unauthorized_revocation_returns_unauthorized() {
+    let (env, cert_contract, issuer) = setup_env_and_cert();
+    let cert_client = CertificateContractClient::new(&env, &cert_contract);
+    let (_, client) = make_client(&env);
+    client.initialize(&issuer, &cert_contract);
+
+    issue_cert(&env, &cert_client, &issuer, "CERT-001");
+
+    let unauthorized = Address::generate(&env);
+    assert_eq!(
+        client.try_revoke_certificate(
+            &unauthorized,
+            &String::from_str(&env, "CERT-001"),
+            &RevocationReason::KeyCompromise,
+            &None,
+        ),
+        Err(Ok(ContractError::Unauthorized))
+    );
+}
+
+#[test]
+fn test_revoking_unknown_certificate_returns_not_found() {
+    let (env, cert_contract, issuer) = setup_env();
+    let (_, client) = make_client(&env);
+    client.initialize(&issuer, &cert_contract);
+
+    assert_eq!(
+        client.try_revoke_certificate(
+            &issuer,
+            &String::from_str(&env, "MISSING-CERT"),
+            &RevocationReason::KeyCompromise,
+            &None,
+        ),
+        Err(Ok(ContractError::NotFound))
+    );
 }
 
 #[test]

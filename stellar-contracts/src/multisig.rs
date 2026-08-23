@@ -18,7 +18,7 @@ impl MultisigCertificateContract {
         signers: Vec<Address>,
         max_signers: u32,
         admin: Address,
-    ) {
+    ) -> Result<(), ContractError> {
         admin.require_auth();
 
         // Validate parameters
@@ -28,7 +28,7 @@ impl MultisigCertificateContract {
             || threshold > signers.len() as u32
             || max_signers < threshold
         {
-            panic!("Invalid multisig parameters");
+            return Err(ContractError::InvalidConfig);
         }
 
         // Check if already initialized
@@ -37,7 +37,7 @@ impl MultisigCertificateContract {
             .instance()
             .has(&DataKey::MultisigConfig(issuer.clone()))
         {
-            panic!("Multisig config already exists for this issuer");
+            return Err(ContractError::AlreadyExists);
         }
 
         // Store configuration
@@ -54,6 +54,8 @@ impl MultisigCertificateContract {
         env.storage()
             .instance()
             .set(&DataKey::IssuerAdmin(issuer), &admin);
+
+        Ok(())
     }
 
     /// Update multisig configuration
@@ -95,7 +97,7 @@ impl MultisigCertificateContract {
             || config.threshold > config.signers.len() as u32
             || config.max_signers < config.threshold
         {
-            panic!("Invalid updated multisig parameters");
+            return Err(ContractError::InvalidConfig);
         }
 
         env.storage()
@@ -134,7 +136,7 @@ impl MultisigCertificateContract {
             .instance()
             .has(&DataKey::PendingRequest(request_id.clone()))
         {
-            panic!("Request already exists");
+            return Err(ContractError::AlreadyExists);
         }
 
         let request = PendingRequest {
@@ -406,7 +408,7 @@ impl MultisigCertificateContract {
             .ok_or(ContractError::NotFound)?;
 
         if request.proposer != requester {
-            panic!("Only proposer can cancel the request");
+            return Err(ContractError::Unauthorized);
         }
 
         if request.status != RequestStatus::Pending {
