@@ -6,21 +6,7 @@ import type { Cache } from 'cache-manager';
 import { Certificate } from '../entities/certificate.entity';
 import { StatsQueryDto, CertificateStatsDto } from '../dto/stats.dto';
 import { Verification } from '../entities/verification.entity';
-
-const EMPTY_TOTAL_STATS = {
-  totalCertificates: 0,
-  activeCertificates: 0,
-  revokedCertificates: 0,
-  expiredCertificates: 0,
-};
-
-const EMPTY_VERIFICATION_STATS = {
-  totalVerifications: 0,
-  successfulVerifications: 0,
-  failedVerifications: 0,
-  dailyVerifications: 0,
-  weeklyVerifications: 0,
-};
+import { settlePromise } from '../../../common/utils/promise.utils';
 
 @Injectable()
 export class CertificateStatsService {
@@ -49,31 +35,20 @@ export class CertificateStatsService {
     const dateFilter = this.buildDateFilter(query);
     const issuerFilter = query.issuerId ? { issuerId: query.issuerId } : {};
 
-    // Fetch all statistics in parallel, isolating each query so a single
-    // failure cannot break the entire response.
-    const settled = await Promise.allSettled([
-      this.getTotalStats(dateFilter, issuerFilter),
-      this.getIssuanceTrend(dateFilter, issuerFilter),
-      this.getTopIssuers(dateFilter),
-      this.getVerificationStats(dateFilter, issuerFilter),
-    ]);
+    // Fetch all statistics in parallel. Sub-queries are isolated so a single
+    // failure returns a safe default rather than breaking the whole response.
+    const onError = (label: string) => (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Certificate stats sub-query failed (${label}): ${message}`);
+    };
 
-    const totalStats = this.settleResult(
-      settled[0],
-      EMPTY_TOTAL_STATS,
-      'getTotalStats',
-    );
-    const issuanceTrend = this.settleResult(
-      settled[1],
-      [],
-      'getIssuanceTrend',
-    );
-    const topIssuers = this.settleResult(settled[2], [], 'getTopIssuers');
-    const verificationStats = this.settleResult(
-      settled[3],
-      EMPTY_VERIFICATION_STATS,
-      'getVerificationStats',
-    );
+    const [totalStats, issuanceTrend, topIssuers, verificationStats] =
+      await Promise.all([
+        settlePromise(this.getTotalStats(dateFilter, issuerFilter), { totalCertificates: 0, activeCertificates: 0, revokedCertificates: 0, expiredCertificates: 0 }, onError('totalStats')),
+        settlePromise(this.getIssuanceTrend(dateFilter, issuerFilter), [], onError('issuanceTrend')),
+        settlePromise(this.getTopIssuers(dateFilter), [], onError('topIssuers')),
+        settlePromise(this.getVerificationStats(dateFilter, issuerFilter), { totalVerifications: 0, successfulVerifications: 0, failedVerifications: 0, dailyVerifications: 0, weeklyVerifications: 0 }, onError('verificationStats')),
+      ]);
 
     const result: CertificateStatsDto = {
       ...totalStats,

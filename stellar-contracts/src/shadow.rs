@@ -1,8 +1,11 @@
-#![no_std]
+// NOTE: `#![no_std]` was removed when this file was wired into the crate as
+// a module (issue #57): it is a crate-root-only attribute, and the crate
+// root (`lib.rs`) already declares `#![no_std]`.
 
-use soroban_sdk::{Address, Env, String, Vec};
+use soroban_sdk::{contracttype, Address, Env, String, Vec};
 
 /// Metadata field types supported by the schema
+#[contracttype]
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
 pub enum MetadataFieldType {
@@ -27,6 +30,7 @@ impl MetadataFieldType {
 }
 
 /// Schema version structure for tracking schema evolution
+#[contracttype]
 #[derive(Clone)]
 pub struct MetadataSchemaVersion {
     pub major: u32,
@@ -57,6 +61,7 @@ impl MetadataSchemaVersion {
 }
 
 /// A field rule defining constraints for a metadata field
+#[contracttype]
 #[derive(Clone)]
 pub struct MetadataFieldRule {
     pub name: String,
@@ -67,6 +72,7 @@ pub struct MetadataFieldRule {
 }
 
 /// A complete metadata schema record
+#[contracttype]
 #[derive(Clone)]
 pub struct MetadataSchemaRecord {
     pub id: String,
@@ -117,6 +123,7 @@ pub enum MetadataError {
 }
 
 /// Storage keys for metadata
+#[contracttype]
 #[derive(Clone)]
 pub enum MetadataKey {
     Schema(String),
@@ -125,29 +132,11 @@ pub enum MetadataKey {
     SchemaCount,
 }
 
-// Implement conversion for MetadataKey to be used as storage key
-impl MetadataKey {
-    pub fn to_key(&self) -> soroban_sdk::storage::Key {
-        match self {
-            MetadataKey::Schema(id) => {
-                soroban_sdk::storage::Key::try_from_val(&soroban_sdk::Symbol::from_str("md_sch"), id)
-                    .unwrap_or_else(|_| soroban_sdk::storage::Key::try_from_val(&0u32, id).unwrap())
-            }
-            MetadataKey::SchemaNameIndex(name) => {
-                soroban_sdk::storage::Key::try_from_val(&soroban_sdk::Symbol::from_str("md_nidx"), name)
-                    .unwrap_or_else(|_| soroban_sdk::storage::Key::try_from_val(&1u32, name).unwrap())
-            }
-            MetadataKey::SchemaHistory(name) => {
-                soroban_sdk::storage::Key::try_from_val(&soroban_sdk::Symbol::from_str("md_hist"), name)
-                    .unwrap_or_else(|_| soroban_sdk::storage::Key::try_from_val(&2u32, name).unwrap())
-            }
-            MetadataKey::SchemaCount => {
-                soroban_sdk::storage::Key::try_from_val(&soroban_sdk::Symbol::from_str("md_cnt"), &())
-                    .unwrap_or_else(|_| soroban_sdk::storage::Key::try_from_val(&3u32, &()).unwrap())
-            }
-        }
-    }
-}
+// NOTE: the previous `MetadataKey::to_key()` helper was removed when this
+// file was wired into the crate (issue #57). It was dead code (never called)
+// and referenced `soroban_sdk::storage::Key`, an API that does not exist in
+// soroban-sdk 21.x, so it could not compile. `#[contracttype]` above makes
+// `MetadataKey` usable as a storage key directly.
 
 /// Register a new metadata schema
 pub fn register_schema(env: &Env, schema: MetadataSchemaRecord) -> Result<(), MetadataError> {
