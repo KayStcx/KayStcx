@@ -223,6 +223,14 @@ class EnvironmentVariables {
   @IsOptional()
   @IsNumber()
   DUPLICATE_DETECTION_TIME_WINDOW_DAYS?: number;
+
+  @IsOptional()
+  @IsNumber()
+  EXPIRY_NOTIFICATION_DAYS_BEFORE?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  EXPIRY_NOTIFICATIONS_ENABLED?: boolean;
 }
 
 export function validateEnv(): EnvironmentVariables {
@@ -320,6 +328,12 @@ export function validateEnv(): EnvironmentVariables {
         .DUPLICATE_DETECTION_TIME_WINDOW_DAYS
         ? parseInt(process.env.DUPLICATE_DETECTION_TIME_WINDOW_DAYS, 10)
         : undefined,
+      EXPIRY_NOTIFICATION_DAYS_BEFORE: process.env
+        .EXPIRY_NOTIFICATION_DAYS_BEFORE
+        ? parseInt(process.env.EXPIRY_NOTIFICATION_DAYS_BEFORE, 10)
+        : 30,
+      EXPIRY_NOTIFICATIONS_ENABLED:
+        process.env.EXPIRY_NOTIFICATIONS_ENABLED !== 'false',
     },
     { enableImplicitConversion: true },
   );
