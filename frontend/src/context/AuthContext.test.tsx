@@ -149,6 +149,24 @@ describe("AuthProvider", () => {
     expect(localStorage.getItem("refreshToken")).toBeNull();
   });
 
+  it("login never writes a refresh token to localStorage", () => {
+    const handle = renderWithConsumer();
+    act(() => {
+      handle.context!.login(validToken(), {
+        id: "u1",
+        email: "issuer@example.com",
+        role: UserRole.ISSUER,
+      });
+    });
+
+    expect(handle.context!.isAuthenticated).toBe(true);
+    const keys = Object.keys(localStorage);
+    expect(keys).not.toContain("refreshToken");
+    expect(
+      keys.some((key) => key.toLowerCase().includes("refresh")),
+    ).toBe(false);
+  });
+
   it("loadProfile fetches and caches the full profile on demand", async () => {
     mockedGetProfile.mockResolvedValue({
       id: "u1",
