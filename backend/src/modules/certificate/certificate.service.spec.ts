@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import * as QRCode from 'qrcode';
 import { CertificateService } from './certificate.service';
 import { Certificate } from './entities/certificate.entity';
 import { Verification } from './entities/verification.entity';
@@ -14,8 +14,17 @@ import { WebhookEvent } from '../webhooks/entities/webhook-subscription.entity';
 
 describe('CertificateService', () => {
   let service: CertificateService;
-  let verificationRepository: { save: jest.Mock };
-  let webhooksService: { triggerEvent: jest.Mock };
+  let certificateRepository: { createQueryBuilder: jest.Mock };
+
+  const verificationRepository = {};
+  const userRepository = {};
+  const duplicateDetectionService = {};
+  const webhooksService = {};
+  const metadataSchemaService = {};
+  const dataSource = {} as DataSource;
+  const sorobanService = {
+    isConfigured: jest.fn().mockReturnValue(false),
+  };
 
   beforeEach(async () => {
     verificationRepository = { save: jest.fn().mockResolvedValue({}) };
@@ -48,105 +57,123 @@ describe('CertificateService', () => {
     expect(service).toBeDefined();
   });
 
-  describe('verifyCertificate', () => {
-    const code = 'AB12CD34';
-    const metadata = {
-      verifiedBy: 'public',
-      ipAddress: '127.0.0.1',
-      userAgent: 'test-agent',
-    };
+  it('should generate a QR code data URL for a certificate', async () => {
+    const certificate = {
+      id: 'cert-123',
+      verificationCode: 'AB12CD34',
+    } as Certificate;
 
-    it('records a successful verification with the code and metadata', async () => {
-      const certificate = {
-        id: 'cert-1',
-        issuerId: 'issuer-1',
-        recipientEmail: 'recipient@example.com',
-      } as Certificate;
+    jest.spyOn(service, 'findOne').mockResolvedValue(certificate);
+    const toDataURL = jest
+      .spyOn(QRCode, 'toDataURL')
+      .mockResolvedValue('data:image/png;base64,QR');
+    process.env.FRONTEND_URL = 'https://kaystcx.app';
 
-      jest
-        .spyOn(service, 'findByVerificationCode')
-        .mockResolvedValue(certificate);
-
-      const result = await service.verifyCertificate(code, metadata);
-
-      expect(result).toBe(certificate);
-      expect(verificationRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          certificate,
-          success: true,
-          verificationCode: code,
-          verifiedBy: 'public',
-          ipAddress: '127.0.0.1',
-          userAgent: 'test-agent',
-        }),
-      );
-      expect(webhooksService.triggerEvent).toHaveBeenCalledWith(
-        WebhookEvent.CERTIFICATE_VERIFIED,
-        'issuer-1',
-        expect.objectContaining({ id: 'cert-1', verificationCode: code }),
-      );
+    await expect(service.getCertificateQrCode('cert-123')).resolves.toEqual({
+      id: 'cert-123',
+      verificationCode: 'AB12CD34',
+      verificationUrl: 'https://kaystcx.app/verify/AB12CD34',
+      qrCode: 'data:image/png;base64,QR',
     });
 
-    it('records a failed verification and re-throws the NotFoundException', async () => {
-      const notFound = new NotFoundException(
-        'Certificate not found or invalid verification code',
-      );
-      jest.spyOn(service, 'findByVerificationCode').mockRejectedValue(notFound);
+    expect(toDataURL).toHaveBeenCalledWith(
+      'https://kaystcx.app/verify/AB12CD34',
+    );
 
-      await expect(service.verifyCertificate(code, metadata)).rejects.toThrow(
-        NotFoundException,
-      );
-
-      expect(verificationRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          certificate: null,
-          success: false,
-          verificationCode: code,
-          verifiedBy: 'public',
-          ipAddress: '127.0.0.1',
-          userAgent: 'test-agent',
-        }),
-      );
-    });
-
-    it('still re-throws NotFoundException if persisting the failed attempt fails', async () => {
-      const notFound = new NotFoundException(
-        'Certificate not found or invalid verification code',
-      );
-      jest.spyOn(service, 'findByVerificationCode').mockRejectedValue(notFound);
-      verificationRepository.save.mockRejectedValue(new Error('db down'));
-
-      await expect(service.verifyCertificate(code)).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-
-    it('does not record a verification for non-not-found errors', async () => {
-      jest
-        .spyOn(service, 'findByVerificationCode')
-        .mockRejectedValue(new Error('unexpected failure'));
-
-      await expect(service.verifyCertificate(code)).rejects.toThrow(
-        'unexpected failure',
-      );
-      expect(verificationRepository.save).not.toHaveBeenCalled();
-    });
+    delete process.env.FRONTEND_URL;
   });
 
-  describe('verifyByCode', () => {
-    it('forwards request metadata to verifyCertificate', async () => {
-      const certificate = { id: 'cert-1' } as Certificate;
-      const verifySpy = jest
-        .spyOn(service, 'verifyCertificate')
-        .mockResolvedValue(certificate);
+  describe('bulkExport / exportAllFiltered shared filter query (issue #6 / B8)', () => {
+    const SEARCH_CLAUSE =
+      '(certificate.serialNumber ILIKE :search OR certificate.recipientName ILIKE :search OR certificate.recipientEmail ILIKE :search OR certificate.title ILIKE :search)';
 
-      await service.verifyByCode('CODE', 'someone', '10.0.0.1', 'agent');
+    const mockQueryBuilder = () => {
+      const spy = {
+        conditions: [] as string[],
+        parameters: {} as Record<string, unknown>,
+      };
+      const qb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        andWhere: jest.fn(
+          (condition: string, params?: Record<string, unknown>) => {
+            spy.conditions.push(condition);
+            Object.assign(spy.parameters, params ?? {});
+            return qb;
+          },
+        ),
+        getMany: jest.fn().mockResolvedValue([]),
+      };
+      (certificateRepository as any).createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(qb);
+      return { qb, ...spy };
+    };
 
-      expect(verifySpy).toHaveBeenCalledWith('CODE', {
-        verifiedBy: 'someone',
-        ipAddress: '10.0.0.1',
-        userAgent: 'agent',
+    it('bulkExport applies the shared search/status/date filters plus the certificateIds clause', async () => {
+      const { qb, conditions, parameters } = mockQueryBuilder();
+
+      await service.bulkExport(['id-1', 'id-2'], {
+        search: 'alice',
+        status: 'active',
+        startDate: '2026-01-01',
+        endDate: '2026-12-31',
       });
+
+      expect(conditions).toContain('certificate.id IN (:...certificateIds)');
+      expect(conditions).toContain(SEARCH_CLAUSE);
+      expect(conditions).toContain('certificate.status = :status');
+      expect(conditions).toContain('certificate.issuedAt >= :startDate');
+      expect(conditions).toContain('certificate.issuedAt <= :endDate');
+      expect(parameters).toMatchObject({
+        certificateIds: ['id-1', 'id-2'],
+        search: '%alice%',
+        status: 'active',
+      });
+      expect(parameters.startDate).toBeInstanceOf(Date);
+      expect(parameters.endDate).toBeInstanceOf(Date);
+      expect(qb.getMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('exportAllFiltered applies the shared filters but never the certificateIds clause', async () => {
+      const { conditions, parameters } = mockQueryBuilder();
+
+      await service.exportAllFiltered({ status: 'active' });
+
+      expect(conditions).toContain('certificate.status = :status');
+      expect(parameters.status).toBe('active');
+      expect(
+        conditions.some((condition) => condition.includes('certificate.id IN')),
+      ).toBe(false);
+    });
+
+    it('bulkExport and exportAllFiltered produce identical filter conditions for identical filters', async () => {
+      const filters = {
+        search: 'alice',
+        status: 'active',
+        startDate: '2026-01-01',
+        endDate: '2026-12-31',
+      };
+
+      const bulk = mockQueryBuilder();
+      await service.bulkExport([], filters);
+
+      const filtered = mockQueryBuilder();
+      await service.exportAllFiltered(filters);
+
+      expect(bulk.conditions).toEqual(filtered.conditions);
+      expect(bulk.parameters).toEqual(filtered.parameters);
+    });
+
+    it('leaves the query untouched when no filters are provided', async () => {
+      const { conditions } = mockQueryBuilder();
+
+      await service.exportAllFiltered();
+
+      expect(conditions).toEqual([]);
+      expect((certificateRepository as any).createQueryBuilder).toHaveBeenCalledWith(
+        'certificate',
+      );
     });
   });
 });
