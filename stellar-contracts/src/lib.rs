@@ -29,6 +29,16 @@ mod issuer_test;
 #[cfg(test)]
 mod status_test;
 
+// The metadata `shadow` module is compiled and exercised under `cargo test`
+// only (issue #57). Its storage layer is not yet referenced by the
+// contract — the same status as the commented-out `metadata` module above —
+// so it stays out of the production build surface.
+#[cfg(test)]
+#[allow(dead_code)]
+mod shadow;
+#[cfg(test)]
+mod shadow_test;
+
 #[contract]
 pub struct CertificateContract;
 
