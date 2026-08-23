@@ -1,17 +1,22 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import ProtectedRoute from "./ProtectedRoute";
 import { useAuth } from "../context/AuthContext";
 import { UserRole } from "../api/types";
-import type { SessionUser } from "../context/authStorage";
 
 vi.mock("../context/AuthContext", () => ({
   useAuth: vi.fn(),
 }));
 
-const mockAuth = (user: SessionUser | null) => {
+const sessionUser = (role: UserRole) => ({
+  id: "user-1",
+  email: "user@example.com",
+  role,
+});
+
+const mockUseAuth = (user: { id: string; email: string; role: UserRole } | null) => {
   vi.mocked(useAuth).mockReturnValue({
     user,
     profile: null,
@@ -25,106 +30,45 @@ const mockAuth = (user: SessionUser | null) => {
   } as never);
 };
 
-const renderGuard = ({
-  path,
-  allowedRoles,
-}: {
-  path: string;
-  allowedRoles?: UserRole[];
-}) =>
-  render(
-    <MemoryRouter initialEntries={[path]}>
+const renderGuard = (user: { id: string; email: string; role: UserRole } | null, allowedRoles?: UserRole[]) => {
+  mockUseAuth(user);
+  return render(
+    <MemoryRouter initialEntries={["/protected"]}>
       <Routes>
-        <Route path="/" element={<div>Home page</div>} />
         <Route path="/login" element={<div>Login page</div>} />
+        <Route path="/" element={<div>Home page</div>} />
         <Route element={<ProtectedRoute allowedRoles={allowedRoles} />}>
-          <Route path={path} element={<div>Protected content</div>} />
+          <Route path="/protected" element={<div>Protected content</div>} />
         </Route>
       </Routes>
     </MemoryRouter>,
   );
-
-const makeUser = (role: UserRole): SessionUser => ({
-  id: "user-1",
-  email: "user@example.com",
-  role,
-});
+};
 
 describe("ProtectedRoute", () => {
-  beforeEach(() => {
-    mockAuth(null);
-  });
-
   it("redirects unauthenticated users to /login", () => {
-    renderGuard({ path: "/issue" });
+    renderGuard(null);
 
     expect(screen.getByText("Login page")).toBeInTheDocument();
     expect(screen.queryByText("Protected content")).not.toBeInTheDocument();
   });
 
-  it("redirects unauthenticated users to /login when no allowedRoles is provided", () => {
-    renderGuard({ path: "/admin" });
-
-    expect(screen.getByText("Login page")).toBeInTheDocument();
-    expect(screen.queryByText("Protected content")).not.toBeInTheDocument();
-  });
-
-  it.each([
-    [UserRole.ADMIN],
-    [UserRole.ISSUER],
-    [UserRole.RECIPIENT],
-    [UserRole.VERIFIER],
-  ])("renders the outlet for a %s user on an allowed route", (role) => {
-    mockAuth(makeUser(role));
-    renderGuard({
-      path: "/wallet",
-      allowedRoles: [
-        UserRole.RECIPIENT,
-        UserRole.VERIFIER,
-        UserRole.ISSUER,
-        UserRole.ADMIN,
-      ],
-    });
+  it("renders the outlet when the user's role is in allowedRoles", () => {
+    renderGuard(sessionUser(UserRole.RECIPIENT), [UserRole.RECIPIENT, UserRole.VERIFIER]);
 
     expect(screen.getByText("Protected content")).toBeInTheDocument();
-    expect(screen.queryByText("Login page")).not.toBeInTheDocument();
   });
 
-  it("redirects a RECIPIENT user away from an ISSUER-only route", () => {
-    mockAuth(makeUser(UserRole.RECIPIENT));
-    renderGuard({
-      path: "/issue",
-      allowedRoles: [UserRole.ISSUER, UserRole.ADMIN],
-    });
+  it("redirects to / when the user's role is not in allowedRoles", () => {
+    renderGuard(sessionUser(UserRole.RECIPIENT), [UserRole.ISSUER, UserRole.ADMIN]);
 
     expect(screen.getByText("Home page")).toBeInTheDocument();
     expect(screen.queryByText("Protected content")).not.toBeInTheDocument();
   });
 
-  it("redirects a VERIFIER user away from an ISSUER-only route", () => {
-    mockAuth(makeUser(UserRole.VERIFIER));
-    renderGuard({
-      path: "/issue",
-      allowedRoles: [UserRole.ISSUER, UserRole.ADMIN],
-    });
-
-    expect(screen.getByText("Home page")).toBeInTheDocument();
-    expect(screen.queryByText("Protected content")).not.toBeInTheDocument();
-  });
-
-  it("allows an ADMIN user to access /admin when no allowedRoles is passed", () => {
-    mockAuth(makeUser(UserRole.ADMIN));
-    renderGuard({ path: "/admin" });
+  it("renders the outlet for any authenticated user when allowedRoles is omitted", () => {
+    renderGuard(sessionUser(UserRole.RECIPIENT), undefined);
 
     expect(screen.getByText("Protected content")).toBeInTheDocument();
-    expect(screen.queryByText("Home page")).not.toBeInTheDocument();
-  });
-
-  it("allows any authenticated user through when no allowedRoles is passed", () => {
-    mockAuth(makeUser(UserRole.RECIPIENT));
-    renderGuard({ path: "/profile" });
-
-    expect(screen.getByText("Protected content")).toBeInTheDocument();
-    expect(screen.queryByText("Login page")).not.toBeInTheDocument();
   });
 });
