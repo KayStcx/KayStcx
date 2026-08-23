@@ -1,6 +1,7 @@
-# Note: the `src/request_status/` subcrate was removed (issue #58) because it was
-# unreachable dead code — it was not listed as a workspace member and its
-# `Request`/`RequestStatus` logic duplicated the contract's request handling.
+# Note: the `src/request_status/` subcrate was removed (issues #58 and #30)
+# because it was unreachable dead code — it was not listed as a workspace member
+# and its `Request`/`RequestStatus` logic duplicated the contract's request
+# handling (superseded by `multisig.rs`).
 
 [package]
 name = "certificate-revocation"

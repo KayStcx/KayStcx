@@ -94,3 +94,12 @@ jobs:
         run: cargo build
       - name: Test contracts
         run: cargo test
+      - name: Fail on unreferenced subcrates
+        run: |
+          stray=$(find . -name Cargo.toml -not -path './Cargo.toml')
+          if [ -n "$stray" ]; then
+            echo 'Found subcrates that are not part of the package (dead code):'
+            echo "$stray"
+            echo 'Remove them, or add them to the workspace and integrate them.'
+            exit 1
+          fi
