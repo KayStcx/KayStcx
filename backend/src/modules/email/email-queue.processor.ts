@@ -14,6 +14,7 @@ export enum EmailJobType {
   SEND_VERIFICATION = 'send-verification',
   SEND_PASSWORD_RESET = 'send-password-reset',
   SEND_REVOCATION = 'send-revocation',
+  SEND_CERTIFICATE_EXPIRING = 'send-certificate-expiring',
 }
 
 @Processor(EMAIL_QUEUE_NAME)
@@ -91,6 +92,22 @@ export class EmailQueueProcessor {
     } catch (error) {
       this.logger.error(
         `Revocation notice job ${job.id} failed: ${error.message}`,
+      );
+      throw error;
+    }
+  }
+
+  @Process(EmailJobType.SEND_CERTIFICATE_EXPIRING)
+  async processCertificateExpiring(job: Job): Promise<void> {
+    try {
+      this.logger.log(`Processing certificate expiring job: ${job.id}`);
+      await this.emailService.sendCertificateExpiring(job.data);
+      this.logger.log(
+        `Certificate expiring job ${job.id} completed successfully`,
+      );
+    } catch (error: unknown) {
+      this.logger.error(
+        `Certificate expiring job ${job.id} failed: ${error instanceof Error ? error.message : String(error)}`,
       );
       throw error;
     }

@@ -8,6 +8,7 @@ import { SendCertificateIssuedDto } from './dto/send-certificate-issued.dto';
 import { SendVerificationDto } from './dto/send-verification.dto';
 import { SendPasswordResetDto } from './dto/send-password-reset.dto';
 import { SendRevocationNoticeDto } from './dto/send-revocation-notice.dto';
+import { SendCertificateExpiringDto } from './dto/send-certificate-expiring.dto';
 import { SendEmailDto } from './dto/send-email.dto';
 import { LoggingService } from '../../common/logging/logging.service';
 
@@ -86,6 +87,7 @@ export class EmailService {
       'verification-email',
       'password-reset',
       'revocation-notice',
+      'certificate-expiring',
     ];
 
     templates.forEach((templateName) => {
@@ -173,6 +175,29 @@ export class EmailService {
       data: {
         userName: dto.userName,
         resetLink: dto.resetLink,
+      },
+    };
+
+    await this.sendEmail(emailDto);
+  }
+
+  async sendCertificateExpiring(dto: SendCertificateExpiringDto): Promise<void> {
+    const expiryDate = new Date(dto.expiryDate).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+
+    const emailDto: SendEmailDto = {
+      to: dto.to,
+      subject: `Certificate Expiring Soon: ${dto.certificateName}`,
+      template: 'certificate-expiring',
+      data: {
+        recipientName: dto.recipientName,
+        certificateId: dto.certificateId,
+        certificateName: dto.certificateName,
+        expiryDate,
+        verificationUrl: `${this.getBaseUrl()}/verify/${dto.certificateId}`,
       },
     };
 

@@ -34,16 +34,16 @@ export class RateLimitController {
     status: 200,
     description: 'Current IP rate limit status',
   })
-  getVerificationLimits(@Query('ip') ip?: string) {
+  async getVerificationLimits(@Query('ip') ip?: string) {
     if (ip) {
       return {
         ip,
-        status: this.ipRateLimitGuard.getRateLimitStatus(ip),
+        status: await this.ipRateLimitGuard.getRateLimitStatus(ip),
       };
     }
 
     return {
-      allLimits: this.ipRateLimitGuard.getAllRateLimits(),
+      allLimits: await this.ipRateLimitGuard.getAllRateLimits(),
     };
   }
 }

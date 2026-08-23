@@ -30,25 +30,22 @@ export interface User {
 /**
  * Authentication Response from login/register.
  *
- * Refresh tokens are issued by the backend as `HttpOnly`, `SameSite=Lax`
- * cookies on the login/register response and rotated on every call to
- * `/auth/refresh`. They are intentionally **not** part of this object —
- * keeping them out of JavaScript's reach removes the XSS attack surface
- * described in issue #11 (frontend "F1").
+ * Refresh tokens must never be readable or storable by client JavaScript:
+ * persisting one to `localStorage`/`sessionStorage`/cookies hands a
+ * long-lived session to any XSS payload (issues #11 / frontend "F1" and
+ * #43). The backend delivers the refresh credential as an `HttpOnly`,
+ * `SameSite` cookie on the login/register response and rotates it on
+ * `/auth/refresh`, so this object intentionally carries **no** field for
+ * one — the client only ever receives and stores the access token.
  *
- * `refreshToken` is left in the type as an optional, deprecated field so
- * older backend deployments that still return it in JSON keep type-checking,
- * but callers should ignore it.
+ * Some backend deployments still echo a `refreshToken` property in the JSON
+ * body. The type deliberately omits it so no call site can accidentally
+ * read or persist it; extra response properties are ignored by the type
+ * system.
  */
 export interface AuthResponse {
   user: User;
   accessToken: string;
-  /**
-   * @deprecated Refresh tokens are now delivered as HttpOnly cookies. This
-   * field is kept temporarily for backward compatibility with backend
-   * deployments that have not yet moved to cookie-based issuance.
-   */
-  refreshToken?: string;
 }
 
 /**

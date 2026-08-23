@@ -1,16 +1,25 @@
 use soroban_sdk::{contracterror, contracttype, Address, BytesN, String, Vec};
 
-/// Typed errors returned by contract functions instead of panicking on missing
-/// or invalid state. Contract errors roll back the transaction and surface a
-/// meaningful error code to the caller.
+/// Canonical error type for the certificate contracts.
+///
+/// Contract methods that can fail on *expected* conditions (missing state, bad
+/// authorization, duplicate IDs, invalid configuration) return
+/// `Result<T, ContractError>` instead of panicking via `.expect()`/`panic!()`.
+/// This lets callers distinguish failure modes without burning the whole gas
+/// budget on a contract abort.
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum ContractError {
+    /// A requested entity (certificate, proposal, config, …) does not exist.
     NotFound = 1,
+    /// The caller is not authorized to perform this action.
     Unauthorized = 2,
+    /// The entity being created already exists.
     AlreadyExists = 3,
+    /// Contract state has not been initialized yet.
     NotInitialized = 4,
+    /// The contract has not been configured (e.g. missing admin or contract link).
     NotConfigured = 5,
     InvalidConfig = 6,
     InvalidStatus = 7,
