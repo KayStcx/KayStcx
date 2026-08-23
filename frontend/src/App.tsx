@@ -51,12 +51,18 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/verify" element={<VerifyCertificate />} />
                 <Route path="/verify-email" element={<VerifyEmail />} />
-                <Route path="/profile" element={<IssuerProfile />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
-                <Route
-                  path="/preferences"
-                  element={<NotificationPreferences />}
-                />
+
+                {/* Authenticated-only routes. Any authenticated user may
+                    access these; role-restricted routes declare
+                    `allowedRoles` explicitly. */}
+                <Route element={<ProtectedRoute />}>
+                  <Route path="/profile" element={<IssuerProfile />} />
+                  <Route
+                    path="/preferences"
+                    element={<NotificationPreferences />}
+                  />
+                </Route>
 
                 <Route
                   element={
