@@ -13,3 +13,8 @@ export {
 } from './duplicate-detection.dto';
 export * from './create-certificate.dto';
 export * from './update-certificate.dto';
+export * from './certificate-response.dto';
+export * from './bulk-revoke.dto';
+export * from './verification-history-response.dto';
+export * from './stellar-transaction-response.dto';
+export * from './certificate-qr-response.dto';

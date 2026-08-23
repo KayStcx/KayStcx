@@ -19,6 +19,7 @@ import { CertificateStatus } from './constants/certificate-status.enum';
 import { User } from '../users/entities/user.entity';
 import { DuplicateDetectionService } from './services/duplicate-detection.service';
 import { DuplicateDetectionConfig } from './interfaces/duplicate-detection.interface';
+import { VerificationMetadata } from './interfaces/verification-metadata.interface';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { WebhookEvent } from '../webhooks/entities/webhook-subscription.entity';
 import { MetadataSchemaService } from '../metadata-schema/services/metadata-schema.service';
@@ -292,7 +293,10 @@ export class CertificateService {
     return certificate;
   }
 
-  async verifyCertificate(verificationCode: string): Promise<Certificate> {
+  async verifyCertificate(
+    verificationCode: string,
+    metadata: VerificationMetadata = {},
+  ): Promise<Certificate> {
     try {
       const certificate = await this.findByVerificationCode(verificationCode);
 
@@ -300,7 +304,11 @@ export class CertificateService {
       await this.verificationRepository.save({
         certificate,
         success: true,
+        verificationCode,
         verifiedAt: new Date(),
+        verifiedBy: metadata.verifiedBy,
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
       });
 
       // Trigger webhook event
@@ -318,7 +326,31 @@ export class CertificateService {
       return certificate;
     } catch (error) {
       if (error instanceof NotFoundException) {
-        // Option: Record failed verification in DB too
+        // Record the failed attempt so fraudulent or repeated verification
+        // attempts can be audited. Persistence failures must not mask the
+        // original NotFoundException surfaced to the caller.
+        try {
+          await this.verificationRepository.save({
+            certificate: null,
+            success: false,
+            verificationCode,
+            verifiedAt: new Date(),
+            verifiedBy: metadata.verifiedBy,
+            ipAddress: metadata.ipAddress,
+            userAgent: metadata.userAgent,
+          });
+          this.logger.warn(
+            `Failed verification attempt recorded for code: ${verificationCode}`,
+          );
+        } catch (persistenceError: unknown) {
+          const message =
+            persistenceError instanceof Error
+              ? persistenceError.message
+              : String(persistenceError);
+          this.logger.error(
+            `Failed to persist failed verification attempt for code ${verificationCode}: ${message}`,
+          );
+        }
       }
       throw error;
     }
@@ -653,7 +685,7 @@ export class CertificateService {
   }
 
   // Additional methods from main branch
-  async search(dto: SearchCertificatesDto): Promise<any> {
+  async search(dto: SearchCertificatesDto): Promise<Certificate[]> {
     const queryBuilder = this.certificateRepository
       .createQueryBuilder('certificate')
       .leftJoinAndSelect('certificate.issuer', 'issuer');
@@ -662,6 +694,25 @@ export class CertificateService {
       queryBuilder.andWhere(
         '(certificate.title ILIKE :search OR certificate.recipientName ILIKE :search OR certificate.recipientEmail ILIKE :search)',
         { search: `%${dto.search}%` },
+      );
+    }
+
+    if (dto.title) {
+      queryBuilder.andWhere('certificate.title ILIKE :title', {
+        title: `%${dto.title}%`,
+      });
+    }
+
+    if (dto.recipientName) {
+      queryBuilder.andWhere('certificate.recipientName ILIKE :recipientName', {
+        recipientName: `%${dto.recipientName}%`,
+      });
+    }
+
+    if (dto.recipientEmail) {
+      queryBuilder.andWhere(
+        'certificate.recipientEmail ILIKE :recipientEmail',
+        { recipientEmail: `%${dto.recipientEmail}%` },
       );
     }
 
@@ -677,11 +728,57 @@ export class CertificateService {
       });
     }
 
-    if (dto.page && dto.limit) {
-      queryBuilder.skip((dto.page - 1) * dto.limit).take(dto.limit);
+    if (dto.issuedFrom) {
+      queryBuilder.andWhere('certificate.issuedAt >= :issuedFrom', {
+        issuedFrom: new Date(dto.issuedFrom),
+      });
     }
 
-    return queryBuilder.orderBy('certificate.issuedAt', 'DESC').getMany();
+    if (dto.issuedTo) {
+      queryBuilder.andWhere('certificate.issuedAt <= :issuedTo', {
+        issuedTo: new Date(dto.issuedTo),
+      });
+    }
+
+    if (dto.expiresFrom) {
+      queryBuilder.andWhere('certificate.expiresAt >= :expiresFrom', {
+        expiresFrom: new Date(dto.expiresFrom),
+      });
+    }
+
+    if (dto.expiresTo) {
+      queryBuilder.andWhere('certificate.expiresAt <= :expiresTo', {
+        expiresTo: new Date(dto.expiresTo),
+      });
+    }
+
+    if (dto.certificateId) {
+      queryBuilder.andWhere('certificate.certificateId ILIKE :certificateId', {
+        certificateId: `%${dto.certificateId}%`,
+      });
+    }
+
+    if (dto.hasStellarTransaction !== undefined) {
+      if (dto.hasStellarTransaction) {
+        queryBuilder.andWhere('certificate.stellarTransactionHash IS NOT NULL');
+      } else {
+        queryBuilder.andWhere('certificate.stellarTransactionHash IS NULL');
+      }
+    }
+
+    const page = dto.page ?? 1;
+    const limit = dto.limit ?? 10;
+    queryBuilder.skip((page - 1) * limit).take(limit);
+
+    // Whitelist sort fields to prevent ORDER BY injection.
+    const sortableFields = ['issuedAt', 'expiresAt', 'title', 'recipientName'];
+    const sortBy = sortableFields.includes(dto.sortBy ?? '') 
+      ? (dto.sortBy as string)
+      : 'issuedAt';
+    const sortOrder = dto.sortOrder === 'ASC' ? 'ASC' : 'DESC';
+    queryBuilder.orderBy(`certificate.${sortBy}`, sortOrder);
+
+    return queryBuilder.getMany();
   }
 
   async verifyByCode(
@@ -690,7 +787,7 @@ export class CertificateService {
     ipAddress: string,
     userAgent: string,
   ): Promise<any> {
-    return this.verifyCertificate(code);
+    return this.verifyCertificate(code, { verifiedBy, ipAddress, userAgent });
   }
 
   async verifyByStellarHash(
@@ -749,7 +846,7 @@ export class CertificateService {
 
   async getVerificationHistory(id: string): Promise<Verification[]> {
     return this.verificationRepository.find({
-      where: { certificate: { id } as any },
+      where: { certificate: { id } },
       order: { verifiedAt: 'DESC' },
     });
   }
@@ -768,10 +865,12 @@ export class CertificateService {
     ipAddress: string,
     userAgent: string,
   ): Promise<Certificate> {
+    // IssueCertificateDto has no duplicate-detection configuration of its own;
+    // duplicate detection is applied by the create() flow when configured.
     return this.create(
       dto as CreateCertificateDto,
-      (dto as any).duplicateConfig,
-      (dto as any).overrideReason,
+      undefined,
+      undefined,
       ipAddress,
       userAgent,
     );

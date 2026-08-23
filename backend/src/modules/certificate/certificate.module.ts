@@ -11,6 +11,7 @@ import { CertificateService } from './certificate.service';
 import { CertificateStatsService } from './services/stats.service';
 import { DuplicateDetectionService } from './services/duplicate-detection.service';
 import { CertificatePdfService } from './services/pdf.service';
+import { CertificateExpiryNotificationJob } from './jobs/certificate-expiry-notification.job';
 
 import { CertificateController } from './certificate.controller';
 import { DuplicateDetectionController } from './controllers/duplicate-detection.controller';
@@ -47,6 +48,7 @@ import { EmailModule } from '../email/email.module';
     CertificateStatsService,
     DuplicateDetectionService,
     CertificatePdfService,
+    CertificateExpiryNotificationJob,
   ],
   exports: [CertificateService, CertificateStatsService],
 })

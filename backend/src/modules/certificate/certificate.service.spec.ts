@@ -25,17 +25,22 @@ describe('CertificateService', () => {
   };
 
   beforeEach(async () => {
+    verificationRepository = { save: jest.fn().mockResolvedValue({}) };
+    webhooksService = { triggerEvent: jest.fn().mockResolvedValue(undefined) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CertificateService,
-        {
-          provide: getRepositoryToken(Certificate),
-          useValue: certificateRepository,
-        },
+        { provide: getRepositoryToken(Certificate), useValue: {} },
         {
           provide: getRepositoryToken(Verification),
           useValue: verificationRepository,
         },
+        { provide: getRepositoryToken(User), useValue: {} },
+        { provide: DuplicateDetectionService, useValue: {} },
+        { provide: WebhooksService, useValue: webhooksService },
+        { provide: MetadataSchemaService, useValue: {} },
+        { provide: DataSource, useValue: { createQueryRunner: jest.fn() } },
         {
           provide: getRepositoryToken(User),
           useValue: userRepository,
@@ -88,6 +93,7 @@ describe('CertificateService', () => {
       verificationUrl: 'https://kaystcx.app/verify/AB12CD34',
       qrCode: 'data:image/png;base64,QR',
     });
+  });
 
     expect(toDataURL).toHaveBeenCalledWith(
       'https://kaystcx.app/verify/AB12CD34',
