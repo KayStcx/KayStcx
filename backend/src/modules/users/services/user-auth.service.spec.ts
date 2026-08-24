@@ -140,6 +140,32 @@ describe('UserAuthService', () => {
       );
     });
 
+    it('computes refreshTokenExpires approximately 1 day in the future when JWT_REFRESH_EXPIRES_IN=1d', async () => {
+      const before = new Date();
+      configService.get.mockImplementation((key: string, defaultValue?: any) => {
+        if (key === 'JWT_ACCESS_EXPIRES_IN') return '15m';
+        if (key === 'JWT_REFRESH_EXPIRES_IN') return '1d';
+        return defaultValue;
+      });
+
+      await service.refreshTokens({
+        refreshToken: 'valid-refresh-token',
+      });
+
+      const after = new Date();
+
+      // Extract the refreshTokenExpires value passed to userRepository.update
+      const updateCall = userRepository.update.mock.calls[0][1] as {
+        refreshTokenExpires: Date;
+      };
+      const expires = updateCall.refreshTokenExpires.getTime();
+      const now = before.getTime();
+
+      // Should be roughly 1 day (86400 seconds) from now, within 2 seconds tolerance
+      const expectedMs = now + 86400 * 1000;
+      expect(Math.abs(expires - expectedMs)).toBeLessThan(2000);
+    });
+
     it('falls back to sensible defaults when config is not provided', async () => {
       // Simulate ConfigService returning the provided default when unset
       configService.get.mockImplementation(

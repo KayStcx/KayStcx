@@ -303,6 +303,7 @@ export class CertificateService {
       // Record successful verification
       await this.verificationRepository.save({
         certificate,
+        verificationCode,
         success: true,
         verificationCode,
         verifiedAt: new Date(),
@@ -326,31 +327,13 @@ export class CertificateService {
       return certificate;
     } catch (error) {
       if (error instanceof NotFoundException) {
-        // Record the failed attempt so fraudulent or repeated verification
-        // attempts can be audited. Persistence failures must not mask the
-        // original NotFoundException surfaced to the caller.
-        try {
-          await this.verificationRepository.save({
-            certificate: null,
-            success: false,
-            verificationCode,
-            verifiedAt: new Date(),
-            verifiedBy: metadata.verifiedBy,
-            ipAddress: metadata.ipAddress,
-            userAgent: metadata.userAgent,
-          });
-          this.logger.warn(
-            `Failed verification attempt recorded for code: ${verificationCode}`,
-          );
-        } catch (persistenceError: unknown) {
-          const message =
-            persistenceError instanceof Error
-              ? persistenceError.message
-              : String(persistenceError);
-          this.logger.error(
-            `Failed to persist failed verification attempt for code ${verificationCode}: ${message}`,
-          );
-        }
+        // Record failed verification for audit and abuse detection
+        await this.verificationRepository.save({
+          certificate: null,
+          verificationCode,
+          success: false,
+          verifiedAt: new Date(),
+        });
       }
       throw error;
     }

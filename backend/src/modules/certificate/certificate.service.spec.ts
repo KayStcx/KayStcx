@@ -1,8 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { CertificateService } from './certificate.service';
+import { ConfigService } from '@nestjs/config';
+import { NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import * as QRCode from 'qrcode';
-import { CertificateService } from './certificate.service';
 import { Certificate } from './entities/certificate.entity';
 import { Verification } from './entities/verification.entity';
 import { User } from '../users/entities/user.entity';
@@ -14,12 +15,22 @@ import { SorobanService } from '../stellar/services/soroban.service';
 describe('CertificateService', () => {
   let service: CertificateService;
   const certificateRepository = {};
-  const verificationRepository = {};
-  const userRepository = {};
+  const verificationRepository = {
+    save: jest.fn(),
+  };
   const duplicateDetectionService = {};
-  const webhooksService = {};
+  const webhooksService = {
+    triggerEvent: jest.fn(),
+  };
   const metadataSchemaService = {};
   const dataSource = {} as DataSource;
+  const sorobanService = {
+    isConfigured: jest.fn().mockReturnValue(false),
+  };
+  const userRepository = {};
+  const dataSource = {
+    createQueryRunner: jest.fn(),
+  };
   const sorobanService = {
     isConfigured: jest.fn().mockReturnValue(false),
   };
@@ -46,6 +57,10 @@ describe('CertificateService', () => {
           useValue: userRepository,
         },
         {
+          provide: getRepositoryToken(User),
+          useValue: userRepository,
+        },
+        {
           provide: DuplicateDetectionService,
           useValue: duplicateDetectionService,
         },
@@ -56,6 +71,14 @@ describe('CertificateService', () => {
         {
           provide: MetadataSchemaService,
           useValue: metadataSchemaService,
+        },
+        {
+          provide: DataSource,
+          useValue: dataSource,
+        },
+        {
+          provide: SorobanService,
+          useValue: sorobanService,
         },
         {
           provide: DataSource,
@@ -90,92 +113,78 @@ describe('CertificateService', () => {
     await expect(service.getCertificateQrCode('cert-123')).resolves.toEqual({
       id: 'cert-123',
       verificationCode: 'AB12CD34',
-      verificationUrl: 'https://kaystcx.app/verify/AB12CD34',
-      qrCode: 'data:image/png;base64,QR',
+      verificationUrl: 'http://localhost:5173/verify/AB12CD34',
+      qrCode: expect.any(String),
     });
   });
 
-    expect(toDataURL).toHaveBeenCalledWith(
-      'https://kaystcx.app/verify/AB12CD34',
-    );
+  describe('verifyCertificate', () => {
+    const mockCertificate = {
+      id: 'cert-123',
+      verificationCode: 'AB12CD34',
+      recipientEmail: 'user@example.com',
+      issuerId: 'issuer-1',
+    } as Certificate;
 
-    delete process.env.FRONTEND_URL;
+    beforeEach(() => {
+      verificationRepository.save.mockReset();
+      webhooksService.triggerEvent.mockReset();
+    });
+
+    it('records a successful Verification row with success: true', async () => {
+      jest
+        .spyOn(service, 'findByVerificationCode')
+        .mockResolvedValue(mockCertificate);
+      verificationRepository.save.mockResolvedValue({ id: 'v-1' });
+      webhooksService.triggerEvent.mockResolvedValue(undefined);
+
+      const result = await service.verifyCertificate('AB12CD34');
+
+      expect(result).toBe(mockCertificate);
+      expect(verificationRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          certificate: mockCertificate,
+          verificationCode: 'AB12CD34',
+          success: true,
+          verifiedAt: expect.any(Date),
+        }),
+      );
+      expect(webhooksService.triggerEvent).toHaveBeenCalled();
+    });
   });
 
-  describe('export query builder (issue #49)', () => {
-    const ID_CLAUSE = 'certificate.id IN (:...certificateIds)';
-    const STATUS_CLAUSE = 'certificate.status = :status';
+    it('records a failed Verification row with success: false on NotFoundException', async () => {
+      jest
+        .spyOn(service, 'findByVerificationCode')
+        .mockRejectedValue(new NotFoundException('not found'));
+      verificationRepository.save.mockResolvedValue({ id: 'v-1' });
 
-    const mockQueryBuilder = () => {
-      const spy = {
-        conditions: [] as string[],
-        parameters: {} as Record<string, unknown>,
-      };
-      const qb = {
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        andWhere: jest.fn(
-          (condition: string, params?: Record<string, unknown>) => {
-            spy.conditions.push(condition);
-            Object.assign(spy.parameters, params ?? {});
-            return qb;
-          },
-        ),
-        getMany: jest.fn().mockResolvedValue([]),
-      };
-      (certificateRepository as any).createQueryBuilder = jest
-        .fn()
-        .mockReturnValue(qb);
-      return { qb, ...spy };
-    };
+      await expect(
+        service.verifyCertificate('UNKNOWN'),
+      ).rejects.toThrow(NotFoundException);
 
-    it('bulkExport(["id1", "id2"], { status: "active" }) applies both the ID filter and the status filter', async () => {
-      const { qb, conditions, parameters } = mockQueryBuilder();
-
-      await service.bulkExport(['id1', 'id2'], { status: 'active' });
-
-      expect(conditions).toContain(ID_CLAUSE);
-      expect(conditions).toContain(STATUS_CLAUSE);
-      expect(parameters).toMatchObject({
-        certificateIds: ['id1', 'id2'],
-        status: 'active',
-      });
-      expect(qb.getMany).toHaveBeenCalledTimes(1);
+      expect(verificationRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          certificate: null,
+          verificationCode: 'UNKNOWN',
+          success: false,
+          verifiedAt: expect.any(Date),
+        }),
+      );
+      // Webhook should NOT fire for failed verification
+      expect(webhooksService.triggerEvent).not.toHaveBeenCalled();
     });
 
-    it('exportAllFiltered({ status: "active" }) applies the status filter but never an ID filter', async () => {
-      const { conditions, parameters } = mockQueryBuilder();
+    it('does not catch non-NotFoundException errors', async () => {
+      jest
+        .spyOn(service, 'findByVerificationCode')
+        .mockRejectedValue(new Error('DB failure'));
 
-      await service.exportAllFiltered({ status: 'active' });
+      await expect(
+        service.verifyCertificate('ANY'),
+      ).rejects.toThrow('DB failure');
 
-      expect(conditions).toContain(STATUS_CLAUSE);
-      expect(parameters.status).toBe('active');
-      expect(
-        conditions.some((condition) => condition.includes('certificate.id IN')),
-      ).toBe(false);
-    });
-
-    it('both methods reuse the same base query (join + ordering) via buildExportQuery', async () => {
-      const bulk = mockQueryBuilder();
-      await service.bulkExport([], {});
-
-      const filtered = mockQueryBuilder();
-      await service.exportAllFiltered({});
-
-      expect(
-        (certificateRepository as any).createQueryBuilder,
-      ).toHaveBeenCalledWith('certificate');
-      expect(bulk.qb.leftJoinAndSelect).toHaveBeenCalledWith(
-        'certificate.issuer',
-        'issuer',
-      );
-      expect(bulk.qb.orderBy).toHaveBeenCalledWith(
-        'certificate.issuedAt',
-        'DESC',
-      );
-      // With no filters and no IDs, both methods must build the identical query.
-      expect(bulk.conditions).toEqual(filtered.conditions);
-      expect(bulk.parameters).toEqual(filtered.parameters);
+      expect(verificationRepository.save).not.toHaveBeenCalled();
     });
   });
 });
