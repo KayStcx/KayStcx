@@ -8,3 +8,4 @@ export * from './dto/send-certificate-issued.dto';
 export * from './dto/send-verification.dto';
 export * from './dto/send-password-reset.dto';
 export * from './dto/send-revocation-notice.dto';
+export * from './dto/send-certificate-expiring.dto';

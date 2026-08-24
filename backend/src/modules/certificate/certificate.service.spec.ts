@@ -9,7 +9,6 @@ import { Verification } from './entities/verification.entity';
 import { User } from '../users/entities/user.entity';
 import { DuplicateDetectionService } from './services/duplicate-detection.service';
 import { MetadataSchemaService } from '../metadata-schema/services/metadata-schema.service';
-import { FilesService } from '../files/services/files.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { SorobanService } from '../stellar/services/soroban.service';
 
@@ -24,11 +23,9 @@ describe('CertificateService', () => {
     triggerEvent: jest.fn(),
   };
   const metadataSchemaService = {};
-  const filesService = {
-    generateAndUploadQrCode: jest.fn(),
-  };
-  const configService = {
-    get: jest.fn(),
+  const dataSource = {} as DataSource;
+  const sorobanService = {
+    isConfigured: jest.fn().mockReturnValue(false),
   };
   const userRepository = {};
   const dataSource = {
@@ -39,16 +36,25 @@ describe('CertificateService', () => {
   };
 
   beforeEach(async () => {
+    verificationRepository = { save: jest.fn().mockResolvedValue({}) };
+    webhooksService = { triggerEvent: jest.fn().mockResolvedValue(undefined) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CertificateService,
-        {
-          provide: getRepositoryToken(Certificate),
-          useValue: certificateRepository,
-        },
+        { provide: getRepositoryToken(Certificate), useValue: {} },
         {
           provide: getRepositoryToken(Verification),
           useValue: verificationRepository,
+        },
+        { provide: getRepositoryToken(User), useValue: {} },
+        { provide: DuplicateDetectionService, useValue: {} },
+        { provide: WebhooksService, useValue: webhooksService },
+        { provide: MetadataSchemaService, useValue: {} },
+        { provide: DataSource, useValue: { createQueryRunner: jest.fn() } },
+        {
+          provide: getRepositoryToken(User),
+          useValue: userRepository,
         },
         {
           provide: getRepositoryToken(User),
@@ -67,12 +73,12 @@ describe('CertificateService', () => {
           useValue: metadataSchemaService,
         },
         {
-          provide: FilesService,
-          useValue: filesService,
+          provide: DataSource,
+          useValue: dataSource,
         },
         {
-          provide: ConfigService,
-          useValue: configService,
+          provide: SorobanService,
+          useValue: sorobanService,
         },
         {
           provide: DataSource,
@@ -92,19 +98,17 @@ describe('CertificateService', () => {
     expect(service).toBeDefined();
   });
 
-  it('should generate a QR code URL for a certificate', async () => {
+  it('should generate a QR code data URL for a certificate', async () => {
     const certificate = {
       id: 'cert-123',
       verificationCode: 'AB12CD34',
     } as Certificate;
 
     jest.spyOn(service, 'findOne').mockResolvedValue(certificate);
-    configService.get.mockReturnValue('https://kaystcx.app');
-    filesService.generateAndUploadQrCode.mockResolvedValue({
-      qrUrl: 'https://storage.example.com/qr.png',
-      qrKey: 'qr-key',
-      qrBuffer: Buffer.from('qr'),
-    });
+    const toDataURL = jest
+      .spyOn(QRCode, 'toDataURL')
+      .mockResolvedValue('data:image/png;base64,QR');
+    process.env.FRONTEND_URL = 'https://kaystcx.app';
 
     await expect(service.getCertificateQrCode('cert-123')).resolves.toEqual({
       id: 'cert-123',
@@ -147,6 +151,7 @@ describe('CertificateService', () => {
       );
       expect(webhooksService.triggerEvent).toHaveBeenCalled();
     });
+  });
 
     it('records a failed Verification row with success: false on NotFoundException', async () => {
       jest

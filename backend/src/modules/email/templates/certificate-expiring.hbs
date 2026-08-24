@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .content {
+            padding: 40px 20px;
+        }
+        .content h2 {
+            color: #333;
+            margin: 0 0 20px 0;
+        }
+        .content p {
+            color: #666;
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+        .certificate-info {
+            background-color: #f9f9f9;
+            border-left: 4px solid #f5576c;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        .label {
+            font-weight: bold;
+            color: #333;
+        }
+        .value {
+            color: #666;
+        }
+        .button {
+            display: inline-block;
+            background-color: #f5576c;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        .button:hover {
+            background-color: #d6455a;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .warning p {
+            color: #856404;
+            margin: 0;
+        }
+        .footer {
+            background-color: #f5f5f5;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #999;
+            border-top: 1px solid #eee;
+        }
+        .footer p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚠️ Certificate Expiring Soon</h1>
+        </div>
+        <div class="content">
+            <h2>Dear {{recipientName}},</h2>
+            <p>This is a reminder that your certificate is approaching its expiry date. Please take note of the details below.</p>
+
+            <div class="warning">
+                <p><strong>Please be aware:</strong> This certificate will no longer be valid after the expiration date. If you believe this certificate should be renewed, please contact the issuer.</p>
+            </div>
+
+            <div class="certificate-info">
+                <div class="info-row">
+                    <span class="label">Certificate Name:</span>
+                    <span class="value">{{certificateName}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Certificate ID:</span>
+                    <span class="value">{{certificateId}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Expiry Date:</span>
+                    <span class="value">{{expiryDate}}</span>
+                </div>
+            </div>
+
+            <p>You can verify the status of your certificate at any time using the verification link below.</p>
+
+            <a href="{{verificationUrl}}" class="button">Verify Certificate</a>
+        </div>
+        <div class="footer">
+            <p>&copy; 2026 Kaystcx. All rights reserved.</p>
+            <p>This is an automated email. Please do not reply directly.</p>
+        </div>
+    </div>
+</body>
+</html>

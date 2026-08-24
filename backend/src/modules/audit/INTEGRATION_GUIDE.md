@@ -89,11 +89,10 @@
 // ============================================
 // 5. EXPORTING LOGS
 // ============================================
-// Example: Export filtered logs as CSV
-// const csv = await this.auditService.exportToCsv({
-//   action: AuditAction.CERTIFICATE_ISSUE,
-//   userId: 'user-123',
-// });
+// The export endpoint streams matching logs to the HTTP response as CSV
+// instead of building the whole result in memory. It enforces a configurable
+// AUDIT_EXPORT_MAX_ROWS limit (default 100,000) and returns a 400 with an
+// actionable message when a request would exceed it.
 
 // Access the export endpoint:
 // GET /audit/export?action=CERTIFICATE_ISSUE&userId=user-123
@@ -220,7 +219,7 @@
 // - Audit logging is async and non-blocking
 // - Failures in audit logging do not affect main operations
 // - Use database indexes for common search patterns
-// - Limit export size (max 50,000 records per request)
+// - Limit export size via AUDIT_EXPORT_MAX_ROWS (default 100,000 records)
 // - Cache statistics queries for frequently accessed data
 
 // Example: Non-blocking audit logging

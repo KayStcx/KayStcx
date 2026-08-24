@@ -1,3 +1,7 @@
+# Note: the `src/request_status/` subcrate was removed (issue #58) because it was
+# unreachable dead code — it was not listed as a workspace member and its
+# `Request`/`RequestStatus` logic duplicated the contract's request handling.
+
 [package]
 name = "certificate-revocation"
 version = "0.1.0"

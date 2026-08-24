@@ -160,6 +160,10 @@ class EnvironmentVariables {
   AUDIT_RETENTION_DAYS?: number;
 
   @IsOptional()
+  @IsNumber()
+  AUDIT_EXPORT_MAX_ROWS?: number;
+
+  @IsOptional()
   @IsString()
   REQUEST_SIZE_LIMIT?: string;
 
@@ -219,6 +223,14 @@ class EnvironmentVariables {
   @IsOptional()
   @IsNumber()
   DUPLICATE_DETECTION_TIME_WINDOW_DAYS?: number;
+
+  @IsOptional()
+  @IsNumber()
+  EXPIRY_NOTIFICATION_DAYS_BEFORE?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  EXPIRY_NOTIFICATIONS_ENABLED?: boolean;
 }
 
 export function validateEnv(): EnvironmentVariables {
@@ -268,6 +280,9 @@ export function validateEnv(): EnvironmentVariables {
       AUDIT_RETENTION_DAYS: process.env.AUDIT_RETENTION_DAYS
         ? parseInt(process.env.AUDIT_RETENTION_DAYS, 10)
         : undefined,
+      AUDIT_EXPORT_MAX_ROWS: process.env.AUDIT_EXPORT_MAX_ROWS
+        ? parseInt(process.env.AUDIT_EXPORT_MAX_ROWS, 10)
+        : undefined,
       REQUEST_SIZE_LIMIT: process.env.REQUEST_SIZE_LIMIT,
       RATE_LIMIT_DEFAULT_WINDOW_MS: process.env.RATE_LIMIT_DEFAULT_WINDOW_MS
         ? parseInt(process.env.RATE_LIMIT_DEFAULT_WINDOW_MS, 10)
@@ -313,6 +328,12 @@ export function validateEnv(): EnvironmentVariables {
         .DUPLICATE_DETECTION_TIME_WINDOW_DAYS
         ? parseInt(process.env.DUPLICATE_DETECTION_TIME_WINDOW_DAYS, 10)
         : undefined,
+      EXPIRY_NOTIFICATION_DAYS_BEFORE: process.env
+        .EXPIRY_NOTIFICATION_DAYS_BEFORE
+        ? parseInt(process.env.EXPIRY_NOTIFICATION_DAYS_BEFORE, 10)
+        : 30,
+      EXPIRY_NOTIFICATIONS_ENABLED:
+        process.env.EXPIRY_NOTIFICATIONS_ENABLED !== 'false',
     },
     { enableImplicitConversion: true },
   );
