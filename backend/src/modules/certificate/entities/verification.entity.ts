@@ -22,9 +22,6 @@ export class Verification {
   success: boolean;
 
   @Column({ nullable: true })
-  verificationCode?: string;
-
-  @Column({ nullable: true })
   verifiedBy?: string;
 
   @Column({ nullable: true })
