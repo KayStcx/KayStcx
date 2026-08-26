@@ -1,13 +1,21 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { Reflector } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { CertificateController } from './certificate.controller';
 import { CertificateService } from './certificate.service';
 import { CertificateStatsService } from './services/stats.service';
+import { CertificatePdfService } from './services/pdf.service';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { CacheInterceptor } from '../../common/interceptors/cache.interceptor';
 
 describe('CertificateController', () => {
   let controller: CertificateController;
   const certificateService = {
     getCertificateQrCode: jest.fn(),
     verifyCertificate: jest.fn(),
+    verifyByCode: jest.fn(),
   };
   const statsService = {
     getPublicSummary: jest.fn(),
@@ -25,6 +33,29 @@ describe('CertificateController', () => {
           provide: CertificateStatsService,
           useValue: statsService,
         },
+        {
+          provide: CertificatePdfService,
+          useValue: {
+            generate: jest.fn(),
+          },
+        },
+        {
+          provide: JwtService,
+          useValue: {
+            verify: jest.fn(),
+            sign: jest.fn(),
+          },
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn(),
+          },
+        },
+        Reflector,
+        JwtAuthGuard,
+        RolesGuard,
+        CacheInterceptor,
       ],
     }).compile();
 
@@ -67,25 +98,28 @@ describe('CertificateController', () => {
       verificationCode: 'AB12CD34',
     };
 
-    const expectedResponse = {
-      id: mockCertificate.id,
-      title: mockCertificate.title,
-      recipientName: mockCertificate.recipientName,
-      recipientEmail: mockCertificate.recipientEmail,
-      status: mockCertificate.status,
-      issuedAt: mockCertificate.issuedAt,
-      expiresAt: mockCertificate.expiresAt,
-      issuer: mockCertificate.issuer,
-      verificationCode: mockCertificate.verificationCode,
+    certificateService.verifyByCode.mockResolvedValue(mockCertificate);
+
+    const req = {
+      headers: {
+        'x-forwarded-for': '127.0.0.1',
+        'user-agent': 'test-agent',
+      },
+      ip: '127.0.0.1',
     };
 
-    certificateService.verifyCertificate.mockResolvedValue(mockCertificate);
-
-    await expect(
-      (controller as any).verifyCertificate('AB12CD34'),
-    ).resolves.toEqual(expectedResponse);
-    expect(certificateService.verifyCertificate).toHaveBeenCalledWith(
+    const result = await controller.verifyByCode(
       'AB12CD34',
+      req as any,
+      'public',
     );
+
+    expect(certificateService.verifyByCode).toHaveBeenCalledWith(
+      'AB12CD34',
+      'public',
+      '127.0.0.1',
+      'test-agent',
+    );
+    expect(result).toEqual(mockCertificate);
   });
 });

@@ -83,8 +83,8 @@ describe('IssueCertificate', () => {
     fireEvent.click(screen.getByRole('button', { name: /Preview Certificate/i }));
 
     expect(await screen.findByText(/Confirm certificate details/i)).toBeInTheDocument();
-    expect(screen.getByText('Jordan Lewis')).toBeInTheDocument();
-    expect(screen.getByText('Blockchain Fundamentals')).toBeInTheDocument();
+    expect(screen.getAllByText('Jordan Lewis').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Blockchain Fundamentals').length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole('button', { name: /Confirm and issue/i }));
 

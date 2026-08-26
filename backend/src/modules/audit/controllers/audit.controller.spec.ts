@@ -5,6 +5,7 @@ import { AuditService } from '../services';
 import { AuditAction, AuditResourceType } from '../constants';
 import { LoggingService } from '../../../common/logging/logging.service';
 import { Response } from 'express';
+import { LoggingService } from '../../../common/logging/logging.service';
 
 describe('AuditController', () => {
   let controller: AuditController;

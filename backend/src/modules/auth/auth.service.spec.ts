@@ -4,6 +4,8 @@ import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { JwtManagementService } from './services/jwt.service';
+import { TwoFactorService } from './services/two-factor.service';
+import { UserRepository } from '../users/repositories/user.repository';
 import { RegisterDto } from './dto/register.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { CreateUserDto } from '../users/dto/create-user.dto';
@@ -65,6 +67,15 @@ describe('AuthService - Registration', () => {
       refreshAccessToken: jest.fn(),
     } as any;
 
+    const mockTwoFactorService = {
+      validateLogin: jest.fn(),
+    } as any;
+
+    const mockUserRepository = {
+      findByEmailWithPassword: jest.fn(),
+      update: jest.fn(),
+    } as any;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -79,6 +90,14 @@ describe('AuthService - Registration', () => {
         {
           provide: JwtManagementService,
           useValue: mockJwtManagementService,
+        },
+        {
+          provide: TwoFactorService,
+          useValue: mockTwoFactorService,
+        },
+        {
+          provide: UserRepository,
+          useValue: mockUserRepository,
         },
       ],
     }).compile();
