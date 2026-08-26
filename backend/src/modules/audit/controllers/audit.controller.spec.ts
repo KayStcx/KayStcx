@@ -1,7 +1,9 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuditController } from './audit.controller';
 import { AuditService } from '../services';
 import { AuditAction, AuditResourceType } from '../constants';
+import { LoggingService } from '../../../common/logging/logging.service';
 import { Response } from 'express';
 import { LoggingService } from '../../../common/logging/logging.service';
 
@@ -176,16 +178,17 @@ describe('AuditController', () => {
         send: jest.fn(),
         status: jest.fn().mockReturnThis(),
         json: jest.fn(),
+        end: jest.fn(),
+        headersSent: false,
       };
     });
 
-    it('should export logs as CSV', async () => {
-      const csvData = 'ID,Action\ntest-id,USER_LOGIN';
-      jest.spyOn(service, 'exportToCsv').mockResolvedValue(csvData);
+    it('should export logs as a streamed CSV', async () => {
+      jest.spyOn(service, 'exportToCsv').mockResolvedValue(undefined);
 
       await controller.exportLogs({}, mockRes as Response);
 
-      expect(service.exportToCsv).toHaveBeenCalledWith({});
+      expect(service.exportToCsv).toHaveBeenCalledWith({}, mockRes);
       expect(mockRes.setHeader).toHaveBeenCalledWith(
         'Content-Type',
         'text/csv; charset=utf-8',
@@ -194,7 +197,6 @@ describe('AuditController', () => {
         'Content-Disposition',
         expect.stringMatching(/attachment; filename="audit-logs-\d+\.csv"/),
       );
-      expect(mockRes.send).toHaveBeenCalledWith(csvData);
     });
 
     it('should handle export errors', async () => {
@@ -210,20 +212,33 @@ describe('AuditController', () => {
       });
     });
 
+    it('should rethrow BadRequestException so the global filter returns 400', async () => {
+      jest
+        .spyOn(service, 'exportToCsv')
+        .mockRejectedValue(new BadRequestException('Too many rows'));
+
+      await expect(
+        controller.exportLogs({}, mockRes as Response),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockRes.status).not.toHaveBeenCalled();
+    });
+
     it('should apply filters to export', async () => {
-      const csvData = 'ID,Action\ntest-id,USER_LOGIN';
-      jest.spyOn(service, 'exportToCsv').mockResolvedValue(csvData);
+      jest.spyOn(service, 'exportToCsv').mockResolvedValue(undefined);
 
       await controller.exportLogs(
         { userId: 'user-123', skip: 0, take: 50 },
         mockRes as Response,
       );
 
-      expect(service.exportToCsv).toHaveBeenCalledWith({
-        userId: 'user-123',
-        skip: 0,
-        take: 50,
-      });
+      expect(service.exportToCsv).toHaveBeenCalledWith(
+        {
+          userId: 'user-123',
+          skip: 0,
+          take: 50,
+        },
+        mockRes,
+      );
     });
   });
 

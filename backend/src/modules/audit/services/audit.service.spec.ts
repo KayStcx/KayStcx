@@ -1,10 +1,14 @@
+import { BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { Readable, Writable } from 'stream';
 import { Repository } from 'typeorm';
 import {
   AuditService,
   MAX_PAGE_SIZE,
   DEFAULT_PAGE_SIZE,
+  DEFAULT_EXPORT_MAX_ROWS,
 } from './audit.service';
 import { RequestContextService } from './request-context.service';
 import { LoggingService } from '../../../common/logging/logging.service';
@@ -16,6 +20,7 @@ describe('AuditService', () => {
   let repository: Repository<AuditLog>;
   let requestContextService: RequestContextService;
   let loggingService: LoggingService;
+  let configService: ConfigService;
 
   const mockAuditLog = {
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -64,6 +69,12 @@ describe('AuditService', () => {
             debug: jest.fn(),
           },
         },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -73,6 +84,7 @@ describe('AuditService', () => {
       RequestContextService,
     );
     loggingService = module.get<LoggingService>(LoggingService);
+    configService = module.get<ConfigService>(ConfigService);
   });
 
   describe('log', () => {
@@ -366,42 +378,138 @@ describe('AuditService', () => {
   });
 
   describe('exportToCsv', () => {
-    it('should return message when no logs found', async () => {
-      jest.spyOn(service, 'search').mockResolvedValue({ data: [], total: 0 });
-
-      const result = await service.exportToCsv({});
-
-      expect(result).toBe('No audit logs found');
+    const buildExportQueryBuilderMock = (overrides: {
+      count?: number;
+      rows?: Record<string, unknown>[];
+      stream?: jest.Mock;
+    }) => ({
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      getCount: jest.fn().mockResolvedValue(overrides.count ?? 0),
+      stream:
+        overrides.stream ??
+        jest.fn().mockResolvedValue(Readable.from(overrides.rows ?? [])),
     });
 
-    it('should export logs as CSV', async () => {
-      jest
-        .spyOn(service, 'search')
-        .mockResolvedValue({ data: [mockAuditLog], total: 1 });
+    const createCollectingWritable = () => {
+      let content = '';
+      const writable = new Writable({
+        write(chunk, _encoding, callback) {
+          content += chunk.toString();
+          callback();
+        },
+      });
+      return { writable, getContent: () => content };
+    };
 
-      const result = await service.exportToCsv({});
-
-      expect(result).toContain('ID,Action,Resource Type');
-      expect(result).toContain(mockAuditLog.id);
-      expect(result).toContain(AuditAction.USER_LOGIN);
+    const sampleRow = (i: number): Record<string, unknown> => ({
+      id: `id-${i}`,
+      action: AuditAction.USER_LOGIN,
+      resourceType: AuditResourceType.USER,
+      resourceId: 'resource-1',
+      userId: 'user-123',
+      userEmail: 'test@example.com',
+      ipAddress: '127.0.0.1',
+      status: 'success',
+      timestamp: `${1700000000000 + i}`,
+      errorMessage: null,
+      correlationId: 'corr-123',
     });
 
-    it('should handle large datasets', async () => {
-      const largeLogs = Array(5000)
-        .fill(null)
-        .map((_, i) => ({
-          ...mockAuditLog,
-          id: `id-${i}`,
-        }));
-
+    it('should stream an empty result as a header-only CSV', async () => {
+      const mockQueryBuilder = buildExportQueryBuilderMock({ count: 0 });
       jest
-        .spyOn(service, 'search')
-        .mockResolvedValue({ data: largeLogs, total: 5000 });
+        .spyOn(repository, 'createQueryBuilder')
+        .mockReturnValue(mockQueryBuilder as any);
 
-      const result = await service.exportToCsv({});
+      const { writable, getContent } = createCollectingWritable();
 
-      expect(result).toContain('ID,Action,Resource Type');
-      expect(result.split('\n').length).toBeGreaterThan(5000);
+      await service.exportToCsv({}, writable as any);
+
+      expect(mockQueryBuilder.getCount).toHaveBeenCalled();
+      expect(mockQueryBuilder.stream).not.toHaveBeenCalled();
+      expect(getContent()).toBe(
+        'ID,Action,Resource Type,Resource ID,User ID,User Email,IP Address,Status,Timestamp,Error Message,Correlation ID\n',
+      );
+    });
+
+    it('should stream rows to the response as CSV', async () => {
+      const mockQueryBuilder = buildExportQueryBuilderMock({
+        count: 1,
+        rows: [sampleRow(0)],
+      });
+      jest
+        .spyOn(repository, 'createQueryBuilder')
+        .mockReturnValue(mockQueryBuilder as any);
+
+      const { writable, getContent } = createCollectingWritable();
+
+      await service.exportToCsv({}, writable as any);
+
+      const content = getContent();
+      expect(content).toContain('ID,Action,Resource Type');
+      expect(content).toContain('"id-0"');
+      expect(content).toContain(AuditAction.USER_LOGIN);
+      expect(content.trim().split('\n')).toHaveLength(2);
+    });
+
+    it('should stream 200,000 rows without materialising them in memory', async () => {
+      (configService.get as jest.Mock).mockImplementation((key: string) =>
+        key === 'AUDIT_EXPORT_MAX_ROWS' ? '300000' : undefined,
+      );
+
+      const TOTAL_ROWS = 200000;
+      const rows = (function* generateRows() {
+        for (let i = 0; i < TOTAL_ROWS; i++) {
+          yield sampleRow(i);
+        }
+      })();
+
+      const mockQueryBuilder = buildExportQueryBuilderMock({
+        count: TOTAL_ROWS,
+        stream: jest.fn().mockResolvedValue(Readable.from(rows)),
+      });
+      jest
+        .spyOn(repository, 'createQueryBuilder')
+        .mockReturnValue(mockQueryBuilder as any);
+
+      let writtenLines = 0;
+      let header = '';
+      const writable = new Writable({
+        write(chunk, _encoding, callback) {
+          const text = chunk.toString();
+          if (!header) {
+            header = text;
+          }
+          writtenLines += text.split('\n').length - 1;
+          callback();
+        },
+      });
+
+      await service.exportToCsv({}, writable as any);
+
+      expect(header).toContain('ID,Action,Resource Type');
+      expect(writtenLines).toBe(TOTAL_ROWS + 1);
+    });
+
+    it('should throw BadRequestException when export exceeds AUDIT_EXPORT_MAX_ROWS', async () => {
+      (configService.get as jest.Mock).mockReturnValue(undefined);
+
+      const mockQueryBuilder = buildExportQueryBuilderMock({ count: 200000 });
+      jest
+        .spyOn(repository, 'createQueryBuilder')
+        .mockReturnValue(mockQueryBuilder as any);
+
+      const { writable } = createCollectingWritable();
+
+      await expect(
+        service.exportToCsv({}, writable as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockQueryBuilder.stream).not.toHaveBeenCalled();
     });
   });
 });

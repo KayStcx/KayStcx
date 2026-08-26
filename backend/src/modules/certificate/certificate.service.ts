@@ -5,19 +5,21 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, SelectQueryBuilder } from 'typeorm';
 import * as QRCode from 'qrcode';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { UpdateCertificateDto } from './dto/update-certificate.dto';
 import { IssueCertificateDto } from './dto/issue-certificate.dto';
 import { RevokeCertificateDto } from './dto/revoke-certificate.dto';
 import { SearchCertificatesDto } from './dto/search-certificates.dto';
+import { ExportFiltersDto } from './dto/export-filters.dto';
 import { Certificate } from './entities/certificate.entity';
 import { Verification } from './entities/verification.entity';
 import { CertificateStatus } from './constants/certificate-status.enum';
 import { User } from '../users/entities/user.entity';
 import { DuplicateDetectionService } from './services/duplicate-detection.service';
 import { DuplicateDetectionConfig } from './interfaces/duplicate-detection.interface';
+import { VerificationMetadata } from './interfaces/verification-metadata.interface';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { WebhookEvent } from '../webhooks/entities/webhook-subscription.entity';
 import { MetadataSchemaService } from '../metadata-schema/services/metadata-schema.service';
@@ -291,15 +293,23 @@ export class CertificateService {
     return certificate;
   }
 
-  async verifyCertificate(verificationCode: string): Promise<Certificate> {
+  async verifyCertificate(
+    verificationCode: string,
+    metadata: VerificationMetadata = {},
+  ): Promise<Certificate> {
     try {
       const certificate = await this.findByVerificationCode(verificationCode);
 
       // Record successful verification
       await this.verificationRepository.save({
         certificate,
+        verificationCode,
         success: true,
+        verificationCode,
         verifiedAt: new Date(),
+        verifiedBy: metadata.verifiedBy,
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
       });
 
       // Trigger webhook event
@@ -317,7 +327,13 @@ export class CertificateService {
       return certificate;
     } catch (error) {
       if (error instanceof NotFoundException) {
-        // Option: Record failed verification in DB too
+        // Record failed verification for audit and abuse detection
+        await this.verificationRepository.save({
+          certificate: null,
+          verificationCode,
+          success: false,
+          verifiedAt: new Date(),
+        });
       }
       throw error;
     }
@@ -501,11 +517,11 @@ export class CertificateService {
     return queryBuilder.getMany();
   }
 
-  async bulkExport(certificateIds: string[], filters?: any): Promise<string> {
-    const queryBuilder = this.certificateRepository
-      .createQueryBuilder('certificate')
-      .leftJoinAndSelect('certificate.issuer', 'issuer')
-      .orderBy('certificate.issuedAt', 'DESC');
+  async bulkExport(
+    certificateIds: string[],
+    filters?: ExportFiltersDto,
+  ): Promise<string> {
+    const queryBuilder = this.buildExportQuery(filters);
 
     // Apply certificate ID filter if provided
     if (certificateIds && certificateIds.length > 0) {
@@ -514,74 +530,62 @@ export class CertificateService {
       });
     }
 
-    // Apply additional filters
-    if (filters) {
-      if (filters.search) {
-        queryBuilder.andWhere(
-          '(certificate.serialNumber ILIKE :search OR certificate.recipientName ILIKE :search OR certificate.recipientEmail ILIKE :search OR certificate.title ILIKE :search)',
-          { search: `%${filters.search}%` },
-        );
-      }
-
-      if (filters.status) {
-        queryBuilder.andWhere('certificate.status = :status', {
-          status: filters.status,
-        });
-      }
-
-      if (filters.startDate) {
-        queryBuilder.andWhere('certificate.issuedAt >= :startDate', {
-          startDate: new Date(filters.startDate),
-        });
-      }
-
-      if (filters.endDate) {
-        queryBuilder.andWhere('certificate.issuedAt <= :endDate', {
-          endDate: new Date(filters.endDate),
-        });
-      }
-    }
-
     const certificates = await queryBuilder.getMany();
     return this.convertToCSV(certificates);
   }
 
-  async exportAllFiltered(filters?: any): Promise<string> {
+  async exportAllFiltered(filters?: ExportFiltersDto): Promise<string> {
+    const certificates = await this.buildExportQuery(filters).getMany();
+    return this.convertToCSV(certificates);
+  }
+
+  /**
+   * Build a certificate export query configured with the shared search /
+   * status / date-range filters.
+   *
+   * `bulkExport()` and `exportAllFiltered()` both delegate here (issue
+   * #49); `bulkExport()` appends the `certificateIds` clause on top of
+   * whatever this method returns. Keeping the filter logic in one place
+   * means a new filter is added once, not twice.
+   */
+  private buildExportQuery(
+    filters?: ExportFiltersDto,
+  ): SelectQueryBuilder<Certificate> {
     const queryBuilder = this.certificateRepository
       .createQueryBuilder('certificate')
       .leftJoinAndSelect('certificate.issuer', 'issuer')
       .orderBy('certificate.issuedAt', 'DESC');
 
-    // Apply filters
-    if (filters) {
-      if (filters.search) {
-        queryBuilder.andWhere(
-          '(certificate.serialNumber ILIKE :search OR certificate.recipientName ILIKE :search OR certificate.recipientEmail ILIKE :search OR certificate.title ILIKE :search)',
-          { search: `%${filters.search}%` },
-        );
-      }
-
-      if (filters.status) {
-        queryBuilder.andWhere('certificate.status = :status', {
-          status: filters.status,
-        });
-      }
-
-      if (filters.startDate) {
-        queryBuilder.andWhere('certificate.issuedAt >= :startDate', {
-          startDate: new Date(filters.startDate),
-        });
-      }
-
-      if (filters.endDate) {
-        queryBuilder.andWhere('certificate.issuedAt <= :endDate', {
-          endDate: new Date(filters.endDate),
-        });
-      }
+    if (!filters) {
+      return queryBuilder;
     }
 
-    const certificates = await queryBuilder.getMany();
-    return this.convertToCSV(certificates);
+    if (filters.search) {
+      queryBuilder.andWhere(
+        '(certificate.serialNumber ILIKE :search OR certificate.recipientName ILIKE :search OR certificate.recipientEmail ILIKE :search OR certificate.title ILIKE :search)',
+        { search: `%${filters.search}%` },
+      );
+    }
+
+    if (filters.status) {
+      queryBuilder.andWhere('certificate.status = :status', {
+        status: filters.status,
+      });
+    }
+
+    if (filters.startDate) {
+      queryBuilder.andWhere('certificate.issuedAt >= :startDate', {
+        startDate: new Date(filters.startDate),
+      });
+    }
+
+    if (filters.endDate) {
+      queryBuilder.andWhere('certificate.issuedAt <= :endDate', {
+        endDate: new Date(filters.endDate),
+      });
+    }
+
+    return queryBuilder;
   }
 
   private convertToCSV(certificates: Certificate[]): string {
@@ -664,7 +668,7 @@ export class CertificateService {
   }
 
   // Additional methods from main branch
-  async search(dto: SearchCertificatesDto): Promise<any> {
+  async search(dto: SearchCertificatesDto): Promise<Certificate[]> {
     const queryBuilder = this.certificateRepository
       .createQueryBuilder('certificate')
       .leftJoinAndSelect('certificate.issuer', 'issuer');
@@ -673,6 +677,25 @@ export class CertificateService {
       queryBuilder.andWhere(
         '(certificate.title ILIKE :search OR certificate.recipientName ILIKE :search OR certificate.recipientEmail ILIKE :search)',
         { search: `%${dto.search}%` },
+      );
+    }
+
+    if (dto.title) {
+      queryBuilder.andWhere('certificate.title ILIKE :title', {
+        title: `%${dto.title}%`,
+      });
+    }
+
+    if (dto.recipientName) {
+      queryBuilder.andWhere('certificate.recipientName ILIKE :recipientName', {
+        recipientName: `%${dto.recipientName}%`,
+      });
+    }
+
+    if (dto.recipientEmail) {
+      queryBuilder.andWhere(
+        'certificate.recipientEmail ILIKE :recipientEmail',
+        { recipientEmail: `%${dto.recipientEmail}%` },
       );
     }
 
@@ -688,11 +711,57 @@ export class CertificateService {
       });
     }
 
-    if (dto.page && dto.limit) {
-      queryBuilder.skip((dto.page - 1) * dto.limit).take(dto.limit);
+    if (dto.issuedFrom) {
+      queryBuilder.andWhere('certificate.issuedAt >= :issuedFrom', {
+        issuedFrom: new Date(dto.issuedFrom),
+      });
     }
 
-    return queryBuilder.orderBy('certificate.issuedAt', 'DESC').getMany();
+    if (dto.issuedTo) {
+      queryBuilder.andWhere('certificate.issuedAt <= :issuedTo', {
+        issuedTo: new Date(dto.issuedTo),
+      });
+    }
+
+    if (dto.expiresFrom) {
+      queryBuilder.andWhere('certificate.expiresAt >= :expiresFrom', {
+        expiresFrom: new Date(dto.expiresFrom),
+      });
+    }
+
+    if (dto.expiresTo) {
+      queryBuilder.andWhere('certificate.expiresAt <= :expiresTo', {
+        expiresTo: new Date(dto.expiresTo),
+      });
+    }
+
+    if (dto.certificateId) {
+      queryBuilder.andWhere('certificate.certificateId ILIKE :certificateId', {
+        certificateId: `%${dto.certificateId}%`,
+      });
+    }
+
+    if (dto.hasStellarTransaction !== undefined) {
+      if (dto.hasStellarTransaction) {
+        queryBuilder.andWhere('certificate.stellarTransactionHash IS NOT NULL');
+      } else {
+        queryBuilder.andWhere('certificate.stellarTransactionHash IS NULL');
+      }
+    }
+
+    const page = dto.page ?? 1;
+    const limit = dto.limit ?? 10;
+    queryBuilder.skip((page - 1) * limit).take(limit);
+
+    // Whitelist sort fields to prevent ORDER BY injection.
+    const sortableFields = ['issuedAt', 'expiresAt', 'title', 'recipientName'];
+    const sortBy = sortableFields.includes(dto.sortBy ?? '') 
+      ? (dto.sortBy as string)
+      : 'issuedAt';
+    const sortOrder = dto.sortOrder === 'ASC' ? 'ASC' : 'DESC';
+    queryBuilder.orderBy(`certificate.${sortBy}`, sortOrder);
+
+    return queryBuilder.getMany();
   }
 
   async verifyByCode(
@@ -701,7 +770,7 @@ export class CertificateService {
     ipAddress: string,
     userAgent: string,
   ): Promise<any> {
-    return this.verifyCertificate(code);
+    return this.verifyCertificate(code, { verifiedBy, ipAddress, userAgent });
   }
 
   async verifyByStellarHash(
@@ -760,7 +829,7 @@ export class CertificateService {
 
   async getVerificationHistory(id: string): Promise<Verification[]> {
     return this.verificationRepository.find({
-      where: { certificate: { id } as any },
+      where: { certificate: { id } },
       order: { verifiedAt: 'DESC' },
     });
   }
@@ -779,10 +848,12 @@ export class CertificateService {
     ipAddress: string,
     userAgent: string,
   ): Promise<Certificate> {
+    // IssueCertificateDto has no duplicate-detection configuration of its own;
+    // duplicate detection is applied by the create() flow when configured.
     return this.create(
       dto as CreateCertificateDto,
-      (dto as any).duplicateConfig,
-      (dto as any).overrideReason,
+      undefined,
+      undefined,
       ipAddress,
       userAgent,
     );

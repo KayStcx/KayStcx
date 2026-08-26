@@ -1,58 +1,62 @@
-# Contributing — Local setup and IssuerProfile update
+# Contributing
 
-This repo contains backend (NestJS), frontend (Vite + React), and Soroban contracts.
+This repo contains a backend (NestJS), a frontend (Vite + React), and Soroban smart contracts.
 
-Goal: ensure `IssuerProfile` uses real API data by default and allow optionally using dummy data.
+## Local Development Setup
 
-Quick start (development)
+This section walks through getting a local environment running and executing the test suite.
 
-1. Start required services (Postgres + Redis) using Docker Compose:
+### Prerequisites
+
+- Node.js 20 (LTS)
+- Rust stable (for the Soroban contracts)
+- PostgreSQL 15
+- Redis 7 (required for Bull queues)
+
+### Backend
 
 ```bash
 # from repo root
-docker-compose up -d postgres redis
-```
-
-2. Build and run the backend (recommended in a separate terminal). Provide required env vars — at minimum the backend requires `JWT_SECRET` and DB connection info. Example `.env` values:
-
-```bash
-# Example env (create .env or export in shell)
-export NODE_ENV=development
-export PORT=3000
-export DB_HOST=localhost
-export DB_PORT=5432
-export DB_USERNAME=kaystcx_user
-export DB_PASSWORD=kaystcx_password
-export DB_NAME=kaystcx
-export JWT_SECRET=dev-secret
-export JWT_EXPIRES_IN=24h
-export ALLOWED_ORIGINS=http://localhost:5173
-```
-
-Then start the backend:
-
-```bash
+cp backend/.env.example backend/.env
 cd backend
-npm install
-npm run start:dev
+npm ci
+npm test
 ```
 
-3. Start frontend (defaults to real API). In a new terminal:
+Fill in the five minimum required variables in `backend/.env`:
+
+1. `JWT_SECRET` — required (no default); `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` fall back to it.
+2. `DB_HOST` — PostgreSQL host (defaults to `localhost`).
+3. `DB_PORT` — PostgreSQL port (defaults to `5432`).
+4. `DB_USERNAME` — PostgreSQL user (defaults to `postgres`).
+5. `DB_PASSWORD` — PostgreSQL password (defaults to `password`).
+
+`DB_NAME` defaults to `kaystcx`; set it as well if you use a different database name. All other variables (`STELLAR_NETWORK`, `STELLAR_HORIZON_URL`, `ALLOWED_ORIGINS`, …) have safe defaults.
+
+### Frontend
 
 ```bash
+# from repo root
+cp frontend/.env.example frontend/.env
 cd frontend
-# Use real API (default)
-VITE_USE_DUMMY_DATA=false npm run dev
-
-# To run with dummy data for offline dev
-VITE_USE_DUMMY_DATA=true npm run dev
+npm ci
+npm test -- --run
 ```
 
-Notes and verification
+The frontend requires one variable: `VITE_API_URL` (e.g. `http://localhost:3000/api/v1`). The app fails fast on startup if it is missing.
 
-- The frontend reads `VITE_USE_DUMMY_DATA` to decide whether to use hardcoded mock data or call real API endpoints. This was changed to default to `false` (real API) — see `frontend/src/api/endpoints.ts`.
-- Frontend expects backend API at `VITE_API_URL` (defaults to `http://localhost:3000/api/v1`). Set `VITE_API_URL` in your environment or `.env` if your backend runs on a different host/port.
-- Ensure you have an issuer account and valid JWT; the frontend uses `tokenStorage` to attach the Authorization header.
+### Contracts
+
+```bash
+# from repo root
+rustup target add wasm32-unknown-unknown
+cd stellar-contracts
+cargo test
+```
+
+### Full stack with Docker
+
+To start the whole stack (Postgres, Redis, backend, frontend, nginx, Prometheus):
 
 Testing and CI
 
@@ -97,7 +101,7 @@ The CI workflow (`.github/workflows/ci.yml`) runs:
 
 A failing test in any job fails the job and blocks the merge.
 
-Backend code conventions — DTOs and entities
+## Backend code conventions — DTOs and entities
 
 To keep the backend consistent and easy to navigate, follow these conventions when adding or refactoring modules:
 
@@ -113,19 +117,13 @@ To keep the backend consistent and easy to navigate, follow these conventions wh
 - Entities are pure data models. Keep `@Column`/`@Entity` metadata and relationships, but do not add business-logic methods (e.g. `isLocked()`, `isPasswordResetTokenValid()`, `addVerificationRecord()`).
 - Business rules that operate on an entity belong in a service (or a small pure helper module under `utils/`), where they can be unit-tested independently.
 
-Branch and PR
+## Branching and pull requests
 
-- I created branch `feat/issuerprofile-real-stats` which includes the change to respect `VITE_USE_DUMMY_DATA`.
-- To push and open a PR:
+- Create a feature branch off `main` with a short, descriptive name (e.g. `feat/issuerprofile-real-stats`).
+- Push the branch and open a pull request on GitHub:
 
 ```bash
-git push -u origin feat/issuerprofile-real-stats
-# then open a PR on GitHub
+git push -u origin <branch-name>
 ```
 
-If you'd like, I can:
-
-- Start backend+frontend locally here to verify the `IssuerProfile` page (requires setting `JWT_SECRET` and creating a test issuer user), or
-- Add a small integration test to the frontend that mocks `issuerProfileApi` and ensures `IssuerProfile` renders fetched data.
-
-Tell me which you'd prefer and I'll proceed.
+- Reference the issue(s) your PR resolves in the description (e.g. `Closes #123`) so they are closed automatically when the PR merges.
