@@ -13,10 +13,10 @@ import { SorobanService } from '../stellar/services/soroban.service';
 describe('CertificateService', () => {
   let service: CertificateService;
   const certificateRepository = {};
-  const verificationRepository = {};
+  let verificationRepository: any = {};
   const userRepository = {};
   const duplicateDetectionService = {};
-  const webhooksService = {
+  let webhooksService: any = {
     triggerEvent: jest.fn(),
   };
   const metadataSchemaService = {};
