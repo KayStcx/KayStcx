@@ -82,9 +82,11 @@ export class CertificateSearchService {
   }
 
   async exportCertificates(
+    page = 1,
+    limit = 1000,
     issuerId?: string,
     status?: string,
-  ): Promise<Certificate[]> {
+  ): Promise<{ certificates: Certificate[]; total: number }> {
     const queryBuilder = this.certificateRepository
       .createQueryBuilder('certificate')
       .leftJoinAndSelect('certificate.issuer', 'issuer')
@@ -98,7 +100,13 @@ export class CertificateSearchService {
       queryBuilder.andWhere('certificate.status = :status', { status });
     }
 
-    return queryBuilder.getMany();
+    const total = await queryBuilder.getCount();
+    const certificates = await queryBuilder
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getMany();
+
+    return { certificates, total };
   }
 
   async search(

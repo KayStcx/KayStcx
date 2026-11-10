@@ -305,7 +305,6 @@ export class CertificateService {
         certificate,
         verificationCode,
         success: true,
-        verificationCode,
         verifiedAt: new Date(),
         verifiedBy: metadata.verifiedBy,
         ipAddress: metadata.ipAddress,
